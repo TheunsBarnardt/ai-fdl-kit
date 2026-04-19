@@ -1,0 +1,100 @@
+---
+title: "Touch Input Blueprint"
+layout: default
+parent: "Integration"
+grand_parent: Blueprint Catalog
+description: "Multi-touch and gesture input for mobile devices. 4 outcomes. rules: implementation, platform_agnostic"
+---
+
+# Touch Input Blueprint
+
+> Multi-touch and gesture input for mobile devices
+
+| | |
+|---|---|
+| **Feature** | `touch-input` |
+| **Category** | Integration |
+| **Version** | 1.0.0 |
+| **Tags** | integration, godot |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/touch-input.blueprint.yaml) |
+| **JSON API** | [touch-input.json]({{ site.baseurl }}/api/blueprints/integration/touch-input.json) |
+
+## Actors
+
+| ID | Name | Type | Description |
+|----|------|------|-------------|
+| `game_engine` | Godot Engine | system |  |
+
+## Rules
+
+- **implementation:**
+  - **description:** Feature implemented in C++ engine core
+- **platform_agnostic:**
+  - **description:** Works across desktop, web, mobile platforms
+
+## Outcomes
+
+### Touch_detection (Priority: 1)
+
+**Given:**
+- Detect touch screen input is requested
+
+**Then:**
+- **transition_state** field: `status` from: `idle` to: `active`
+
+**Result:** Detect touch screen input completed
+
+### Multi Touch (Priority: 2)
+
+**Given:**
+- Handle multiple simultaneous touches is requested
+
+**Then:**
+- **transition_state** field: `status` from: `idle` to: `active`
+
+**Result:** Handle multiple simultaneous touches completed
+
+### Pressure_sensitivity (Priority: 3)
+
+**Given:**
+- Read touch pressure if supported is requested
+
+**Then:**
+- **transition_state** field: `status` from: `idle` to: `active`
+
+**Result:** Read touch pressure if supported completed
+
+### Drag_gestures (Priority: 4)
+
+**Given:**
+- Detect touch drag motion is requested
+
+**Then:**
+- **transition_state** field: `status` from: `idle` to: `active`
+
+**Result:** Detect touch drag motion completed
+
+<details>
+<summary><strong>Extensions (framework-specific hints)</strong></summary>
+
+```yaml
+tech_stack:
+  language: C++
+  runtime: Godot 4.x
+```
+
+</details>
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareSourceCode",
+  "name": "Touch Input Blueprint",
+  "description": "Multi-touch and gesture input for mobile devices. 4 outcomes. rules: implementation, platform_agnostic",
+  "programmingLanguage": "YAML",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
+  "license": "https://opensource.org/licenses/MIT",
+  "keywords": "integration, godot"
+}
+</script>

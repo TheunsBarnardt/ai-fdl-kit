@@ -1,0 +1,757 @@
+{
+  "feature": "order-management-execution",
+  "version": "1.0.0",
+  "description": "Order management and execution system staging, routing via FIX 4.4, tracking fills, and handling T+3 settlement across brokers",
+  "category": "trading",
+  "tags": [
+    "oms",
+    "ems",
+    "fix",
+    "execution",
+    "routing",
+    "settlement",
+    "order-lifecycle"
+  ],
+  "aliases": [
+    "oms",
+    "ems",
+    "order-management",
+    "execution-management",
+    "order-routing",
+    "fix-gateway",
+    "trade-execution"
+  ],
+  "fields": [
+    {
+      "name": "order_id",
+      "type": "text",
+      "required": true,
+      "label": "Order Identifier"
+    },
+    {
+      "name": "portfolio_id",
+      "type": "text",
+      "required": true,
+      "label": "Portfolio Identifier"
+    },
+    {
+      "name": "symbol",
+      "type": "text",
+      "required": true,
+      "label": "Instrument Symbol"
+    },
+    {
+      "name": "side",
+      "type": "select",
+      "required": true,
+      "label": "Side",
+      "options": [
+        {
+          "value": "buy",
+          "label": "Buy"
+        },
+        {
+          "value": "sell",
+          "label": "Sell"
+        }
+      ]
+    },
+    {
+      "name": "order_type",
+      "type": "select",
+      "required": true,
+      "label": "Order Type",
+      "options": [
+        {
+          "value": "market",
+          "label": "Market"
+        },
+        {
+          "value": "limit",
+          "label": "Limit"
+        },
+        {
+          "value": "stop",
+          "label": "Stop"
+        }
+      ]
+    },
+    {
+      "name": "quantity",
+      "type": "number",
+      "required": true,
+      "label": "Quantity"
+    },
+    {
+      "name": "limit_price",
+      "type": "number",
+      "required": false,
+      "label": "Limit Price"
+    },
+    {
+      "name": "broker_id",
+      "type": "text",
+      "required": false,
+      "label": "Broker Identifier"
+    },
+    {
+      "name": "filled_qty",
+      "type": "number",
+      "required": false,
+      "label": "Filled Quantity",
+      "default": 0
+    },
+    {
+      "name": "avg_fill_price",
+      "type": "number",
+      "required": false,
+      "label": "Average Fill Price"
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "label": "Order Status",
+      "options": [
+        {
+          "value": "staged",
+          "label": "Staged"
+        },
+        {
+          "value": "authorized",
+          "label": "Authorized"
+        },
+        {
+          "value": "sent",
+          "label": "Sent"
+        },
+        {
+          "value": "partially_filled",
+          "label": "Partially Filled"
+        },
+        {
+          "value": "filled",
+          "label": "Filled"
+        },
+        {
+          "value": "settled",
+          "label": "Settled"
+        },
+        {
+          "value": "cancelled",
+          "label": "Cancelled"
+        },
+        {
+          "value": "rejected",
+          "label": "Rejected"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "staging": {
+      "description": "MUST: Every order is staged before routing; passes pre-trade compliance gate",
+      "requires_pretrade_pass": true
+    },
+    "authorization": {
+      "description": "MUST: Orders above threshold require trader or PM authorization",
+      "threshold_zar": 1000000
+    },
+    "fix_protocol": {
+      "description": "MUST: FIX 4.4 for broker connectivity; session heartbeats every 30s; sequence-number recovery",
+      "version": "FIX.4.4",
+      "heartbeat_seconds": 30
+    },
+    "routing": {
+      "description": "MUST: Route to broker per smart-order-routing rules (best execution, cost, venue reliability)",
+      "best_execution": true
+    },
+    "fill_tracking": {
+      "description": "MUST: Apply each ExecutionReport (35=8) atomically; track partial fills; reconcile totals"
+    },
+    "settlement": {
+      "description": "MUST: T+3 settlement for JSE equities; track settlement status and trigger follow-up on fails",
+      "cycle": "T+3"
+    },
+    "cancel_replace": {
+      "description": "MUST: Support cancel/replace (35=G); maintain original order lineage"
+    },
+    "kill_switch": {
+      "description": "MUST: Trader-accessible kill switch halts all outbound orders within 1 second",
+      "max_latency_seconds": 1
+    }
+  },
+  "actors": [
+    {
+      "id": "trader",
+      "name": "Trader",
+      "type": "human",
+      "role": "trading",
+      "description": "Authorizes and monitors orders"
+    },
+    {
+      "id": "portfolio_manager",
+      "name": "Portfolio Manager",
+      "type": "human",
+      "role": "investment_management",
+      "description": "Owns the investment decision"
+    },
+    {
+      "id": "broker",
+      "name": "Executing Broker",
+      "type": "external",
+      "description": "Executes orders on venue"
+    },
+    {
+      "id": "settlement_system",
+      "name": "Settlement System",
+      "type": "system",
+      "description": "Processes T+3 settlement"
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "value": "staged",
+        "initial": true
+      },
+      {
+        "value": "authorized"
+      },
+      {
+        "value": "sent"
+      },
+      {
+        "value": "partially_filled"
+      },
+      {
+        "value": "filled"
+      },
+      {
+        "value": "settled",
+        "terminal": true
+      },
+      {
+        "value": "cancelled",
+        "terminal": true
+      },
+      {
+        "value": "rejected",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "staged",
+        "to": "authorized",
+        "actor": "trader",
+        "description": "Trader authorizes"
+      },
+      {
+        "from": "authorized",
+        "to": "sent",
+        "actor": "broker",
+        "description": "Order transmitted via FIX"
+      },
+      {
+        "from": "sent",
+        "to": "partially_filled",
+        "actor": "broker"
+      },
+      {
+        "from": "sent",
+        "to": "filled",
+        "actor": "broker"
+      },
+      {
+        "from": "partially_filled",
+        "to": "filled",
+        "actor": "broker"
+      },
+      {
+        "from": "filled",
+        "to": "settled",
+        "actor": "settlement_system"
+      },
+      {
+        "from": "staged",
+        "to": "cancelled",
+        "actor": "trader"
+      },
+      {
+        "from": "sent",
+        "to": "rejected",
+        "actor": "broker"
+      }
+    ]
+  },
+  "outcomes": {
+    "order_staged": {
+      "priority": 10,
+      "description": "Order validated and staged awaiting authorization",
+      "given": [
+        {
+          "field": "symbol",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "quantity",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        },
+        "pre-trade compliance gate passed"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "order",
+          "target": "oms"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.staged",
+          "payload": [
+            "order_id",
+            "portfolio_id",
+            "symbol"
+          ]
+        }
+      ],
+      "result": "Order staged",
+      "transaction": true
+    },
+    "order_authorized": {
+      "priority": 10,
+      "description": "Trader or PM authorized the order for routing",
+      "given": [
+        "authorizer has trader or portfolio_manager role"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "staged",
+          "to": "authorized"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.authorized",
+          "payload": [
+            "order_id"
+          ]
+        }
+      ],
+      "result": "Ready to send"
+    },
+    "order_sent_successfully": {
+      "priority": 10,
+      "description": "FIX NewOrderSingle transmitted and acknowledged by broker",
+      "given": [
+        "broker returned ExecutionReport with ExecType=New"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "authorized",
+          "to": "sent"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.sent",
+          "payload": [
+            "order_id",
+            "broker_id"
+          ]
+        }
+      ],
+      "result": "Order live at broker",
+      "transaction": true
+    },
+    "fill_received": {
+      "priority": 10,
+      "description": "Partial fill ExecutionReport applied",
+      "given": [
+        "broker returned ExecutionReport with ExecType=Trade and LastShares < LeavesQty"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "filled_qty",
+          "value": "incremented"
+        },
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "sent",
+          "to": "partially_filled"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.fill_received",
+          "payload": [
+            "order_id",
+            "last_shares",
+            "last_px"
+          ]
+        }
+      ],
+      "result": "Partial fill applied"
+    },
+    "order_fully_filled": {
+      "priority": 10,
+      "description": "Cumulative fills equal order quantity",
+      "given": [
+        "filled_qty equals quantity"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "partially_filled",
+          "to": "filled"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.filled",
+          "payload": [
+            "order_id",
+            "avg_fill_price"
+          ]
+        }
+      ],
+      "result": "Order fully filled; awaiting settlement",
+      "transaction": true
+    },
+    "order_cancelled": {
+      "priority": 5,
+      "description": "Order cancelled before full fill",
+      "given": [
+        "trader requested cancel and broker confirmed"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "sent",
+          "to": "cancelled"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.cancelled",
+          "payload": [
+            "order_id"
+          ]
+        }
+      ],
+      "result": "Order cancelled"
+    },
+    "broker_rejected": {
+      "priority": 2,
+      "error": "OMS_BROKER_REJECTED",
+      "description": "Broker rejected the order",
+      "given": [
+        "broker returned ExecutionReport with ExecType=Rejected"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "authorized",
+          "to": "rejected"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.rejected",
+          "payload": [
+            "order_id",
+            "reject_reason"
+          ]
+        }
+      ],
+      "result": "Trader reviews reject reason"
+    },
+    "settlement_failed": {
+      "priority": 1,
+      "error": "OMS_SETTLEMENT_FAILED",
+      "description": "T+3 settlement did not complete successfully",
+      "given": [
+        "settlement_system reported a settlement fail"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ops_alerts",
+          "target": "settlement_ops"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.settlement_failed",
+          "payload": [
+            "order_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Settlement ops investigates"
+    }
+  },
+  "errors": [
+    {
+      "code": "OMS_BROKER_REJECTED",
+      "status": 422,
+      "message": "Broker rejected the order.",
+      "retry": true
+    },
+    {
+      "code": "OMS_SETTLEMENT_FAILED",
+      "status": 500,
+      "message": "Order failed to settle.",
+      "retry": false
+    },
+    {
+      "code": "OMS_KILL_SWITCH_ACTIVE",
+      "status": 503,
+      "message": "Trading is currently halted.",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "order.staged",
+      "description": "Order staged",
+      "payload": [
+        "order_id",
+        "portfolio_id",
+        "symbol"
+      ]
+    },
+    {
+      "name": "order.authorized",
+      "description": "Order authorized",
+      "payload": [
+        "order_id"
+      ]
+    },
+    {
+      "name": "order.sent",
+      "description": "Order transmitted to broker",
+      "payload": [
+        "order_id",
+        "broker_id"
+      ]
+    },
+    {
+      "name": "order.fill_received",
+      "description": "Partial fill received",
+      "payload": [
+        "order_id",
+        "last_shares",
+        "last_px"
+      ]
+    },
+    {
+      "name": "order.filled",
+      "description": "Order fully filled",
+      "payload": [
+        "order_id",
+        "avg_fill_price"
+      ]
+    },
+    {
+      "name": "order.cancelled",
+      "description": "Order cancelled",
+      "payload": [
+        "order_id"
+      ]
+    },
+    {
+      "name": "order.rejected",
+      "description": "Order rejected by broker",
+      "payload": [
+        "order_id",
+        "reject_reason"
+      ]
+    },
+    {
+      "name": "order.settlement_failed",
+      "description": "Settlement failed",
+      "payload": [
+        "order_id",
+        "reason"
+      ]
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/orders"
+    },
+    "request": {
+      "content_type": "application/json",
+      "schema": {
+        "portfolio_id": "string",
+        "symbol": "string",
+        "side": "string",
+        "order_type": "string",
+        "quantity": "number",
+        "limit_price": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "order_id": "string",
+          "status": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 422,
+          "error_code": "OMS_BROKER_REJECTED"
+        },
+        {
+          "status": 500,
+          "error_code": "OMS_SETTLEMENT_FAILED"
+        },
+        {
+          "status": 503,
+          "error_code": "OMS_KILL_SWITCH_ACTIVE"
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not bypass the pre-trade compliance gate",
+      "why": "Direct-to-broker orders without compliance create regulatory breaches"
+    },
+    {
+      "rule": "Do not treat FIX sequence numbers as optional",
+      "why": "Gaps cause missed fills and phantom positions"
+    },
+    {
+      "rule": "Do not lose order lineage on cancel/replace",
+      "why": "Audit trail and best-execution analysis need the original order linkage"
+    },
+    {
+      "rule": "Do not auto-retry rejected orders without reviewing reject reason",
+      "why": "Retrying a rejected order risks duplicate fills and broker penalties"
+    },
+    {
+      "rule": "Do not delay ExecutionReport processing",
+      "why": "Stale state causes over-fills and reconciliation breaks"
+    },
+    {
+      "rule": "Do not couple the kill switch to database writes",
+      "why": "In a degraded state the switch must still work; in-memory path required"
+    }
+  ],
+  "related": [
+    {
+      "feature": "pre-trade-compliance-checks",
+      "type": "required",
+      "reason": "All orders must pass the gate before staging"
+    },
+    {
+      "feature": "fund-custodian-reconciliation",
+      "type": "required",
+      "reason": "Filled orders reconcile against custodian statements"
+    },
+    {
+      "feature": "market-data-ingestion",
+      "type": "recommended",
+      "reason": "Pricing feeds smart-order-routing decisions"
+    },
+    {
+      "feature": "immutable-audit-log",
+      "type": "required",
+      "reason": "Order lifecycle events must be auditable"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_execution",
+        "description": "Route authorized orders to brokers with best execution and complete lifecycle tracking",
+        "success_metrics": [
+          {
+            "metric": "order_accept_rate",
+            "target": ">= 99.5%",
+            "measurement": "Fraction of authorized orders accepted by broker on first attempt"
+          },
+          {
+            "metric": "settlement_success_rate",
+            "target": ">= 99.9%",
+            "measurement": "Fraction of filled orders settled on T+3"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "performance",
+            "description": "Order-to-broker latency p99 < 200ms",
+            "negotiable": false
+          },
+          {
+            "type": "regulatory",
+            "description": "Best execution evidence retained 7 years",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "order authorization above threshold",
+        "kill switch engagement"
+      ],
+      "escalation_triggers": [
+        "settlement_failed",
+        "broker_rejected"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "order_staged",
+          "permission": "autonomous"
+        },
+        {
+          "action": "order_authorized",
+          "permission": "human_required"
+        },
+        {
+          "action": "order_sent_successfully",
+          "permission": "autonomous"
+        },
+        {
+          "action": "fill_received",
+          "permission": "autonomous"
+        },
+        {
+          "action": "order_fully_filled",
+          "permission": "autonomous"
+        },
+        {
+          "action": "settlement_failed",
+          "permission": "supervised"
+        }
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "filled_qty <= quantity",
+        "no outbound order without authorization",
+        "status transitions follow the defined state machine"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated"
+    }
+  }
+}

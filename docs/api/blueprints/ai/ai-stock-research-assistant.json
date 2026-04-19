@@ -1,0 +1,540 @@
+{
+  "feature": "ai-stock-research-assistant",
+  "version": "1.0.0",
+  "description": "AI assistant that summarizes filings and news and drafts research notes using DDM, DuPont, and multiples, with mandatory human sign-off",
+  "category": "ai",
+  "tags": [
+    "research",
+    "ai",
+    "llm",
+    "valuation",
+    "ddm",
+    "dupont",
+    "multiples",
+    "filings"
+  ],
+  "aliases": [
+    "research-assistant",
+    "ai-research",
+    "equity-research-ai",
+    "ai-analyst",
+    "research-copilot",
+    "equity-analyst-ai",
+    "filings-summarizer"
+  ],
+  "fields": [
+    {
+      "name": "ticker",
+      "type": "text",
+      "required": true,
+      "label": "Ticker Symbol"
+    },
+    {
+      "name": "note_id",
+      "type": "text",
+      "required": true,
+      "label": "Research Note Identifier"
+    },
+    {
+      "name": "source_documents",
+      "type": "json",
+      "required": true,
+      "label": "Input Documents"
+    },
+    {
+      "name": "framework",
+      "type": "select",
+      "required": true,
+      "label": "Valuation Framework",
+      "options": [
+        {
+          "value": "ddm",
+          "label": "Dividend Discount Model"
+        },
+        {
+          "value": "dupont",
+          "label": "DuPont Analysis"
+        },
+        {
+          "value": "multiples",
+          "label": "Relative Multiples"
+        },
+        {
+          "value": "combined",
+          "label": "Combined"
+        }
+      ]
+    },
+    {
+      "name": "summary",
+      "type": "rich_text",
+      "required": false,
+      "label": "Filings / News Summary"
+    },
+    {
+      "name": "valuation_result",
+      "type": "json",
+      "required": false,
+      "label": "Valuation Output"
+    },
+    {
+      "name": "recommendation",
+      "type": "select",
+      "required": false,
+      "label": "Recommendation",
+      "options": [
+        {
+          "value": "buy",
+          "label": "Buy"
+        },
+        {
+          "value": "hold",
+          "label": "Hold"
+        },
+        {
+          "value": "sell",
+          "label": "Sell"
+        }
+      ]
+    },
+    {
+      "name": "human_signoff_by",
+      "type": "text",
+      "required": false,
+      "label": "Human Sign-off Analyst"
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "label": "Note Status",
+      "options": [
+        {
+          "value": "drafting",
+          "label": "Drafting"
+        },
+        {
+          "value": "drafted",
+          "label": "Drafted"
+        },
+        {
+          "value": "reviewed",
+          "label": "Reviewed"
+        },
+        {
+          "value": "accepted",
+          "label": "Accepted"
+        },
+        {
+          "value": "rejected",
+          "label": "Rejected"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "human_signoff": {
+      "description": "MUST: Every recommendation requires a human analyst sign-off before being accepted into the research library",
+      "mandatory": true
+    },
+    "cited_sources": {
+      "description": "MUST: Every claim in the summary or valuation cites a source document and page/paragraph"
+    },
+    "framework_fidelity": {
+      "description": "MUST: Valuation math is performed by deterministic code, not by LLM; LLM only drafts narrative",
+      "no_llm_in_math": true
+    },
+    "disclosure": {
+      "description": "MUST: AI-assisted watermark visible on every note; conflicts of interest disclosed"
+    },
+    "pii_scrub": {
+      "description": "MUST: Source documents stripped of non-public PII before LLM ingestion",
+      "pii_patterns": [
+        "sa_id",
+        "passport",
+        "banking_details"
+      ]
+    },
+    "model_limits": {
+      "description": "MUST: Token and cost limits per note; sensitive data never sent to third-party LLM",
+      "max_tokens": 32000
+    },
+    "retention": {
+      "description": "MUST: Notes retained 7 years with full prompt and response logs for audit",
+      "retention_years": 7
+    },
+    "fallback": {
+      "description": "MUST: If LLM unavailable, allow manual draft path; do not block research"
+    }
+  },
+  "outcomes": {
+    "research_note_drafted_successfully": {
+      "priority": 10,
+      "description": "AI draft of a research note produced and awaiting human review",
+      "given": [
+        {
+          "field": "ticker",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "source_documents",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "drafting",
+          "to": "drafted"
+        },
+        {
+          "action": "emit_event",
+          "event": "research.note_drafted",
+          "payload": [
+            "note_id",
+            "ticker",
+            "framework"
+          ]
+        }
+      ],
+      "result": "Draft ready for analyst review",
+      "transaction": true
+    },
+    "valuation_computed": {
+      "priority": 10,
+      "description": "Deterministic valuation calculation completed",
+      "given": [
+        "required financial inputs captured"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "valuation_result",
+          "value": "computed"
+        },
+        {
+          "action": "emit_event",
+          "event": "research.valuation_computed",
+          "payload": [
+            "note_id",
+            "framework"
+          ]
+        }
+      ],
+      "result": "Valuation output attached to the note"
+    },
+    "source_cited": {
+      "priority": 10,
+      "description": "Every claim in the draft has a source citation",
+      "given": [
+        "all assertions map to an input document"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "research.sources_cited",
+          "payload": [
+            "note_id",
+            "citation_count"
+          ]
+        }
+      ],
+      "result": "Note passes citation check"
+    },
+    "note_rejected": {
+      "priority": 3,
+      "error": "RESEARCH_NOTE_REJECTED",
+      "description": "Analyst rejected the note",
+      "given": [
+        "analyst flagged the note as not acceptable"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "drafted",
+          "to": "rejected"
+        },
+        {
+          "action": "emit_event",
+          "event": "research.note_rejected",
+          "payload": [
+            "note_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Note archived with reason"
+    },
+    "insufficient_data": {
+      "priority": 2,
+      "error": "RESEARCH_INSUFFICIENT_DATA",
+      "description": "Not enough source material to produce a defensible note",
+      "given": [
+        "source documents insufficient for the selected framework"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "research.insufficient_data",
+          "payload": [
+            "note_id",
+            "ticker"
+          ]
+        }
+      ],
+      "result": "Analyst supplied with guidance to add inputs"
+    },
+    "llm_unavailable": {
+      "priority": 1,
+      "error": "RESEARCH_LLM_UNAVAILABLE",
+      "description": "LLM provider unavailable; fall back to manual drafting",
+      "given": [
+        "LLM call failed after retries"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "research_ops",
+          "target": "research_team"
+        },
+        {
+          "action": "emit_event",
+          "event": "research.llm_unavailable",
+          "payload": [
+            "note_id",
+            "provider"
+          ]
+        }
+      ],
+      "result": "Manual path suggested"
+    }
+  },
+  "errors": [
+    {
+      "code": "RESEARCH_NOTE_REJECTED",
+      "status": 409,
+      "message": "Research note was rejected by the analyst.",
+      "retry": true
+    },
+    {
+      "code": "RESEARCH_INSUFFICIENT_DATA",
+      "status": 422,
+      "message": "Not enough source material to draft this note.",
+      "retry": true
+    },
+    {
+      "code": "RESEARCH_LLM_UNAVAILABLE",
+      "status": 503,
+      "message": "AI drafting is temporarily unavailable.",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "research.note_drafted",
+      "description": "AI draft produced",
+      "payload": [
+        "note_id",
+        "ticker",
+        "framework"
+      ]
+    },
+    {
+      "name": "research.valuation_computed",
+      "description": "Valuation math complete",
+      "payload": [
+        "note_id",
+        "framework"
+      ]
+    },
+    {
+      "name": "research.sources_cited",
+      "description": "Citations verified",
+      "payload": [
+        "note_id",
+        "citation_count"
+      ]
+    },
+    {
+      "name": "research.note_rejected",
+      "description": "Note rejected by analyst",
+      "payload": [
+        "note_id",
+        "reason"
+      ]
+    },
+    {
+      "name": "research.insufficient_data",
+      "description": "Insufficient source material",
+      "payload": [
+        "note_id",
+        "ticker"
+      ]
+    },
+    {
+      "name": "research.llm_unavailable",
+      "description": "LLM provider unavailable",
+      "payload": [
+        "note_id",
+        "provider"
+      ]
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/ai/research/notes"
+    },
+    "request": {
+      "content_type": "application/json",
+      "schema": {
+        "ticker": "string",
+        "source_documents": "array",
+        "framework": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "note_id": "string",
+          "status": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 409,
+          "error_code": "RESEARCH_NOTE_REJECTED"
+        },
+        {
+          "status": 422,
+          "error_code": "RESEARCH_INSUFFICIENT_DATA"
+        },
+        {
+          "status": 503,
+          "error_code": "RESEARCH_LLM_UNAVAILABLE"
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not auto-accept AI recommendations",
+      "why": "Human judgement is the regulatory and fiduciary backstop"
+    },
+    {
+      "rule": "Do not let the LLM do the valuation math",
+      "why": "LLMs make arithmetic errors; math must be deterministic and auditable"
+    },
+    {
+      "rule": "Do not send non-public PII to third-party LLMs",
+      "why": "POPIA and data protection require scrubbing before any external call"
+    },
+    {
+      "rule": "Do not publish notes without source citations",
+      "why": "Unverifiable claims are indefensible under regulatory scrutiny"
+    },
+    {
+      "rule": "Do not hide the AI-assisted watermark",
+      "why": "Clients and regulators must know AI contributed to the output"
+    },
+    {
+      "rule": "Do not retain LLM output without the prompt",
+      "why": "Audit requires the full prompt, response, and model version"
+    }
+  ],
+  "related": [
+    {
+      "feature": "ai-stock-screener",
+      "type": "recommended",
+      "reason": "Screener shortlists feed research workflow"
+    },
+    {
+      "feature": "immutable-audit-log",
+      "type": "required",
+      "reason": "Prompts, responses, and sign-offs must be audited"
+    },
+    {
+      "feature": "popia-compliance",
+      "type": "required",
+      "reason": "PII scrubbing and retention obligations apply"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "assisted_research_integrity",
+        "description": "Accelerate analyst workflow with AI drafts while preserving human judgement and source-level traceability",
+        "success_metrics": [
+          {
+            "metric": "draft_acceptance_rate",
+            "target": ">= 70%",
+            "measurement": "Fraction of drafts accepted with minor edits"
+          },
+          {
+            "metric": "citation_coverage",
+            "target": "= 100%",
+            "measurement": "Fraction of claims with source citations"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "regulatory",
+            "description": "Human sign-off mandatory on every accepted note",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "No non-public PII leaves the environment",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "human_in_loop",
+      "human_checkpoints": [
+        "before accepting any recommendation",
+        "before publishing a note"
+      ],
+      "escalation_triggers": [
+        "insufficient_data",
+        "llm_unavailable"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "research_note_drafted_successfully",
+          "permission": "autonomous"
+        },
+        {
+          "action": "valuation_computed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "accept_recommendation",
+          "permission": "human_required"
+        },
+        {
+          "action": "publish_note",
+          "permission": "human_required"
+        }
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "no accepted note without human_signoff_by set",
+        "every claim has a source citation",
+        "valuation math executed by deterministic code"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated"
+    }
+  }
+}

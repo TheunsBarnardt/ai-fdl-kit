@@ -1,0 +1,567 @@
+{
+  "feature": "pre-trade-compliance-checks",
+  "version": "1.0.0",
+  "description": "Pre-trade gate running Reg 28, IPS, concentration, restricted-list, suitability, cash, and wash-sale checks before any order is sent",
+  "category": "trading",
+  "tags": [
+    "pre-trade",
+    "compliance",
+    "reg28",
+    "ips",
+    "concentration",
+    "wash-sale",
+    "suitability"
+  ],
+  "aliases": [
+    "pre-trade-checks",
+    "compliance-gate",
+    "order-compliance",
+    "pre-trade-gate",
+    "trade-validation",
+    "pre-trade-compliance",
+    "order-guardrail"
+  ],
+  "fields": [
+    {
+      "name": "order_id",
+      "type": "text",
+      "required": true,
+      "label": "Order Identifier"
+    },
+    {
+      "name": "fund_id",
+      "type": "text",
+      "required": true,
+      "label": "Fund Identifier"
+    },
+    {
+      "name": "symbol",
+      "type": "text",
+      "required": true,
+      "label": "Instrument Symbol"
+    },
+    {
+      "name": "side",
+      "type": "select",
+      "required": true,
+      "label": "Side",
+      "options": [
+        {
+          "value": "buy",
+          "label": "Buy"
+        },
+        {
+          "value": "sell",
+          "label": "Sell"
+        }
+      ]
+    },
+    {
+      "name": "quantity",
+      "type": "number",
+      "required": true,
+      "label": "Quantity"
+    },
+    {
+      "name": "notional_zar",
+      "type": "number",
+      "required": true,
+      "label": "Notional Value (ZAR)"
+    },
+    {
+      "name": "available_cash",
+      "type": "number",
+      "required": true,
+      "label": "Available Cash (ZAR)"
+    },
+    {
+      "name": "check_result",
+      "type": "select",
+      "required": false,
+      "label": "Check Result",
+      "options": [
+        {
+          "value": "passed",
+          "label": "Passed"
+        },
+        {
+          "value": "blocked",
+          "label": "Blocked"
+        },
+        {
+          "value": "warning",
+          "label": "Warning"
+        }
+      ]
+    },
+    {
+      "name": "failed_checks",
+      "type": "json",
+      "required": false,
+      "label": "Failed Check Details"
+    }
+  ],
+  "rules": {
+    "reg28_limits": {
+      "description": "MUST: Enforce Regulation 28 caps on a look-through basis (equity 75, foreign 45, property 25, PE 15, hedge 10, single issuer 5-25)",
+      "equity_max": 75,
+      "foreign_max": 45,
+      "property_max": 25,
+      "pe_max": 15,
+      "hedge_max": 10,
+      "single_issuer_max_lower": 5,
+      "single_issuer_max_upper": 25
+    },
+    "ips_constraints": {
+      "description": "MUST: Apply IPS-specific constraints (excluded sectors, ESG rules, issuer caps) before any buy",
+      "block_on_violation": true
+    },
+    "concentration": {
+      "description": "MUST: Block orders that push a single issuer or single position above concentration thresholds",
+      "single_position_max_pct": 10
+    },
+    "restricted_list": {
+      "description": "MUST: Block trades in restricted or blacklisted securities regardless of other checks",
+      "source": "compliance_restricted_list"
+    },
+    "suitability": {
+      "description": "MUST: Verify trade aligns with client/fund risk profile and time horizon",
+      "block_on_mismatch": true
+    },
+    "cash_check": {
+      "description": "MUST: Block buy orders without sufficient available cash including expected fees",
+      "include_fees": true
+    },
+    "wash_sale": {
+      "description": "MUST: Flag sells followed by buys of the same security within 30 days for tax treatment review",
+      "window_days": 30
+    },
+    "audit": {
+      "description": "MUST: Every check decision is persisted with inputs, outcome, and rule version",
+      "retention_years": 7
+    }
+  },
+  "outcomes": {
+    "checks_passed_successfully": {
+      "priority": 10,
+      "description": "All mandatory pre-trade checks passed; order may proceed",
+      "given": [
+        "reg28 check passed",
+        "ips check passed",
+        "concentration check passed",
+        "restricted list check passed",
+        "suitability check passed",
+        "cash check passed"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "check_result",
+          "value": "passed"
+        },
+        {
+          "action": "emit_event",
+          "event": "pretrade.checks_passed",
+          "payload": [
+            "order_id",
+            "fund_id",
+            "symbol"
+          ]
+        }
+      ],
+      "result": "Order cleared for routing",
+      "transaction": true
+    },
+    "reg28_breach": {
+      "priority": 1,
+      "error": "PRETRADE_REG28_BREACH",
+      "description": "Order would breach a Regulation 28 prudential limit",
+      "given": [
+        "resulting exposure exceeds a Reg 28 cap"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "check_result",
+          "value": "blocked"
+        },
+        {
+          "action": "emit_event",
+          "event": "pretrade.reg28_breach",
+          "payload": [
+            "order_id",
+            "fund_id",
+            "breached_cap",
+            "projected_pct"
+          ]
+        }
+      ],
+      "result": "Order blocked with Reg 28 detail"
+    },
+    "ips_breach": {
+      "priority": 2,
+      "error": "PRETRADE_IPS_BREACH",
+      "description": "Order violates a client or fund IPS constraint",
+      "given": [
+        "order violates an IPS constraint (excluded sector, ESG, issuer cap)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "check_result",
+          "value": "blocked"
+        },
+        {
+          "action": "emit_event",
+          "event": "pretrade.ips_breach",
+          "payload": [
+            "order_id",
+            "fund_id",
+            "constraint"
+          ]
+        }
+      ],
+      "result": "Order blocked"
+    },
+    "insufficient_cash": {
+      "priority": 3,
+      "error": "PRETRADE_INSUFFICIENT_CASH",
+      "description": "Fund lacks available cash including fees",
+      "given": [
+        {
+          "field": "notional_zar",
+          "source": "input",
+          "operator": "gt",
+          "value": "available_cash"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "check_result",
+          "value": "blocked"
+        },
+        {
+          "action": "emit_event",
+          "event": "pretrade.insufficient_cash",
+          "payload": [
+            "order_id",
+            "notional_zar",
+            "available_cash"
+          ]
+        }
+      ],
+      "result": "Order blocked; funding required"
+    },
+    "restricted_security": {
+      "priority": 1,
+      "error": "PRETRADE_RESTRICTED_SECURITY",
+      "description": "Symbol appears on the restricted or blacklisted list",
+      "given": [
+        "symbol is on the restricted list"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "check_result",
+          "value": "blocked"
+        },
+        {
+          "action": "emit_event",
+          "event": "pretrade.restricted_security",
+          "payload": [
+            "order_id",
+            "symbol"
+          ]
+        }
+      ],
+      "result": "Order blocked immediately"
+    },
+    "concentration_breach": {
+      "priority": 4,
+      "error": "PRETRADE_CONCENTRATION_BREACH",
+      "description": "Order would push single position above concentration threshold",
+      "given": [
+        "resulting single-position weight exceeds concentration max"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "check_result",
+          "value": "blocked"
+        },
+        {
+          "action": "emit_event",
+          "event": "pretrade.concentration_breach",
+          "payload": [
+            "order_id",
+            "symbol",
+            "projected_pct"
+          ]
+        }
+      ],
+      "result": "Order blocked"
+    }
+  },
+  "errors": [
+    {
+      "code": "PRETRADE_REG28_BREACH",
+      "status": 422,
+      "message": "Order would breach a Regulation 28 limit.",
+      "retry": false
+    },
+    {
+      "code": "PRETRADE_IPS_BREACH",
+      "status": 422,
+      "message": "Order violates an investment policy constraint.",
+      "retry": false
+    },
+    {
+      "code": "PRETRADE_INSUFFICIENT_CASH",
+      "status": 422,
+      "message": "Insufficient available cash for this order.",
+      "retry": true
+    },
+    {
+      "code": "PRETRADE_RESTRICTED_SECURITY",
+      "status": 422,
+      "message": "This security is restricted from trading.",
+      "retry": false
+    },
+    {
+      "code": "PRETRADE_CONCENTRATION_BREACH",
+      "status": 422,
+      "message": "Order would exceed concentration limits.",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "pretrade.checks_passed",
+      "description": "All checks passed",
+      "payload": [
+        "order_id",
+        "fund_id",
+        "symbol"
+      ]
+    },
+    {
+      "name": "pretrade.reg28_breach",
+      "description": "Regulation 28 breach",
+      "payload": [
+        "order_id",
+        "fund_id",
+        "breached_cap",
+        "projected_pct"
+      ]
+    },
+    {
+      "name": "pretrade.ips_breach",
+      "description": "IPS constraint violated",
+      "payload": [
+        "order_id",
+        "fund_id",
+        "constraint"
+      ]
+    },
+    {
+      "name": "pretrade.insufficient_cash",
+      "description": "Insufficient cash",
+      "payload": [
+        "order_id",
+        "notional_zar",
+        "available_cash"
+      ]
+    },
+    {
+      "name": "pretrade.restricted_security",
+      "description": "Restricted symbol attempted",
+      "payload": [
+        "order_id",
+        "symbol"
+      ]
+    },
+    {
+      "name": "pretrade.concentration_breach",
+      "description": "Concentration breach",
+      "payload": [
+        "order_id",
+        "symbol",
+        "projected_pct"
+      ]
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/pretrade/check"
+    },
+    "request": {
+      "content_type": "application/json",
+      "schema": {
+        "order_id": "string",
+        "fund_id": "string",
+        "symbol": "string",
+        "side": "string",
+        "quantity": "number",
+        "notional_zar": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "order_id": "string",
+          "check_result": "string",
+          "failed_checks": "object"
+        }
+      },
+      "errors": [
+        {
+          "status": 422,
+          "error_code": "PRETRADE_REG28_BREACH"
+        },
+        {
+          "status": 422,
+          "error_code": "PRETRADE_IPS_BREACH"
+        },
+        {
+          "status": 422,
+          "error_code": "PRETRADE_INSUFFICIENT_CASH"
+        },
+        {
+          "status": 422,
+          "error_code": "PRETRADE_RESTRICTED_SECURITY"
+        },
+        {
+          "status": 422,
+          "error_code": "PRETRADE_CONCENTRATION_BREACH"
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not treat pre-trade checks as warnings only",
+      "why": "A warning-only gate is not a gate; MUST-checks must block"
+    },
+    {
+      "rule": "Do not rely solely on post-trade reporting to catch Reg 28 breaches",
+      "why": "Breach remediation post-trade is expensive and regulator-reportable"
+    },
+    {
+      "rule": "Do not bypass checks via manual overrides without audit and sign-off",
+      "why": "Overrides without evidence invite regulatory sanction"
+    },
+    {
+      "rule": "Do not use stale pricing in concentration calculations",
+      "why": "Stale prices let breaches through the gate"
+    },
+    {
+      "rule": "Do not ignore look-through on collective investments",
+      "why": "Reg 28 applies on a look-through basis; surface-level checks miss exposures"
+    },
+    {
+      "rule": "Do not skip wash-sale flagging",
+      "why": "Tax treatment and attribution depend on it; missing it surprises the client"
+    }
+  ],
+  "related": [
+    {
+      "feature": "regulation-28-compliance",
+      "type": "required",
+      "reason": "Core limits applied by this gate"
+    },
+    {
+      "feature": "client-risk-profiling-ips",
+      "type": "required",
+      "reason": "IPS constraints consumed by this gate"
+    },
+    {
+      "feature": "order-management-execution",
+      "type": "required",
+      "reason": "OMS must call this gate before routing"
+    },
+    {
+      "feature": "immutable-audit-log",
+      "type": "required",
+      "reason": "Every check decision must be audited"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "pretrade_safety",
+        "description": "Block every non-compliant order before it reaches the broker while keeping latency under 100ms",
+        "success_metrics": [
+          {
+            "metric": "breach_leak_rate",
+            "target": "= 0%",
+            "measurement": "Post-trade breaches that the pre-trade gate missed"
+          },
+          {
+            "metric": "check_latency_p99",
+            "target": "< 100ms",
+            "measurement": "99th percentile check duration"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "regulatory",
+            "description": "Regulation 28 and IPS checks cannot be disabled",
+            "negotiable": false
+          },
+          {
+            "type": "performance",
+            "description": "Latency budget 100ms; degrade to fail-closed on timeout",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before any manual override of a block"
+      ],
+      "escalation_triggers": [
+        "reg28_breach",
+        "restricted_security"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "checks_passed_successfully",
+          "permission": "autonomous"
+        },
+        {
+          "action": "reg28_breach",
+          "permission": "autonomous"
+        },
+        {
+          "action": "ips_breach",
+          "permission": "autonomous"
+        },
+        {
+          "action": "restricted_security",
+          "permission": "autonomous"
+        },
+        {
+          "action": "manual_override",
+          "permission": "human_required"
+        }
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "no order reaches routing without check_result = passed",
+        "every blocked order has a reason code",
+        "check decisions are immutable"
+      ]
+    },
+    "coordination": {
+      "protocol": "request_response"
+    }
+  }
+}

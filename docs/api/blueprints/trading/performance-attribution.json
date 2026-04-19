@@ -1,0 +1,466 @@
+{
+  "feature": "performance-attribution",
+  "version": "1.0.0",
+  "description": "GIPS-compliant TWR daily returns and Brinson-Fachler attribution decomposing excess return into allocation, selection, and interaction",
+  "category": "trading",
+  "tags": [
+    "performance",
+    "attribution",
+    "twr",
+    "gips",
+    "brinson-fachler",
+    "benchmark",
+    "returns"
+  ],
+  "aliases": [
+    "attribution",
+    "performance-measurement",
+    "twr-attribution",
+    "brinson",
+    "brinson-fachler",
+    "returns-attribution"
+  ],
+  "fields": [
+    {
+      "name": "portfolio_id",
+      "type": "text",
+      "required": true,
+      "label": "Portfolio Identifier"
+    },
+    {
+      "name": "benchmark",
+      "type": "text",
+      "required": true,
+      "label": "Benchmark Identifier"
+    },
+    {
+      "name": "period_start",
+      "type": "date",
+      "required": true,
+      "label": "Period Start"
+    },
+    {
+      "name": "period_end",
+      "type": "date",
+      "required": true,
+      "label": "Period End"
+    },
+    {
+      "name": "twr",
+      "type": "number",
+      "required": false,
+      "label": "Time-Weighted Return"
+    },
+    {
+      "name": "benchmark_return",
+      "type": "number",
+      "required": false,
+      "label": "Benchmark Return"
+    },
+    {
+      "name": "allocation_effect",
+      "type": "number",
+      "required": false,
+      "label": "Allocation Effect"
+    },
+    {
+      "name": "selection_effect",
+      "type": "number",
+      "required": false,
+      "label": "Selection Effect"
+    },
+    {
+      "name": "interaction_effect",
+      "type": "number",
+      "required": false,
+      "label": "Interaction Effect"
+    },
+    {
+      "name": "cash_flows",
+      "type": "json",
+      "required": false,
+      "label": "External Cash Flows"
+    },
+    {
+      "name": "data_gaps",
+      "type": "json",
+      "required": false,
+      "label": "Missing Data Points"
+    }
+  ],
+  "rules": {
+    "twr": {
+      "description": "MUST: Daily time-weighted returns chain-linked geometrically; adjust for external cash flows on the day they occur (Modified Dietz or true TWR)",
+      "frequency": "daily",
+      "method": "true_twr"
+    },
+    "gips": {
+      "description": "MUST: Returns compliant with GIPS — no dollar-weighting, composite construction documented, dispersion disclosed",
+      "composite_required": true
+    },
+    "benchmark_declared": {
+      "description": "MUST: Benchmark declared in IPS; changes require client notice and effective-date accounting"
+    },
+    "brinson_fachler": {
+      "description": "MUST: Attribution uses Brinson-Fachler (sector-relative) decomposition; sum of effects equals excess return"
+    },
+    "cash_flow_timing": {
+      "description": "MUST: Large external cash flows (> 10% of portfolio) trigger sub-period split to avoid return distortion",
+      "threshold_pct": 10
+    },
+    "data_quality": {
+      "description": "MUST: Pricing and weights validated before attribution runs; missing data produces a flagged gap, not a zero"
+    },
+    "reporting": {
+      "description": "MUST: Attribution reports include period, composite, gross and net returns, benchmark, and effects"
+    }
+  },
+  "outcomes": {
+    "returns_calculated_successfully": {
+      "priority": 10,
+      "description": "Daily TWR computed and chain-linked to produce period return",
+      "given": [
+        "all daily pricing points are available",
+        "external cash flows have been captured"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "twr",
+          "value": "computed"
+        },
+        {
+          "action": "emit_event",
+          "event": "performance.returns_calculated",
+          "payload": [
+            "portfolio_id",
+            "period_start",
+            "period_end",
+            "twr"
+          ]
+        }
+      ],
+      "result": "TWR persisted",
+      "transaction": true
+    },
+    "attribution_computed": {
+      "priority": 10,
+      "description": "Brinson-Fachler attribution decomposed into allocation, selection, and interaction",
+      "given": [
+        "portfolio returns calculated",
+        "benchmark returns available"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "allocation_effect",
+          "value": "computed"
+        },
+        {
+          "action": "set_field",
+          "target": "selection_effect",
+          "value": "computed"
+        },
+        {
+          "action": "set_field",
+          "target": "interaction_effect",
+          "value": "computed"
+        },
+        {
+          "action": "emit_event",
+          "event": "performance.attribution_computed",
+          "payload": [
+            "portfolio_id",
+            "allocation_effect",
+            "selection_effect",
+            "interaction_effect"
+          ]
+        }
+      ],
+      "result": "Attribution report available",
+      "transaction": true
+    },
+    "benchmark_mismatch": {
+      "priority": 2,
+      "error": "PERFORMANCE_BENCHMARK_MISMATCH",
+      "description": "Portfolio benchmark does not match the IPS-declared benchmark",
+      "given": [
+        "benchmark differs from the IPS benchmark"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "investment_ops",
+          "target": "compliance_officer"
+        },
+        {
+          "action": "emit_event",
+          "event": "performance.benchmark_mismatch",
+          "payload": [
+            "portfolio_id",
+            "declared",
+            "supplied"
+          ]
+        }
+      ],
+      "result": "Attribution blocked pending reconciliation"
+    },
+    "data_gap_detected": {
+      "priority": 3,
+      "error": "PERFORMANCE_DATA_GAP",
+      "description": "Pricing or weights missing for at least one day in the period",
+      "given": [
+        "one or more required data points are missing"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "performance.data_gap_detected",
+          "payload": [
+            "portfolio_id",
+            "gap_count"
+          ]
+        }
+      ],
+      "result": "Gap flagged; attribution continues with documented exclusions"
+    },
+    "calculation_failed": {
+      "priority": 1,
+      "error": "PERFORMANCE_CALCULATION_FAILED",
+      "description": "Numerical failure in return or attribution computation",
+      "given": [
+        "calculation returned NaN or chain-link divergence"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "investment_ops",
+          "target": "performance_team"
+        },
+        {
+          "action": "emit_event",
+          "event": "performance.calculation_failed",
+          "payload": [
+            "portfolio_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Performance team investigates"
+    }
+  },
+  "errors": [
+    {
+      "code": "PERFORMANCE_BENCHMARK_MISMATCH",
+      "status": 409,
+      "message": "Portfolio benchmark does not match the declared IPS benchmark.",
+      "retry": false
+    },
+    {
+      "code": "PERFORMANCE_DATA_GAP",
+      "status": 422,
+      "message": "Required pricing or weights data are missing.",
+      "retry": true
+    },
+    {
+      "code": "PERFORMANCE_CALCULATION_FAILED",
+      "status": 500,
+      "message": "Performance calculation could not complete.",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "performance.returns_calculated",
+      "description": "Daily returns chain-linked",
+      "payload": [
+        "portfolio_id",
+        "period_start",
+        "period_end",
+        "twr"
+      ]
+    },
+    {
+      "name": "performance.attribution_computed",
+      "description": "Brinson-Fachler attribution produced",
+      "payload": [
+        "portfolio_id",
+        "allocation_effect",
+        "selection_effect",
+        "interaction_effect"
+      ]
+    },
+    {
+      "name": "performance.benchmark_mismatch",
+      "description": "Benchmark does not match IPS",
+      "payload": [
+        "portfolio_id",
+        "declared",
+        "supplied"
+      ]
+    },
+    {
+      "name": "performance.data_gap_detected",
+      "description": "Data gap in period",
+      "payload": [
+        "portfolio_id",
+        "gap_count"
+      ]
+    },
+    {
+      "name": "performance.calculation_failed",
+      "description": "Performance computation failed",
+      "payload": [
+        "portfolio_id",
+        "reason"
+      ]
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/performance/attribution"
+    },
+    "request": {
+      "content_type": "application/json",
+      "schema": {
+        "portfolio_id": "string",
+        "benchmark": "string",
+        "period_start": "string",
+        "period_end": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "twr": "number",
+          "benchmark_return": "number",
+          "allocation_effect": "number",
+          "selection_effect": "number",
+          "interaction_effect": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 409,
+          "error_code": "PERFORMANCE_BENCHMARK_MISMATCH"
+        },
+        {
+          "status": 422,
+          "error_code": "PERFORMANCE_DATA_GAP"
+        },
+        {
+          "status": 500,
+          "error_code": "PERFORMANCE_CALCULATION_FAILED"
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not use money-weighted returns for GIPS-compliant reporting",
+      "why": "GIPS requires time-weighted returns; MWR conflates manager skill with client cash-flow timing"
+    },
+    {
+      "rule": "Do not chain arithmetic returns",
+      "why": "Compounding requires geometric linking; arithmetic overstates long-horizon returns"
+    },
+    {
+      "rule": "Do not ignore sub-period splits on large flows",
+      "why": "Large flows distort TWR without sub-period treatment"
+    },
+    {
+      "rule": "Do not swap benchmarks retroactively",
+      "why": "Retroactive benchmark change hides underperformance; use effective-date accounting"
+    },
+    {
+      "rule": "Do not report attribution without reconciling sum of effects to excess return",
+      "why": "Sum-check is the integrity invariant; mismatch indicates bug or bad data"
+    },
+    {
+      "rule": "Do not fill data gaps with zeros",
+      "why": "Zeros bias returns downward; flag and exclude explicitly"
+    }
+  ],
+  "related": [
+    {
+      "feature": "gips-standards-l3",
+      "type": "required",
+      "reason": "Attribution methodology must satisfy GIPS standards"
+    },
+    {
+      "feature": "client-risk-profiling-ips",
+      "type": "required",
+      "reason": "IPS declares the benchmark used for attribution"
+    },
+    {
+      "feature": "observability-metrics",
+      "type": "recommended",
+      "reason": "Calculation latency and gap rate are operational SLIs"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "faithful_attribution",
+        "description": "Produce GIPS-compliant returns and Brinson-Fachler attribution that reconciles exactly to excess return",
+        "success_metrics": [
+          {
+            "metric": "reconciliation_error",
+            "target": "< 0.0001",
+            "measurement": "Absolute difference between sum of effects and excess return"
+          },
+          {
+            "metric": "data_gap_rate",
+            "target": "< 1%",
+            "measurement": "Percentage of days with data gaps"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "regulatory",
+            "description": "GIPS compliance non-negotiable",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "semi_autonomous",
+      "human_checkpoints": [
+        "before publishing quarterly or annual reports"
+      ],
+      "escalation_triggers": [
+        "benchmark_mismatch",
+        "calculation_failed"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "returns_calculated_successfully",
+          "permission": "autonomous"
+        },
+        {
+          "action": "attribution_computed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "calculation_failed",
+          "permission": "supervised"
+        }
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "sum of allocation, selection, interaction equals excess return within tolerance",
+        "TWR is chain-linked geometrically",
+        "benchmark used matches IPS"
+      ]
+    },
+    "coordination": {
+      "protocol": "request_response"
+    }
+  }
+}

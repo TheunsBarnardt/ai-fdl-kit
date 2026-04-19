@@ -1,0 +1,502 @@
+{
+  "feature": "portfolio-rebalancing-engine",
+  "version": "1.0.0",
+  "description": "Computes drift vs model, proposes trades to restore target weights, minimizes turnover, respects Reg 28, and requires human authorization",
+  "category": "trading",
+  "tags": [
+    "rebalancing",
+    "drift",
+    "turnover",
+    "tax-lot",
+    "cgt",
+    "reg28",
+    "optimization"
+  ],
+  "aliases": [
+    "rebalancer",
+    "rebalance-engine",
+    "portfolio-rebalancer",
+    "drift-rebalance",
+    "model-rebalance",
+    "auto-rebalance",
+    "rebalance-proposal"
+  ],
+  "fields": [
+    {
+      "name": "proposal_id",
+      "type": "text",
+      "required": true,
+      "label": "Proposal Identifier"
+    },
+    {
+      "name": "portfolio_id",
+      "type": "text",
+      "required": true,
+      "label": "Portfolio Identifier"
+    },
+    {
+      "name": "model_id",
+      "type": "text",
+      "required": true,
+      "label": "Target Model"
+    },
+    {
+      "name": "drift_snapshot",
+      "type": "json",
+      "required": true,
+      "label": "Drift vs Target"
+    },
+    {
+      "name": "proposed_trades",
+      "type": "json",
+      "required": false,
+      "label": "Proposed Trades"
+    },
+    {
+      "name": "estimated_turnover",
+      "type": "number",
+      "required": false,
+      "label": "Estimated Turnover (ZAR)"
+    },
+    {
+      "name": "estimated_cgt",
+      "type": "number",
+      "required": false,
+      "label": "Estimated CGT Impact (ZAR)"
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "label": "Proposal Status",
+      "options": [
+        {
+          "value": "draft",
+          "label": "Draft"
+        },
+        {
+          "value": "pending_authorization",
+          "label": "Pending Authorization"
+        },
+        {
+          "value": "authorized",
+          "label": "Authorized"
+        },
+        {
+          "value": "executed",
+          "label": "Executed"
+        },
+        {
+          "value": "rejected",
+          "label": "Rejected"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "drift_calculation": {
+      "description": "MUST: Compute drift per asset class and per position; only propose trades where drift exceeds tolerance band",
+      "source": "model_portfolio.tolerance_bands"
+    },
+    "turnover_minimization": {
+      "description": "MUST: Minimize turnover subject to drift correction, prefer HIFO tax lots to reduce CGT, respect min trade size",
+      "min_trade_size_zar": 10000,
+      "lot_selection": "hifo"
+    },
+    "reg28_respect": {
+      "description": "MUST: Proposed post-trade state must satisfy Regulation 28 limits",
+      "validate_post_trade": true
+    },
+    "cgt_harvest": {
+      "description": "SHOULD: Harvest losses when beneficial; do not trigger wash sales"
+    },
+    "human_authorization": {
+      "description": "MUST: No proposal executes without explicit human authorization by portfolio manager",
+      "mandatory": true
+    },
+    "proposal_ttl": {
+      "description": "MUST: Proposals expire after 24 hours to avoid stale pricing",
+      "ttl_hours": 24
+    },
+    "execution": {
+      "description": "MUST: On authorization, send orders to OMS in atomic batch; rollback proposal state on failure"
+    }
+  },
+  "outcomes": {
+    "rebalance_proposal_generated": {
+      "priority": 10,
+      "description": "Engine produced a valid proposal respecting all constraints",
+      "given": [
+        "drift exceeds tolerance on at least one asset class",
+        "proposed trades satisfy Reg 28 post-trade"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "rebalance_proposal",
+          "target": "proposals"
+        },
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "draft",
+          "to": "pending_authorization"
+        },
+        {
+          "action": "emit_event",
+          "event": "rebalance.proposal_generated",
+          "payload": [
+            "proposal_id",
+            "portfolio_id",
+            "estimated_turnover"
+          ]
+        }
+      ],
+      "result": "Proposal awaiting authorization",
+      "transaction": true
+    },
+    "proposal_authorized": {
+      "priority": 10,
+      "description": "Portfolio manager authorized the proposal",
+      "given": [
+        "authorizer has portfolio_manager role",
+        "proposal is not expired"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "pending_authorization",
+          "to": "authorized"
+        },
+        {
+          "action": "emit_event",
+          "event": "rebalance.proposal_authorized",
+          "payload": [
+            "proposal_id",
+            "authorizer_id"
+          ]
+        }
+      ],
+      "result": "Ready for execution",
+      "transaction": true
+    },
+    "rebalance_executed_successfully": {
+      "priority": 10,
+      "description": "All orders from an authorized proposal were accepted by OMS",
+      "given": [
+        "all proposed orders acknowledged by OMS"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "authorized",
+          "to": "executed"
+        },
+        {
+          "action": "emit_event",
+          "event": "rebalance.executed",
+          "payload": [
+            "proposal_id",
+            "portfolio_id",
+            "order_ids"
+          ]
+        }
+      ],
+      "result": "Rebalance complete; orders in flight to brokers",
+      "transaction": true
+    },
+    "drift_below_threshold": {
+      "priority": 5,
+      "description": "No asset class exceeds tolerance; no action needed",
+      "given": [
+        "every asset class drift is within tolerance band"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "rebalance.no_action_needed",
+          "payload": [
+            "portfolio_id"
+          ]
+        }
+      ],
+      "result": "No proposal generated"
+    },
+    "proposal_rejected": {
+      "priority": 4,
+      "error": "REBALANCE_PROPOSAL_REJECTED",
+      "description": "Portfolio manager rejected the proposal",
+      "given": [
+        "authorizer rejected the proposal"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "pending_authorization",
+          "to": "rejected"
+        },
+        {
+          "action": "emit_event",
+          "event": "rebalance.proposal_rejected",
+          "payload": [
+            "proposal_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Proposal archived; no trades sent"
+    },
+    "computation_failed": {
+      "priority": 1,
+      "error": "REBALANCE_COMPUTATION_FAILED",
+      "description": "Optimizer failed to produce a feasible proposal",
+      "given": [
+        "optimizer did not converge or no feasible solution respects all constraints"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "investment_ops",
+          "target": "portfolio_manager"
+        },
+        {
+          "action": "emit_event",
+          "event": "rebalance.computation_failed",
+          "payload": [
+            "portfolio_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Portfolio manager investigates manually"
+    }
+  },
+  "errors": [
+    {
+      "code": "REBALANCE_PROPOSAL_REJECTED",
+      "status": 409,
+      "message": "Rebalance proposal was rejected.",
+      "retry": true
+    },
+    {
+      "code": "REBALANCE_COMPUTATION_FAILED",
+      "status": 500,
+      "message": "Could not produce a feasible rebalance proposal.",
+      "retry": true
+    },
+    {
+      "code": "REBALANCE_PROPOSAL_EXPIRED",
+      "status": 410,
+      "message": "Proposal has expired; regenerate from current prices.",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "rebalance.proposal_generated",
+      "description": "Rebalance proposal produced",
+      "payload": [
+        "proposal_id",
+        "portfolio_id",
+        "estimated_turnover"
+      ]
+    },
+    {
+      "name": "rebalance.proposal_authorized",
+      "description": "Proposal authorized by PM",
+      "payload": [
+        "proposal_id",
+        "authorizer_id"
+      ]
+    },
+    {
+      "name": "rebalance.executed",
+      "description": "Proposal orders sent to OMS",
+      "payload": [
+        "proposal_id",
+        "portfolio_id",
+        "order_ids"
+      ]
+    },
+    {
+      "name": "rebalance.no_action_needed",
+      "description": "Drift within tolerance",
+      "payload": [
+        "portfolio_id"
+      ]
+    },
+    {
+      "name": "rebalance.proposal_rejected",
+      "description": "Proposal rejected",
+      "payload": [
+        "proposal_id",
+        "reason"
+      ]
+    },
+    {
+      "name": "rebalance.computation_failed",
+      "description": "Optimizer failure",
+      "payload": [
+        "portfolio_id",
+        "reason"
+      ]
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/rebalance/propose"
+    },
+    "request": {
+      "content_type": "application/json",
+      "schema": {
+        "portfolio_id": "string",
+        "model_id": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "proposal_id": "string",
+          "status": "string",
+          "estimated_turnover": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 409,
+          "error_code": "REBALANCE_PROPOSAL_REJECTED"
+        },
+        {
+          "status": 500,
+          "error_code": "REBALANCE_COMPUTATION_FAILED"
+        },
+        {
+          "status": 410,
+          "error_code": "REBALANCE_PROPOSAL_EXPIRED"
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not auto-execute proposals without human authorization",
+      "why": "Material portfolio changes need judgement; auto-execution creates uncorrected mistakes at scale"
+    },
+    {
+      "rule": "Do not ignore tax lots when sizing sells",
+      "why": "HIFO and CGT harvesting materially affect after-tax returns"
+    },
+    {
+      "rule": "Do not use stale prices for optimization",
+      "why": "Proposal based on stale prices produces unwanted drift when executed"
+    },
+    {
+      "rule": "Do not skip Reg 28 post-trade validation",
+      "why": "Rebalance can itself create a breach; validate the end state, not just the start"
+    },
+    {
+      "rule": "Do not generate micro-trades below cost-to-trade threshold",
+      "why": "Turnover exceeds correction value; tracking error gets worse net of fees"
+    },
+    {
+      "rule": "Do not let proposals linger past their TTL",
+      "why": "Market moves make stale proposals unsafe; force regeneration"
+    }
+  ],
+  "related": [
+    {
+      "feature": "model-portfolio",
+      "type": "required",
+      "reason": "Models supply target weights and tolerance bands"
+    },
+    {
+      "feature": "regulation-28-compliance",
+      "type": "required",
+      "reason": "Post-trade state must remain compliant"
+    },
+    {
+      "feature": "pre-trade-compliance-checks",
+      "type": "required",
+      "reason": "Individual rebalance orders pass through the pre-trade gate"
+    },
+    {
+      "feature": "order-management-execution",
+      "type": "required",
+      "reason": "OMS receives authorized orders"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "efficient_rebalance",
+        "description": "Keep portfolios within drift tolerance with minimum turnover and tax impact",
+        "success_metrics": [
+          {
+            "metric": "tracking_error",
+            "target": "< 0.5%",
+            "measurement": "Annualized tracking error vs model"
+          },
+          {
+            "metric": "turnover_ratio",
+            "target": "< 30%",
+            "measurement": "Annual turnover as percent of AUM"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "regulatory",
+            "description": "Reg 28 compliance must be preserved",
+            "negotiable": false
+          },
+          {
+            "type": "cost",
+            "description": "Minimize trading costs and tax drag",
+            "negotiable": true
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "human_in_loop",
+      "human_checkpoints": [
+        "proposal authorization",
+        "any manual override"
+      ],
+      "escalation_triggers": [
+        "computation_failed",
+        "estimated_turnover > 10% of aum"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "rebalance_proposal_generated",
+          "permission": "autonomous"
+        },
+        {
+          "action": "proposal_authorized",
+          "permission": "human_required"
+        },
+        {
+          "action": "rebalance_executed_successfully",
+          "permission": "supervised"
+        }
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "no execution without authorized proposal",
+        "post-trade projection respects Reg 28",
+        "proposal timestamps within TTL"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated"
+    }
+  }
+}

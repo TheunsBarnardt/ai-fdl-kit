@@ -1,0 +1,441 @@
+{
+  "feature": "model-portfolio",
+  "version": "1.0.0",
+  "description": "Template portfolios with target weights per asset class, drift calculation, tolerance bands, and rebalance trigger configuration",
+  "category": "data",
+  "tags": [
+    "model-portfolio",
+    "target-weights",
+    "drift",
+    "rebalance",
+    "asset-allocation"
+  ],
+  "aliases": [
+    "model-portfolios",
+    "template-portfolio",
+    "target-allocation",
+    "investment-template",
+    "model-weights",
+    "house-view",
+    "risk-rated-portfolio"
+  ],
+  "fields": [
+    {
+      "name": "model_id",
+      "type": "text",
+      "required": true,
+      "label": "Model Portfolio ID"
+    },
+    {
+      "name": "name",
+      "type": "text",
+      "required": true,
+      "label": "Model Name"
+    },
+    {
+      "name": "risk_level",
+      "type": "select",
+      "required": true,
+      "label": "Risk Level",
+      "options": [
+        {
+          "value": "conservative",
+          "label": "Conservative"
+        },
+        {
+          "value": "balanced",
+          "label": "Balanced"
+        },
+        {
+          "value": "growth",
+          "label": "Growth"
+        },
+        {
+          "value": "aggressive",
+          "label": "Aggressive"
+        },
+        {
+          "value": "bespoke",
+          "label": "Bespoke"
+        }
+      ]
+    },
+    {
+      "name": "target_weights",
+      "type": "json",
+      "required": true,
+      "label": "Target Weights by Asset Class"
+    },
+    {
+      "name": "tolerance_bands",
+      "type": "json",
+      "required": true,
+      "label": "Tolerance Bands (percent drift)"
+    },
+    {
+      "name": "rebalance_trigger",
+      "type": "select",
+      "required": true,
+      "label": "Rebalance Trigger",
+      "options": [
+        {
+          "value": "threshold",
+          "label": "Threshold based"
+        },
+        {
+          "value": "calendar",
+          "label": "Calendar based"
+        },
+        {
+          "value": "hybrid",
+          "label": "Hybrid"
+        }
+      ]
+    },
+    {
+      "name": "benchmark",
+      "type": "text",
+      "required": false,
+      "label": "Reference Benchmark"
+    },
+    {
+      "name": "published",
+      "type": "boolean",
+      "required": false,
+      "label": "Published",
+      "default": false
+    }
+  ],
+  "rules": {
+    "weights_sum": {
+      "description": "MUST: Target weights must sum to exactly 100% (allow floating-point tolerance of 0.0001)",
+      "sum_target": 100,
+      "tolerance": 0.0001
+    },
+    "asset_class_limits": {
+      "description": "MUST: Respect Regulation 28 single-class caps (equity 75, foreign 45, property 25, PE 15, hedge 10, single issuer 5-25)",
+      "equity_max": 75,
+      "foreign_max": 45,
+      "property_max": 25,
+      "private_equity_max": 15,
+      "hedge_max": 10,
+      "single_issuer_max": 25
+    },
+    "drift_calculation": {
+      "description": "MUST: Compute drift daily as (actual_weight - target_weight) per asset class",
+      "cadence": "daily"
+    },
+    "tolerance_bands": {
+      "description": "MUST: Every asset class has an absolute tolerance band; breach triggers rebalance evaluation",
+      "default_band_percent": 5
+    },
+    "versioning": {
+      "description": "MUST: Every change to a published model creates a new version; prior version remains immutable",
+      "immutable_after_publish": true
+    },
+    "approval": {
+      "description": "MUST: Publishing a model requires sign-off from investment committee",
+      "approver_role": "investment_committee"
+    }
+  },
+  "outcomes": {
+    "model_created_successfully": {
+      "priority": 10,
+      "description": "A new model portfolio was created in draft state",
+      "given": [
+        {
+          "field": "name",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "risk_level",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "model_portfolio",
+          "target": "models"
+        },
+        {
+          "action": "emit_event",
+          "event": "model.created",
+          "payload": [
+            "model_id",
+            "name",
+            "risk_level"
+          ]
+        }
+      ],
+      "result": "Model saved in draft",
+      "transaction": true
+    },
+    "weights_validated": {
+      "priority": 9,
+      "description": "Target weights sum to 100% and respect asset-class caps",
+      "given": [
+        "sum of target_weights equals 100 within tolerance",
+        "no asset class exceeds Regulation 28 cap"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "weights_valid",
+          "value": true
+        }
+      ],
+      "result": "Weights accepted"
+    },
+    "drift_calculated": {
+      "priority": 10,
+      "description": "Daily drift between actual and target weights computed",
+      "given": [
+        "end-of-day holdings snapshot is available"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "model.drift_calculated",
+          "payload": [
+            "model_id",
+            "max_drift_pct",
+            "breach_count"
+          ]
+        }
+      ],
+      "result": "Drift report stored"
+    },
+    "model_published": {
+      "priority": 10,
+      "description": "Model is approved by investment committee and published for use",
+      "given": [
+        "weights_valid is true",
+        "investment committee approval recorded"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "draft",
+          "to": "published"
+        },
+        {
+          "action": "emit_event",
+          "event": "model.published",
+          "payload": [
+            "model_id",
+            "name",
+            "risk_level"
+          ]
+        }
+      ],
+      "result": "Model available to advisors",
+      "transaction": true
+    },
+    "weights_sum_invalid": {
+      "priority": 1,
+      "error": "MODEL_WEIGHTS_SUM_INVALID",
+      "description": "Target weights do not sum to 100%",
+      "given": [
+        "sum of target_weights differs from 100 by more than tolerance"
+      ],
+      "then": [],
+      "result": "Validation failure surfaced to user"
+    },
+    "asset_class_limit_breached": {
+      "priority": 2,
+      "error": "MODEL_ASSET_CLASS_LIMIT_BREACHED",
+      "description": "One or more asset classes exceed Regulation 28 caps",
+      "given": [
+        "any asset class weight exceeds its Regulation 28 cap"
+      ],
+      "then": [],
+      "result": "Validation failure surfaced to user"
+    }
+  },
+  "errors": [
+    {
+      "code": "MODEL_WEIGHTS_SUM_INVALID",
+      "status": 422,
+      "message": "Target weights must sum to 100 percent.",
+      "retry": false
+    },
+    {
+      "code": "MODEL_ASSET_CLASS_LIMIT_BREACHED",
+      "status": 422,
+      "message": "One or more asset classes exceed Regulation 28 limits.",
+      "retry": false
+    },
+    {
+      "code": "MODEL_NOT_FOUND",
+      "status": 404,
+      "message": "Model portfolio not found.",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "model.created",
+      "description": "Model portfolio created in draft",
+      "payload": [
+        "model_id",
+        "name",
+        "risk_level"
+      ]
+    },
+    {
+      "name": "model.drift_calculated",
+      "description": "Daily drift computed",
+      "payload": [
+        "model_id",
+        "max_drift_pct",
+        "breach_count"
+      ]
+    },
+    {
+      "name": "model.published",
+      "description": "Model approved and published",
+      "payload": [
+        "model_id",
+        "name",
+        "risk_level"
+      ]
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/models"
+    },
+    "request": {
+      "content_type": "application/json",
+      "schema": {
+        "name": "string",
+        "risk_level": "string",
+        "target_weights": "object",
+        "tolerance_bands": "object",
+        "rebalance_trigger": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "model_id": "string",
+          "status": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 422,
+          "error_code": "MODEL_WEIGHTS_SUM_INVALID"
+        },
+        {
+          "status": 422,
+          "error_code": "MODEL_ASSET_CLASS_LIMIT_BREACHED"
+        },
+        {
+          "status": 404,
+          "error_code": "MODEL_NOT_FOUND"
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not allow mutation of a published model",
+      "why": "Historical attribution and compliance reporting require a stable reference point"
+    },
+    {
+      "rule": "Do not let weights sum to values other than 100%",
+      "why": "Drift math and attribution break; a portfolio cannot be partially allocated in the model"
+    },
+    {
+      "rule": "Do not hard-code asset class lists",
+      "why": "New instrument types emerge; keep the asset-class taxonomy data-driven"
+    },
+    {
+      "rule": "Do not bypass the investment committee approval",
+      "why": "Unauthorized publishing exposes clients to uncommitted strategies"
+    },
+    {
+      "rule": "Do not conflate tolerance bands with rebalance cadence",
+      "why": "A breach may not mean rebalance now; hybrid triggers need both dimensions"
+    }
+  ],
+  "related": [
+    {
+      "feature": "regulation-28-compliance",
+      "type": "required",
+      "reason": "Models for SA retirement mandates must satisfy Regulation 28"
+    },
+    {
+      "feature": "portfolio-rebalancing-engine",
+      "type": "recommended",
+      "reason": "Rebalancing engine consumes models to propose trades"
+    },
+    {
+      "feature": "strategic-asset-allocation",
+      "type": "recommended",
+      "reason": "SAA work feeds target weights"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "model_integrity",
+        "description": "Ensure every published model portfolio has valid weights, respects regulatory caps, and is approved by the investment committee",
+        "success_metrics": [
+          {
+            "metric": "published_model_validity",
+            "target": "= 100%",
+            "measurement": "Percentage of published models with weights summing to 100 and no cap breach"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "regulatory",
+            "description": "Regulation 28 caps are not negotiable for SA retirement mandates",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "human_in_loop",
+      "human_checkpoints": [
+        "before publishing a model",
+        "before changing risk level of an in-use model"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "model_created_successfully",
+          "permission": "autonomous"
+        },
+        {
+          "action": "weights_validated",
+          "permission": "autonomous"
+        },
+        {
+          "action": "model_published",
+          "permission": "human_required"
+        }
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "sum(target_weights) == 100 within tolerance",
+        "no asset class exceeds Regulation 28 cap",
+        "published models are immutable"
+      ]
+    },
+    "coordination": {
+      "protocol": "request_response"
+    }
+  }
+}

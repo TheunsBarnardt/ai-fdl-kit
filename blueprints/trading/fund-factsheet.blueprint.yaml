@@ -1,0 +1,674 @@
+# ============================================================
+# FUND FACTSHEET — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Monthly / quarterly investor factsheet. Standard one-to-two
+# page PDF summarising strategy, performance, holdings, risk
+# metrics, fees, and regulatory disclosures. Generated from
+# portfolio, performance, and reference data as of an as-of
+# date. Must be auditable and version-controlled for
+# regulator inspection.
+# ============================================================
+
+feature: fund-factsheet
+version: "1.0.0"
+description: Monthly or quarterly investor factsheet summarising fund strategy, performance, holdings, risk, fees, and disclosures, generated as a versioned PDF
+category: trading
+tags: [factsheet, fund-reporting, asisa, disclosure, msci, benchmark, reporting]
+
+aliases:
+  - factsheet
+  - fund-factsheet
+  - minimum-disclosure-document
+  - mdd
+  - monthly-factsheet
+  - quarterly-factsheet
+  - fund-report
+  - investor-report
+
+fields:
+  - name: factsheet_id
+    type: text
+    required: true
+    label: "Factsheet ID"
+
+  - name: fund_id
+    type: text
+    required: true
+    label: "Fund Identifier"
+
+  - name: as_of_date
+    type: date
+    required: true
+    label: "As-Of Date"
+
+  - name: frequency
+    type: select
+    required: true
+    label: "Frequency"
+    options:
+      - value: monthly
+        label: "Monthly"
+      - value: quarterly
+        label: "Quarterly"
+      - value: annual
+        label: "Annual"
+
+  - name: fund_name
+    type: text
+    required: true
+    label: "Fund Name"
+
+  - name: fund_classification
+    type: text
+    required: true
+    label: "ASISA Classification"
+
+  - name: investment_objective
+    type: rich_text
+    required: true
+    label: "Investment Objective"
+
+  - name: investment_approach
+    type: rich_text
+    required: true
+    label: "Investment Approach / Strategy"
+
+  - name: portfolio_manager
+    type: text
+    required: true
+    label: "Portfolio Manager"
+
+  - name: launch_date
+    type: date
+    required: true
+    label: "Launch Date"
+
+  - name: base_currency
+    type: text
+    required: true
+    label: "Base Currency"
+
+  - name: benchmark
+    type: text
+    required: true
+    label: "Benchmark"
+
+  - name: regulation_28_compliant
+    type: boolean
+    required: true
+    label: "Regulation 28 Compliant"
+
+  - name: risk_profile
+    type: select
+    required: true
+    label: "Risk Profile"
+    options:
+      - value: low
+        label: "Low"
+      - value: low_to_medium
+        label: "Low to Medium"
+      - value: medium
+        label: "Medium"
+      - value: medium_to_high
+        label: "Medium to High"
+      - value: high
+        label: "High"
+
+  - name: recommended_term
+    type: text
+    required: true
+    label: "Recommended Investment Term"
+
+  - name: minimum_investment
+    type: number
+    required: false
+    label: "Minimum Investment Amount"
+
+  - name: fee_structure
+    type: json
+    required: true
+    label: "Fee Structure (management, performance, TER, TIC, TC)"
+
+  - name: top_holdings
+    type: json
+    required: true
+    label: "Top Holdings (typically top 10)"
+
+  - name: sector_allocation
+    type: json
+    required: true
+    label: "Sector Allocation"
+
+  - name: geographic_allocation
+    type: json
+    required: false
+    label: "Geographic Allocation"
+
+  - name: asset_allocation
+    type: json
+    required: true
+    label: "Asset Class Allocation"
+
+  - name: returns_table
+    type: json
+    required: true
+    label: "Periodic Returns vs Benchmark (1M, 3M, YTD, 1Y, 3Y, 5Y, SI)"
+
+  - name: monthly_returns
+    type: json
+    required: false
+    label: "Monthly Returns Grid (years x months)"
+
+  - name: risk_measures
+    type: json
+    required: true
+    label: "Risk Measures (std dev, Sharpe, Sortino, max drawdown, VaR, best/worst month)"
+
+  - name: growth_chart_data
+    type: json
+    required: true
+    label: "Investment Growth Chart Series"
+
+  - name: drawdown_chart_data
+    type: json
+    required: false
+    label: "Drawdown Chart Series"
+
+  - name: income_distributions
+    type: json
+    required: false
+    label: "Income Distributions History"
+
+  - name: manager_commentary
+    type: rich_text
+    required: false
+    label: "Portfolio Manager Commentary"
+
+  - name: disclosures
+    type: rich_text
+    required: true
+    label: "Regulatory Disclosures and Disclaimers"
+
+  - name: pdf_storage_url
+    type: url
+    required: false
+    label: "Generated PDF Storage URL"
+
+  - name: pdf_hash
+    type: text
+    required: false
+    label: "PDF Content Hash (SHA-256)"
+
+  - name: status
+    type: select
+    required: true
+    label: "Status"
+    options:
+      - value: draft
+        label: "Draft"
+      - value: compliance_review
+        label: "Compliance Review"
+      - value: approved
+        label: "Approved"
+      - value: published
+        label: "Published"
+      - value: superseded
+        label: "Superseded"
+
+rules:
+  generation:
+    trigger: scheduled_job
+    schedule: "monthly on the 5th business day after month-end, quarterly on the 7th business day after quarter-end"
+    # SHOULD: Timing aligns with industry convention and allows custodian/admin reconciliation
+    inputs: [portfolio_positions_as_of_date, performance_series, benchmark_returns, fee_schedule, fund_mandate, manager_commentary]
+    as_of_snapshot: true
+    # MUST: All inputs are pinned to as_of_date; later corrections trigger a re-issue, not a silent re-render
+
+  content_requirements:
+    investment_objective: "MUST: Present verbatim from the fund mandate"
+    benchmark: "MUST: The benchmark declared in the IPS; changes require client/trustee approval and are disclosed"
+    asisa_classification: "MUST: Aligned to the current ASISA Fund Classification Standard"
+    regulation_28_flag: "MUST: Display Reg 28 status prominently for retirement-eligible funds"
+    risk_profile: "MUST: Risk profile indicator is consistent with the fund's 36-month volatility bucket"
+    fees_disclosure: "MUST: TER, TIC, and TC shown where applicable, in accordance with ASISA Standard on Total Expense Ratios"
+
+  performance_calculation:
+    methodology: gips_compliant
+    # MUST: Returns are TWR chain-linked per GIPS
+    net_of_fees: "MUST: Net-of-fees returns shown with calculation method disclosed"
+    benchmark_alignment: "MUST: Benchmark returns computed over identical periods, same currency"
+    inception_label: "MUST: Performance labelled 'since inception' uses the actual launch date"
+
+  risk_measures:
+    basis: "36-month rolling (or since inception if younger)"
+    required_measures: [standard_deviation, sharpe_ratio, sortino_ratio, max_drawdown, best_month, worst_month, value_at_risk_95]
+    risk_free_proxy_disclosed: true
+    # MUST: The risk-free proxy used in Sharpe/Sortino is disclosed in the methodology footnote
+
+  approval_workflow:
+    draft_by: portfolio_manager
+    reviewed_by: compliance_officer
+    approved_by: head_of_compliance
+    # MUST: No factsheet is published without compliance sign-off
+    authorization_logged: true
+    # MUST: Approval is written to the immutable audit log
+
+  disclosures:
+    required_statements:
+      - "Collective Investment Schemes are generally medium to long-term investments."
+      - "Past performance is not necessarily a guide to future performance."
+      - "The value of participatory interests may go down as well as up."
+      - "CIS are traded at ruling prices and may engage in scrip lending and borrowing."
+      - "Annualised returns are period returns re-scaled to a period of 1 year."
+      - "A schedule of fees and charges is available on request from the Manager."
+    custom_disclosures_allowed: true
+    # MAY: Additional fund-specific disclosures permitted but must be compliance-approved
+
+  versioning:
+    supersedes_on_republish: true
+    # MUST: Republishing creates a new version that supersedes the prior; the prior remains readable for audit
+    version_label: "YYYY-MM (monthly) or YYYY-Qn (quarterly)"
+    retention_years: 7
+    # MUST: Retain all published versions for at least 7 years per FSB/FSCA recordkeeping
+
+  pii_and_privacy:
+    contains_client_pii: false
+    # MUST: Factsheets aggregate fund-level data only; no client holdings or PII
+    top_holdings_delay_days: 30
+    # SHOULD: Top-holdings disclosure is lagged to prevent front-running
+
+  distribution:
+    channels: [website, email, client_portal, regulator_filing]
+    watermark_unpublished: true
+    # MUST: Any pre-approval draft is watermarked "DRAFT — NOT FOR DISTRIBUTION"
+
+outcomes:
+  factsheet_generated_successfully:
+    priority: 10
+    description: "All inputs present and fresh, content computed, PDF rendered and hashed"
+    given:
+      - "all required inputs (positions, performance, benchmark, fees) are available as of as_of_date"
+      - "fund mandate, benchmark, and classification are current"
+      - "risk measures are computable from the performance history"
+    then:
+      - action: set_field
+        target: status
+        value: draft
+      - action: create_record
+        type: factsheet_version
+        target: factsheet_versions
+        description: "Render PDF, compute content hash, persist storage URL and hash"
+      - action: emit_event
+        event: factsheet.generated
+        payload: [factsheet_id, fund_id, as_of_date, frequency, pdf_hash]
+    result: "Draft factsheet written to compliance review queue"
+    transaction: true
+
+  factsheet_approved_and_published:
+    priority: 10
+    description: "Compliance approval recorded, version published, audit log entry written"
+    given:
+      - field: status
+        source: db
+        operator: eq
+        value: compliance_review
+      - "compliance officer has approved the draft"
+    then:
+      - action: transition_state
+        field: status
+        from: compliance_review
+        to: published
+      - action: emit_event
+        event: factsheet.published
+        payload: [factsheet_id, fund_id, as_of_date, approver_id, pdf_hash]
+      - action: call_service
+        service: immutable_audit_log
+        target: audit_log
+        description: "Record approval with approver, timestamp, PDF hash"
+      - action: call_service
+        service: distribution
+        target: distribution_channels
+        description: "Publish to website, email, client portal, regulator filing"
+    result: "Factsheet published across all distribution channels"
+    transaction: true
+
+  factsheet_superseded:
+    priority: 10
+    description: "A newer version supersedes a prior published version; prior remains readable for audit"
+    given:
+      - "a newer factsheet for the same fund and as_of_date is published"
+    then:
+      - action: transition_state
+        field: status
+        from: published
+        to: superseded
+      - action: emit_event
+        event: factsheet.superseded
+        payload: [factsheet_id, superseding_factsheet_id, reason]
+    result: "Prior version marked superseded; both remain in the audit record"
+
+  input_data_missing:
+    priority: 2
+    error: FACTSHEET_INPUT_MISSING
+    description: "One or more required inputs for generation are unavailable as of as_of_date"
+    given:
+      - "any of positions, performance, benchmark returns, or fee schedule is missing or stale"
+    then:
+      - action: emit_event
+        event: factsheet.generation_failed
+        payload: [fund_id, as_of_date, missing_inputs]
+      - action: notify
+        channel: fund_operations
+        target: fund_ops_team
+        description: "Alert operations that factsheet generation is blocked"
+    result: "Generation aborted; operations team must resolve inputs before retry"
+
+  compliance_rejected:
+    priority: 3
+    error: FACTSHEET_COMPLIANCE_REJECTED
+    description: "Compliance review found issues requiring remediation"
+    given:
+      - field: status
+        source: db
+        operator: eq
+        value: compliance_review
+      - "compliance officer rejected the draft"
+    then:
+      - action: transition_state
+        field: status
+        from: compliance_review
+        to: draft
+      - action: emit_event
+        event: factsheet.rejected
+        payload: [factsheet_id, reviewer_id, rejection_reasons]
+    result: "Factsheet returned to portfolio manager with rejection reasons"
+
+  benchmark_mismatch:
+    priority: 2
+    error: FACTSHEET_BENCHMARK_MISMATCH
+    description: "The benchmark specified does not match the benchmark in the IPS"
+    given:
+      - "benchmark field does not match the benchmark declared in the current IPS"
+    then:
+      - action: emit_event
+        event: factsheet.benchmark_mismatch
+        payload: [fund_id, expected_benchmark, provided_benchmark]
+    result: "Generation blocked; mandate and factsheet must be reconciled"
+
+  unauthorized_publish:
+    priority: 1
+    error: FACTSHEET_UNAUTHORIZED_PUBLISH
+    description: "Caller attempted to publish without compliance approval"
+    given:
+      - "caller does not have head_of_compliance role"
+      - field: status
+        source: db
+        operator: neq
+        value: compliance_review
+    then:
+      - action: emit_event
+        event: factsheet.unauthorized_publish_attempt
+        payload: [caller_id, factsheet_id]
+    result: "Publish blocked and attempt recorded to audit log"
+
+  pdf_render_failed:
+    priority: 2
+    error: FACTSHEET_RENDER_FAILED
+    description: "PDF rendering engine failed to produce output"
+    given:
+      - "PDF rendering pipeline returned an error"
+    then:
+      - action: emit_event
+        event: factsheet.render_failed
+        payload: [factsheet_id, render_error]
+    result: "Generation aborted; engineering alerted"
+
+errors:
+  - code: FACTSHEET_INPUT_MISSING
+    status: 422
+    message: "Factsheet generation blocked: required input data is missing or stale."
+    retry: true
+
+  - code: FACTSHEET_COMPLIANCE_REJECTED
+    status: 409
+    message: "Factsheet was rejected by compliance review."
+    retry: false
+
+  - code: FACTSHEET_BENCHMARK_MISMATCH
+    status: 409
+    message: "Benchmark does not match the fund's declared IPS benchmark."
+    retry: false
+
+  - code: FACTSHEET_UNAUTHORIZED_PUBLISH
+    status: 403
+    message: "You do not have permission to publish this factsheet."
+    retry: false
+
+  - code: FACTSHEET_RENDER_FAILED
+    status: 500
+    message: "Factsheet PDF rendering failed. Engineering has been notified."
+    retry: true
+
+events:
+  - name: factsheet.generated
+    description: "A draft factsheet was successfully generated and queued for compliance review"
+    payload: [factsheet_id, fund_id, as_of_date, frequency, pdf_hash]
+
+  - name: factsheet.published
+    description: "A factsheet was approved by compliance and published to distribution channels"
+    payload: [factsheet_id, fund_id, as_of_date, approver_id, pdf_hash]
+
+  - name: factsheet.superseded
+    description: "A prior published factsheet was superseded by a newer version"
+    payload: [factsheet_id, superseding_factsheet_id, reason]
+
+  - name: factsheet.rejected
+    description: "Compliance review rejected the draft factsheet"
+    payload: [factsheet_id, reviewer_id, rejection_reasons]
+
+  - name: factsheet.generation_failed
+    description: "Factsheet generation aborted due to missing or stale inputs"
+    payload: [fund_id, as_of_date, missing_inputs]
+
+  - name: factsheet.benchmark_mismatch
+    description: "Benchmark does not match the IPS-declared benchmark"
+    payload: [fund_id, expected_benchmark, provided_benchmark]
+
+  - name: factsheet.unauthorized_publish_attempt
+    description: "An unauthorized caller attempted to publish a factsheet"
+    payload: [caller_id, factsheet_id]
+
+  - name: factsheet.render_failed
+    description: "PDF rendering pipeline failed"
+    payload: [factsheet_id, render_error]
+
+actors:
+  - id: portfolio_manager
+    name: Portfolio Manager
+    type: human
+    role: "Drafts factsheet commentary and signs off on content accuracy"
+
+  - id: compliance_officer
+    name: Compliance Officer
+    type: human
+    role: "Reviews factsheet for regulatory compliance and disclosure completeness"
+
+  - id: head_of_compliance
+    name: Head of Compliance
+    type: human
+    role: "Final approval authority; publishes factsheet to distribution channels"
+
+  - id: fund_ops_team
+    name: Fund Operations Team
+    type: human
+    role: "Ensures input data (positions, performance, benchmarks) is available and accurate"
+
+  - id: factsheet_generator
+    name: Factsheet Generator Service
+    type: system
+    role: "Automated pipeline that assembles data and renders PDF"
+
+states:
+  field: status
+  values:
+    - value: draft
+      initial: true
+      label: "Draft"
+    - value: compliance_review
+      label: "Compliance Review"
+    - value: approved
+      label: "Approved"
+    - value: published
+      terminal: false
+      label: "Published"
+    - value: superseded
+      terminal: true
+      label: "Superseded"
+  transitions:
+    - from: draft
+      to: compliance_review
+      actor: portfolio_manager
+      description: "PM submits draft for compliance review"
+    - from: compliance_review
+      to: draft
+      actor: compliance_officer
+      description: "Compliance rejects draft with reasons"
+    - from: compliance_review
+      to: approved
+      actor: compliance_officer
+      description: "Compliance approves content"
+    - from: approved
+      to: published
+      actor: head_of_compliance
+      description: "Head of compliance publishes the factsheet"
+    - from: published
+      to: superseded
+      actor: factsheet_generator
+      description: "Superseded by a newer version"
+
+sla:
+  max_duration: "10 business days from as_of_date to published"
+  escalation:
+    - after: "7 business days"
+      action: "Alert head of compliance if not yet approved"
+    - after: "10 business days"
+      action: "Escalate to executive committee; risk of regulatory late filing"
+
+api:
+  http:
+    method: POST
+    path: /api/funds/{fund_id}/factsheets
+  request:
+    schema:
+      fund_id: string
+      as_of_date: string
+      frequency: string
+  response:
+    success:
+      status: 201
+      schema:
+        factsheet_id: string
+        fund_id: string
+        as_of_date: string
+        status: string
+        pdf_storage_url: string
+        pdf_hash: string
+    errors:
+      - status: 422
+        error_code: FACTSHEET_INPUT_MISSING
+      - status: 409
+        error_code: FACTSHEET_BENCHMARK_MISMATCH
+      - status: 403
+        error_code: FACTSHEET_UNAUTHORIZED_PUBLISH
+      - status: 500
+        error_code: FACTSHEET_RENDER_FAILED
+
+anti_patterns:
+  - rule: "Do not publish a factsheet without compliance sign-off"
+    why: "FSCA requires documented compliance approval on every investor-facing disclosure; unsigned publication is a reportable breach"
+  - rule: "Do not silently overwrite a published factsheet"
+    why: "Regulators and clients may have copies of prior versions; in-place overwrite destroys the audit trail. Always supersede."
+  - rule: "Do not display gross-of-fees returns without net-of-fees alongside"
+    why: "ASISA and FSCA require net-of-fees disclosure; gross alone misleads investors"
+  - rule: "Do not copy manager commentary from a prior period without review"
+    why: "Stale commentary misrepresents current market conditions and has triggered enforcement action at other managers"
+  - rule: "Do not disclose current top holdings without the industry-standard lag"
+    why: "Real-time holdings disclosure enables front-running against the fund's future trades"
+  - rule: "Do not omit the Reg 28 flag on retirement-eligible funds"
+    why: "Retirement fund trustees rely on the flag to satisfy Pension Funds Act s.19(5); omission is a fiduciary failure"
+  - rule: "Do not compute performance using simple linking instead of GIPS chain-linking"
+    why: "Non-GIPS performance figures cannot be used in marketing per ASISA Code of Advertising; misrepresentation risk"
+
+related:
+  - feature: portfolio-management
+    type: required
+    reason: "Positions and cash balances as of the factsheet date are sourced from the portfolio manager"
+  - feature: performance-attribution
+    type: required
+    reason: "Return series and risk measures are computed by the performance engine"
+  - feature: regulation-28-compliance
+    type: recommended
+    reason: "The Reg 28 flag and compliance status are surfaced on the factsheet for retirement-eligible funds"
+  - feature: immutable-audit-log
+    type: required
+    reason: "Approval events and published-version hashes are recorded to the audit log for regulator inspection"
+  - feature: popia-compliance
+    type: required
+    reason: "Distribution lists (email recipients) contain PII and must satisfy POPIA consent and minimization"
+
+agi:
+  goals:
+    - id: timely_accurate_factsheet
+      description: "Produce a compliant, accurate factsheet within the regulatory window of each month-end or quarter-end"
+      success_metrics:
+        - metric: on_time_publication_rate
+          target: ">= 99%"
+          measurement: "Fraction of factsheets published within 10 business days of as_of_date"
+        - metric: compliance_rejection_rate
+          target: "< 5%"
+          measurement: "Fraction of drafts rejected at first compliance review"
+      constraints:
+        - type: regulatory
+          description: "Content must satisfy ASISA and FSCA disclosure standards"
+          negotiable: false
+        - type: regulatory
+          description: "Approval must be logged to the immutable audit log before publication"
+          negotiable: false
+
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before submitting draft for compliance review (PM sign-off)
+      - before publishing (head of compliance)
+    escalation_triggers:
+      - consecutive_failures > 2
+      - days_late >= 5
+
+  safety:
+    action_permissions:
+      - action: factsheet_generated_successfully
+        permission: autonomous
+      - action: factsheet_approved_and_published
+        permission: human_required
+      - action: factsheet_superseded
+        permission: autonomous
+      - action: compliance_rejected
+        permission: human_required
+      - action: unauthorized_publish
+        permission: human_required
+
+  tradeoffs:
+    - prefer: regulatory_compliance
+      over: speed
+      reason: "Late publication is recoverable; non-compliant publication is a reportable breach"
+
+  verification:
+    invariants:
+      - "every published factsheet has a recorded compliance approval in the audit log"
+      - "performance is computed per GIPS chain-linking"
+      - "net-of-fees returns are shown whenever gross-of-fees are shown"
+      - "superseded versions are never physically deleted within the retention window"
+
+  coordination:
+    protocol: orchestrated

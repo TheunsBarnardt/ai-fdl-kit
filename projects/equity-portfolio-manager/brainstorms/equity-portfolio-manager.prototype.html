@@ -1,0 +1,1148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Equity Portfolio Manager — Prototype</title>
+<style>
+:root {
+  --bg: #F8FAFC;
+  --surface: #FFFFFF;
+  --surface-2: #F1F5F9;
+  --border: #E2E8F0;
+  --text: #0F172A;
+  --text-muted: #64748B;
+  --primary: #4F46E5;
+  --primary-soft: #EEF2FF;
+  --success: #059669;
+  --success-soft: #D1FAE5;
+  --warn: #B45309;
+  --warn-soft: #FEF3C7;
+  --danger: #B91C1C;
+  --danger-soft: #FEE2E2;
+  --radius: 6px;
+  --shadow: 0 1px 2px rgba(15,23,42,.04), 0 1px 3px rgba(15,23,42,.06);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+  color: var(--text); background: var(--bg);
+}
+a { color: var(--primary); text-decoration: none; }
+h1,h2,h3,h4 { margin: 0 0 12px; font-weight: 600; }
+h1 { font-size: 22px; } h2 { font-size: 18px; } h3 { font-size: 15px; } h4 { font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+p { margin: 0 0 12px; }
+small, .muted { color: var(--text-muted); }
+code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+/* Layout */
+.app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+.sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 16px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sidebar .brand { padding: 0 16px 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+.sidebar .brand b { font-size: 15px; } .sidebar .brand small { display: block; }
+.nav-group { padding: 8px 8px; }
+.nav-group h4 { margin: 8px 8px 6px; font-size: 11px; }
+.nav-btn { display: block; width: 100%; text-align: left; background: transparent; border: 0; padding: 7px 10px; border-radius: var(--radius); cursor: pointer; color: var(--text); font-size: 13px; }
+.nav-btn:hover { background: var(--surface-2); }
+.nav-btn.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+
+.main { padding: 24px 28px 80px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.topbar .breadcrumb { color: var(--text-muted); font-size: 13px; }
+.topbar .user { display: flex; gap: 12px; align-items: center; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: white; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; }
+
+/* Reusable */
+.grid { display: grid; gap: 16px; }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+.card h3 { margin-bottom: 8px; }
+.kpi { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+.kpi-delta { font-size: 12px; margin-left: 6px; }
+.pos { color: var(--success); } .neg { color: var(--danger); }
+
+.chip { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.chip.success { background: var(--success-soft); color: var(--success); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip.danger { background: var(--danger-soft); color: var(--danger); }
+.chip.info { background: var(--primary-soft); color: var(--primary); }
+.chip.neutral { background: var(--surface-2); color: var(--text-muted); }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+td { padding: 9px 10px; border-bottom: 1px solid var(--border); }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); cursor: pointer; font: inherit; font-size: 13px; font-weight: 500; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+.btn.primary:hover { background: #4338CA; }
+.btn.success { background: var(--success); color: white; border-color: var(--success); }
+.btn.danger { background: var(--danger); color: white; border-color: var(--danger); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+input, select, textarea {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius);
+  font: inherit; font-size: 13px; background: var(--surface);
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary-soft); border-color: var(--primary); }
+label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; font-weight: 500; }
+.field { margin-bottom: 12px; }
+
+/* Bar charts in pure CSS */
+.bar-row { display: grid; grid-template-columns: 140px 1fr 60px; gap: 12px; align-items: center; padding: 4px 0; font-size: 12px; }
+.bar-track { background: var(--surface-2); border-radius: 4px; height: 12px; overflow: hidden; position: relative; }
+.bar-fill { background: var(--primary); height: 100%; border-radius: 4px; }
+.bar-fill.warn { background: var(--warn); }
+.bar-fill.danger { background: var(--danger); }
+.bar-fill.success { background: var(--success); }
+.bar-limit { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--danger); }
+
+/* Prototype scaffolding */
+.proto-badge {
+  position: fixed; top: 12px; right: 12px;
+  background: var(--warn-soft); color: var(--warn);
+  padding: 4px 10px; border-radius: 4px;
+  font-size: 11px; font-weight: 600;
+  border: 1px solid #FCD34D; z-index: 9999;
+}
+
+/* Steppers */
+.stepper { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+.stepper .step { padding: 10px 16px; font-size: 13px; color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.stepper .step.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+.stepper .step.done { color: var(--success); }
+
+/* Chat / research */
+.chat-log { background: var(--surface-2); border-radius: var(--radius); padding: 12px; max-height: 320px; overflow-y: auto; margin-bottom: 12px; }
+.msg { padding: 10px 12px; border-radius: var(--radius); margin-bottom: 8px; max-width: 85%; }
+.msg.user { background: var(--primary); color: white; margin-left: auto; }
+.msg.ai { background: var(--surface); border: 1px solid var(--border); }
+.citation { display: inline-block; font-size: 10px; background: var(--primary-soft); color: var(--primary); padding: 1px 6px; border-radius: 3px; margin: 0 2px; }
+
+/* State machine */
+.state-flow { display: flex; align-items: center; gap: 8px; margin: 12px 0; overflow-x: auto; }
+.state-pill { padding: 6px 12px; border-radius: 999px; background: var(--surface-2); font-size: 12px; color: var(--text-muted); border: 1px solid var(--border); white-space: nowrap; }
+.state-pill.active { background: var(--primary); color: white; border-color: var(--primary); }
+.state-pill.done { background: var(--success-soft); color: var(--success); border-color: var(--success); }
+.state-arrow { color: var(--text-muted); }
+
+/* Auth / sign */
+.sig-box { border: 2px dashed var(--border); background: var(--surface-2); padding: 20px; text-align: center; border-radius: var(--radius); }
+
+/* Utility */
+.flex { display: flex; gap: 12px; }
+.flex.between { justify-content: space-between; align-items: center; }
+.flex.end { justify-content: flex-end; }
+.mt-8 { margin-top: 8px; } .mt-16 { margin-top: 16px; } .mt-24 { margin-top: 24px; }
+.mb-8 { margin-bottom: 8px; } .mb-16 { margin-bottom: 16px; }
+.hidden { display: none !important; }
+
+.spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; display: inline-block; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="proto-badge">FDL Prototype · Not for production</div>
+
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <b>Equity PM</b>
+      <small class="muted">CFA Workbench</small>
+    </div>
+
+    <div class="nav-group">
+      <h4>Overview</h4>
+      <button class="nav-btn" onclick="show('dashboard')">Dashboard</button>
+      <button class="nav-btn" onclick="show('audit-log')">Audit Log</button>
+    </div>
+    <div class="nav-group">
+      <h4>Funds &amp; Clients</h4>
+      <button class="nav-btn" onclick="show('funds-list')">Funds</button>
+      <button class="nav-btn" onclick="show('fund-create')">Create Fund</button>
+      <button class="nav-btn" onclick="show('client-onboarding')">Client Onboarding</button>
+      <button class="nav-btn" onclick="show('risk-profile')">Risk Profile</button>
+      <button class="nav-btn" onclick="show('ips-draft')">IPS Draft</button>
+      <button class="nav-btn" onclick="show('client-portal')">Client Portal</button>
+    </div>
+    <div class="nav-group">
+      <h4>Research</h4>
+      <button class="nav-btn" onclick="show('research')">AI Research Assistant</button>
+      <button class="nav-btn" onclick="show('research-note')">Research Note</button>
+      <button class="nav-btn" onclick="show('screener')">AI Screener</button>
+    </div>
+    <div class="nav-group">
+      <h4>Portfolios</h4>
+      <button class="nav-btn" onclick="show('model-portfolios')">Model Portfolios</button>
+      <button class="nav-btn" onclick="show('market-data')">Market Data</button>
+      <button class="nav-btn" onclick="show('rebalance')">Rebalancing</button>
+    </div>
+    <div class="nav-group">
+      <h4>Execution</h4>
+      <button class="nav-btn" onclick="show('pre-trade-pass')">Pre-Trade (Pass)</button>
+      <button class="nav-btn" onclick="show('pre-trade-breach')">Pre-Trade (Reg 28 breach)</button>
+      <button class="nav-btn" onclick="show('authorize')">Authorization Gate</button>
+      <button class="nav-btn" onclick="show('oms')">Order Management</button>
+      <button class="nav-btn" onclick="show('fills')">Fills &amp; Allocations</button>
+      <button class="nav-btn" onclick="show('recon')">Custodian Recon</button>
+    </div>
+    <div class="nav-group">
+      <h4>Reporting &amp; Compliance</h4>
+      <button class="nav-btn" onclick="show('performance')">Performance</button>
+      <button class="nav-btn" onclick="show('attribution')">Attribution</button>
+      <button class="nav-btn" onclick="show('reg28')">Reg 28 Trustee View</button>
+      <button class="nav-btn" onclick="show('gips')">GIPS Composite</button>
+      <button class="nav-btn" onclick="show('factsheet')">Fund Factsheet</button>
+      <button class="nav-btn" onclick="show('factsheet-list')">Factsheet Library</button>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <div class="topbar">
+      <div class="breadcrumb" id="crumb">Dashboard</div>
+      <div class="user">
+        <span class="chip info">CFA · PM</span>
+        <span class="avatar">TB</span>
+      </div>
+    </div>
+
+    <!-- ============ DASHBOARD ============ -->
+    <!-- Screen: dashboard | Source: Section 3 overview + Section 11 metrics -->
+    <section data-screen id="dashboard">
+      <h1>Good afternoon, Theuns</h1>
+      <p class="muted">Three actions require your attention.</p>
+
+      <div class="grid grid-4 mt-16">
+        <div class="card"><h4>AUM (ZAR)</h4><div class="kpi">R 4.82 bn <span class="kpi-delta pos">+1.2%</span></div></div>
+        <div class="card"><h4>Funds Live</h4><div class="kpi">17 <span class="kpi-delta muted">of 19</span></div></div>
+        <div class="card"><h4>Open Rebalances</h4><div class="kpi">3 <span class="kpi-delta warn">action</span></div></div>
+        <div class="card"><h4>Reg 28 Breaches (MTD)</h4><div class="kpi">0 <span class="kpi-delta pos">clean</span></div></div>
+      </div>
+
+      <div class="grid grid-2 mt-24">
+        <div class="card">
+          <div class="flex between"><h3>Action queue</h3><span class="chip warn">3</span></div>
+          <table>
+            <thead><tr><th>Type</th><th>Fund</th><th>Detail</th><th></th></tr></thead>
+            <tbody>
+              <tr><td>Rebalance</td><td>Core Equity Fund</td><td>Drift 4.2% on financials</td><td><button class="btn" onclick="show('rebalance')">Review</button></td></tr>
+              <tr><td>Authorization</td><td>Retirement Fund A</td><td>12 orders awaiting sign-off</td><td><button class="btn" onclick="show('authorize')">Authorize</button></td></tr>
+              <tr><td>Research</td><td>—</td><td>Draft note on SBK ready</td><td><button class="btn" onclick="show('research-note')">Open</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>AUM by strategy</h3>
+          <div class="bar-row"><span>Core Equity</span><div class="bar-track"><div class="bar-fill" style="width:58%"></div></div><span class="num">R 2.80bn</span></div>
+          <div class="bar-row"><span>Reg 28 Moderate</span><div class="bar-track"><div class="bar-fill success" style="width:38%"></div></div><span class="num">R 1.83bn</span></div>
+          <div class="bar-row"><span>Global Aggressive</span><div class="bar-track"><div class="bar-fill" style="width:22%"></div></div><span class="num">R 1.06bn</span></div>
+          <div class="bar-row"><span>Income</span><div class="bar-track"><div class="bar-fill warn" style="width:14%"></div></div><span class="num">R 0.67bn</span></div>
+        </div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Recent activity</h3>
+        <table>
+          <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Artifact</th></tr></thead>
+          <tbody>
+            <tr><td>14:22</td><td>T. Barnardt (PM)</td><td>Authorized trade batch</td><td>RBL-2026-0419-07 · 12 orders</td></tr>
+            <tr><td>13:58</td><td>System</td><td>Drift detected</td><td>Core Equity Fund · financials +4.2%</td></tr>
+            <tr><td>13:10</td><td>L. Mokoena (Compliance)</td><td>Counter-signed</td><td>RBL-2026-0419-07</td></tr>
+            <tr><td>11:44</td><td>AI Assistant</td><td>Drafted research note</td><td>SBK · grounded in DDM/multiples</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ FUNDS LIST ============ -->
+    <!-- Screen: funds-list | Source: Section 3.1 Fund Lifecycle -->
+    <section data-screen id="funds-list" hidden>
+      <div class="flex between mb-16"><h1>Funds</h1><button class="btn primary" onclick="show('fund-create')">+ New fund</button></div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Name</th><th>Type</th><th>State</th><th class="num">AUM</th><th>Benchmark</th><th>Inception</th></tr></thead>
+          <tbody>
+            <tr><td>Core Equity Fund</td><td>Segregated</td><td><span class="chip success">live</span></td><td class="num">R 2.80bn</td><td>SWIX</td><td>2019-03-01</td></tr>
+            <tr><td>Retirement Fund A</td><td>Retirement (Reg 28)</td><td><span class="chip success">live</span></td><td class="num">R 1.45bn</td><td>CPI +4%</td><td>2021-07-15</td></tr>
+            <tr><td>Global Aggressive</td><td>Segregated</td><td><span class="chip success">live</span></td><td class="num">R 1.06bn</td><td>MSCI ACWI</td><td>2022-11-10</td></tr>
+            <tr><td>Retirement Fund B</td><td>Retirement (Reg 28)</td><td><span class="chip info">approved</span></td><td class="num">—</td><td>CPI +3%</td><td>pending</td></tr>
+            <tr><td>Technology Focus</td><td>Segregated</td><td><span class="chip warn">draft</span></td><td class="num">—</td><td>NASDAQ-100</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ FUND CREATE ============ -->
+    <!-- Screen: fund-create | Source: Section 3.1 Fund Lifecycle state machine -->
+    <section data-screen id="fund-create" hidden>
+      <h1>Create a new fund</h1>
+      <div class="stepper">
+        <div class="step active">1. Basics</div>
+        <div class="step">2. Mandate &amp; Reg 28</div>
+        <div class="step">3. Model portfolio</div>
+        <div class="step">4. Trustees &amp; approvals</div>
+      </div>
+
+      <div class="card">
+        <div class="grid grid-2">
+          <div class="field"><label>Fund name</label><input value="Retirement Fund C" /></div>
+          <div class="field"><label>Fund type</label>
+            <select>
+              <option>Segregated mandate</option>
+              <option selected>Retirement (Reg 28)</option>
+              <option>Unit trust</option>
+            </select>
+          </div>
+          <div class="field"><label>Base currency</label><select><option selected>ZAR</option><option>USD</option></select></div>
+          <div class="field"><label>Benchmark</label><select><option>SWIX</option><option selected>CPI +4%</option><option>MSCI ACWI</option></select></div>
+          <div class="field"><label>Performance fee</label><input value="20% above high water mark" /></div>
+          <div class="field"><label>Annual management fee</label><input value="0.75%" /></div>
+        </div>
+        <div class="flex end mt-16">
+          <button class="btn" onclick="show('funds-list')">Cancel</button>
+          <button class="btn primary" onclick="show('fund-created')">Next: Mandate →</button>
+        </div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>State machine</h3>
+        <div class="state-flow">
+          <span class="state-pill active">draft</span>
+          <span class="state-arrow">→</span>
+          <span class="state-pill">mandate signed</span>
+          <span class="state-arrow">→</span>
+          <span class="state-pill">trustee approved</span>
+          <span class="state-arrow">→</span>
+          <span class="state-pill">custodian linked</span>
+          <span class="state-arrow">→</span>
+          <span class="state-pill">live</span>
+        </div>
+        <small class="muted">SLA: 5 business days from mandate signed to live. Dual approval required on retirement funds.</small>
+      </div>
+    </section>
+
+    <!-- ============ FUND CREATED ============ -->
+    <section data-screen id="fund-created" hidden>
+      <h1>Retirement Fund C created</h1>
+      <div class="card">
+        <p><span class="chip success">success</span> Fund saved in <code>draft</code>. Next step: upload mandate document and request trustee approval.</p>
+        <div class="flex mt-16"><button class="btn primary" onclick="show('funds-list')">View fund list</button><button class="btn" onclick="show('ips-draft')">Generate IPS with AI</button></div>
+      </div>
+    </section>
+
+    <!-- ============ CLIENT ONBOARDING ============ -->
+    <!-- Screen: client-onboarding | Source: Section 3.1 Client onboarding + workflow/account-opening -->
+    <section data-screen id="client-onboarding" hidden>
+      <h1>Client onboarding</h1>
+      <div class="stepper">
+        <div class="step done">1. Profile</div>
+        <div class="step done">2. FICA / KYC</div>
+        <div class="step active">3. Risk profile</div>
+        <div class="step">4. IPS</div>
+        <div class="step">5. Custodian</div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>Client profile</h3>
+          <div class="field"><label>Full name</label><input value="Anonymous Client" /></div>
+          <div class="field"><label>Email</label><input value="client@example.com" /></div>
+          <div class="field"><label>Phone</label><input value="+27 11 555 0100" /></div>
+          <div class="field"><label>Tax status</label><select><option>SA resident</option><option>Non-resident</option></select></div>
+        </div>
+        <div class="card">
+          <h3>POPIA consent</h3>
+          <p><span class="chip success">recorded</span> Purpose-limited consent captured 2026-04-19 14:02.</p>
+          <ul>
+            <li>Collection grounds: contract performance + legitimate interest</li>
+            <li>Retention: 7 years post-termination (FSCA)</li>
+            <li>Cross-border transfer: none</li>
+            <li>Right to access, correction, deletion: enabled in client portal</li>
+          </ul>
+        </div>
+      </div>
+      <div class="flex end mt-16"><button class="btn primary" onclick="show('risk-profile')">Continue to risk profile →</button></div>
+    </section>
+
+    <!-- ============ RISK PROFILE ============ -->
+    <!-- Screen: risk-profile | Source: Section 3.1 risk profiling -->
+    <section data-screen id="risk-profile" hidden>
+      <h1>Risk tolerance questionnaire</h1>
+      <div class="card">
+        <div class="field"><label>Investment horizon</label><select><option>&lt; 2 years</option><option>2-5 years</option><option selected>5-10 years</option><option>10+ years</option></select></div>
+        <div class="field"><label>Loss tolerance — 20% drawdown scenario</label><select><option>Sell everything</option><option>Reduce exposure</option><option selected>Hold</option><option>Buy more</option></select></div>
+        <div class="field"><label>Liquidity needs</label><select><option>High (immediate)</option><option selected>Moderate (12 months)</option><option>Low (&gt; 5 years)</option></select></div>
+        <div class="field"><label>Experience with equities</label><select><option>None</option><option>Some</option><option selected>Extensive</option></select></div>
+        <div class="field"><label>Annual income band (ZAR)</label><select><option>&lt; 500k</option><option>500k-1.5m</option><option selected>1.5m-5m</option><option>&gt; 5m</option></select></div>
+        <div class="field"><label>Special mandates</label>
+          <select><option>None</option><option selected>Regulation 28 compliant</option><option>ESG screen</option><option>Shariah</option></select>
+        </div>
+      </div>
+      <div class="card mt-16">
+        <h3>Computed risk bucket</h3>
+        <p><span class="chip info">Moderate-Aggressive</span> — suitable for a Reg 28 compliant mandate with up to 75% equity, 45% foreign exposure, and inflation +3-5% targeted return.</p>
+        <div class="flex end"><button class="btn primary" onclick="show('ips-draft')">Generate IPS →</button></div>
+      </div>
+    </section>
+
+    <!-- ============ IPS DRAFT ============ -->
+    <!-- Screen: ips-draft | Source: Section 3.1 IPS generator -->
+    <section data-screen id="ips-draft" hidden>
+      <h1>Investment Policy Statement (AI draft)</h1>
+      <p><span class="chip warn">draft</span> Generated by AI from risk profile + Reg 28 template. CFA must edit and approve before issuance.</p>
+      <div class="card">
+        <h3>1. Objectives</h3>
+        <textarea rows="3">Preserve and grow capital at CPI + 4% over rolling 5-year periods, subject to Regulation 28 prudential limits. Secondary objective: income generation sufficient to meet expected pensioner drawdowns without forced selling.</textarea>
+        <h3 class="mt-16">2. Risk tolerance</h3>
+        <textarea rows="2">Moderate-aggressive. Tolerate 20-25% peak-to-trough drawdown over short horizons. Tracking error vs CPI+4% blended benchmark capped at 6% annualised.</textarea>
+        <h3 class="mt-16">3. Asset allocation ranges (Reg 28 bounded)</h3>
+        <table>
+          <thead><tr><th>Asset class</th><th>Target</th><th>Range</th><th>Reg 28 cap</th></tr></thead>
+          <tbody>
+            <tr><td>SA equities</td><td>45%</td><td>35-55%</td><td>75% (combined)</td></tr>
+            <tr><td>Foreign equities</td><td>25%</td><td>20-35%</td><td>45%</td></tr>
+            <tr><td>Property</td><td>10%</td><td>5-15%</td><td>25%</td></tr>
+            <tr><td>Fixed income</td><td>15%</td><td>10-25%</td><td>—</td></tr>
+            <tr><td>Cash</td><td>5%</td><td>0-10%</td><td>—</td></tr>
+          </tbody>
+        </table>
+        <h3 class="mt-16">4. Rebalancing policy</h3>
+        <textarea rows="2">Calendar quarterly + drift-triggered at ±3% absolute per asset class. Tax-aware HIFO lot selection. Pre-trade compliance hard-blocks any Reg 28 breach.</textarea>
+        <h3 class="mt-16">Citations <span class="citation">trading/strategic-asset-allocation</span> <span class="citation">trading/regulation-28-compliance</span> <span class="citation">trading/risk-budgeting-tolerance</span></h3>
+      </div>
+      <div class="flex end mt-16">
+        <button class="btn">Save draft</button>
+        <button class="btn primary" onclick="alert('IPS sent to trustees for approval (fake)')">Submit for trustee approval</button>
+      </div>
+    </section>
+
+    <!-- ============ MARKET DATA ============ -->
+    <!-- Screen: market-data | Source: Section 3.2 market-data-ingestion -->
+    <section data-screen id="market-data" hidden>
+      <h1>Market data — in-house store</h1>
+      <div class="grid grid-3">
+        <div class="card"><h4>Last EOD load</h4><div class="kpi">18:32 SAST</div><small class="muted">JSE EOD file · 487 securities</small></div>
+        <div class="card"><h4>Corporate actions pending</h4><div class="kpi">2</div><small class="muted">NPN unbundling · BHP rights issue</small></div>
+        <div class="card"><h4>Stale prices</h4><div class="kpi pos">0</div><small class="muted">all sec &lt; 1 trading day</small></div>
+      </div>
+
+      <div class="card mt-16">
+        <div class="flex between"><h3>Recent EOD loader runs</h3><button class="btn">Replay failed run</button></div>
+        <table>
+          <thead><tr><th>Date</th><th>Source</th><th>Records</th><th>Parse errors</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>2026-04-19</td><td>JSE EOD fixed-width</td><td class="num">487</td><td class="num">0</td><td><span class="chip success">ok</span></td></tr>
+            <tr><td>2026-04-18</td><td>JSE EOD fixed-width</td><td class="num">487</td><td class="num">0</td><td><span class="chip success">ok</span></td></tr>
+            <tr><td>2026-04-17</td><td>JSE EOD fixed-width</td><td class="num">486</td><td class="num">1</td><td><span class="chip warn">reviewed</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Schema — <code>price_daily</code></h3>
+        <small class="muted">Feed-agnostic: same table populated from JSE direct, Iress, Bloomberg B-PIPE, Refinitiv, or OpenBB.</small>
+        <pre style="background:var(--surface-2); padding:12px; border-radius:4px; font-size:12px; overflow-x:auto;">isin text, ticker text, trade_date date,
+open numeric(14,4), high numeric(14,4), low numeric(14,4), close numeric(14,4),
+volume bigint, vwap numeric(14,4), currency char(3),
+corp_action_adj jsonb, source text, ingested_at timestamptz,
+primary key (isin, trade_date)</pre>
+      </div>
+    </section>
+
+    <!-- ============ AI RESEARCH ============ -->
+    <!-- Screen: research | Source: Section 3.3 AI research assistant -->
+    <section data-screen id="research" hidden>
+      <h1>AI research assistant</h1>
+      <p class="muted">Grounded in your CFA blueprints + internal market data. Every claim is cited. Output is a <b>draft</b> — you author the final note.</p>
+
+      <div class="card">
+        <div class="chat-log" id="chat-log">
+          <div class="msg ai"><b>Assistant:</b> Ready. Ask me for a thesis, valuation, screener, or peer comparison.</div>
+          <div class="msg user">Thesis on Standard Bank (SBK) at R195.40</div>
+          <div class="msg ai">
+            Loading grounding: <span class="citation">equity-valuation-ddm</span> <span class="citation">equity-valuation-multiples</span> <span class="citation">equity-return-roe</span> <span class="citation">company-forecasting-model</span><br>
+            Pulling 5-year fundamentals, peer set (FSR, NED, ABG, CPI), analyst consensus...<br>
+            <i>Draft ready in 22 seconds.</i>
+          </div>
+        </div>
+        <div class="field"><label>Your query</label><textarea rows="2" placeholder="e.g. 'Compare Naspers and Prosus FCF yield over 5 years'"></textarea></div>
+        <div class="flex end">
+          <button class="btn" onclick="document.getElementById('chat-log').scrollTop = 9999">Clear</button>
+          <button class="btn primary" onclick="runResearch()"><span id="research-spinner" class="hidden"><span class="spinner"></span></span> Ask</button>
+        </div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Grounding sources available</h3>
+        <div class="flex" style="flex-wrap:wrap;">
+          <span class="chip info">equity-valuation-ddm</span>
+          <span class="chip info">equity-valuation-multiples</span>
+          <span class="chip info">equity-return-roe</span>
+          <span class="chip info">company-forecasting-model</span>
+          <span class="chip info">fintech-investment-analysis</span>
+          <span class="chip info">behavioral-biases-emotional</span>
+          <span class="chip info">corporate-capital-structure</span>
+          <span class="chip info">market-indexes-construction</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ RESEARCH NOTE ============ -->
+    <section data-screen id="research-note" hidden>
+      <div class="flex between">
+        <h1>SBK — Investment thesis</h1>
+        <span class="chip warn">AI draft · unpublished</span>
+      </div>
+      <p class="muted">Generated 2026-04-19 14:22 · CFA review required before publish</p>
+
+      <div class="card">
+        <h3>Thesis</h3>
+        <p>Standard Bank at R195.40 trades on a forward P/E of 8.9× against a 10-year median of 10.2×, with ROE of 17.4% (5y avg 16.1%) and a dividend yield of 5.8%. Three-stage DDM <span class="citation">equity-valuation-ddm</span> implies fair value R214-R228, a 9-16% margin. Primary drivers: Africa franchise margin recovery, credit-loss normalisation, capital return via buyback.</p>
+
+        <h3>Valuation</h3>
+        <table>
+          <thead><tr><th>Method</th><th>Input</th><th class="num">Fair value</th><th class="num">vs market</th></tr></thead>
+          <tbody>
+            <tr><td>DDM (3-stage)</td><td>g₁=6%, g₂=4%, g₃=3%, k=12%</td><td class="num">R 221.40</td><td class="num pos">+13.3%</td></tr>
+            <tr><td>P/E multiples <span class="citation">equity-valuation-multiples</span></td><td>Peer median 10.1× · FY27 EPS R22.10</td><td class="num">R 223.21</td><td class="num pos">+14.2%</td></tr>
+            <tr><td>DuPont ROE <span class="citation">equity-return-roe</span></td><td>NM 18.2% · AT 0.052 · Leverage 18.4×</td><td class="num">ROE 17.4%</td><td class="num muted">context</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Risks</h3>
+        <ul>
+          <li>SA sovereign risk — prolonged ZAR weakness or SARB hawkish surprise</li>
+          <li>Credit quality — consumer book deterioration if unemployment rises</li>
+          <li>Regulatory — Basel IV capital floor phase-in</li>
+        </ul>
+
+        <h3>Recommendation</h3>
+        <p><b>Accumulate on weakness below R200.</b> Target weight 3.5% in Core Equity Fund (currently 2.9%). <b>Not recommended for Retirement Fund A</b> — would take single-issuer banking exposure to 14.8%, within but close to Reg 28 5% cap per issuer.</p>
+
+        <div class="flex end mt-16">
+          <button class="btn">Edit draft</button>
+          <button class="btn">Reject</button>
+          <button class="btn primary" onclick="alert('Note published and filed under SBK (fake).')">Approve &amp; publish</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SCREENER ============ -->
+    <!-- Screen: screener | Source: Section 3.4 AI screener -->
+    <section data-screen id="screener" hidden>
+      <h1>AI stock screener</h1>
+      <div class="card">
+        <div class="field"><label>Natural-language query</label>
+          <textarea rows="2">JSE-listed industrials with ROE &gt; 15%, P/E &lt; 12, dividend yield &gt; 3%, no single-issuer Reg 28 breach at 5% weight</textarea>
+        </div>
+        <div class="flex end"><button class="btn primary">Run screen</button></div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>12 matches</h3>
+        <table>
+          <thead><tr><th>Ticker</th><th>Name</th><th class="num">ROE</th><th class="num">P/E</th><th class="num">Yield</th><th>Sector</th><th>Reg 28 flag</th></tr></thead>
+          <tbody>
+            <tr><td>BVT</td><td>Bidvest</td><td class="num">19.2%</td><td class="num">11.4</td><td class="num">3.8%</td><td>Industrials</td><td><span class="chip success">ok</span></td></tr>
+            <tr><td>REM</td><td>Remgro</td><td class="num">15.6%</td><td class="num">9.8</td><td class="num">4.2%</td><td>Industrials</td><td><span class="chip success">ok</span></td></tr>
+            <tr><td>BAW</td><td>Barloworld</td><td class="num">17.1%</td><td class="num">7.9</td><td class="num">5.1%</td><td>Industrials</td><td><span class="chip success">ok</span></td></tr>
+            <tr><td>IMP</td><td>Impala Platinum</td><td class="num">22.3%</td><td class="num">6.1</td><td class="num">6.9%</td><td>Materials</td><td><span class="chip warn">concentration</span></td></tr>
+            <tr><td>NPN</td><td>Naspers</td><td class="num">16.8%</td><td class="num">10.4</td><td class="num">3.1%</td><td>Consumer discretionary</td><td><span class="chip danger">breach risk</span></td></tr>
+          </tbody>
+        </table>
+        <div class="flex end"><button class="btn">Export CSV</button><button class="btn primary" onclick="show('research')">Send selection to research</button></div>
+      </div>
+    </section>
+
+    <!-- ============ MODEL PORTFOLIOS ============ -->
+    <!-- Screen: model-portfolios | Source: Section 3.5 model portfolios -->
+    <section data-screen id="model-portfolios" hidden>
+      <h1>Model portfolios</h1>
+      <div class="card">
+        <table>
+          <thead><tr><th>Name</th><th>Strategy</th><th>Target TE</th><th>Funds bound</th><th>Last review</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>SA Equity Core</td><td>SWIX-aware active</td><td class="num">4.0%</td><td class="num">5</td><td>2026-04-01</td><td><button class="btn">Edit</button></td></tr>
+            <tr><td>Reg 28 Moderate</td><td>Balanced w/ Reg 28 guardrails</td><td class="num">3.0%</td><td class="num">4</td><td>2026-04-08</td><td><button class="btn">Edit</button></td></tr>
+            <tr><td>Global Aggressive</td><td>MSCI ACWI tilt</td><td class="num">6.0%</td><td class="num">2</td><td>2026-03-14</td><td><button class="btn">Edit</button></td></tr>
+            <tr><td>Income Focus</td><td>Dividend + bond overlay</td><td class="num">2.5%</td><td class="num">3</td><td>2026-04-10</td><td><button class="btn">Edit</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Reg 28 Moderate — constituents</h3>
+        <table>
+          <thead><tr><th>Ticker</th><th>Name</th><th class="num">Target %</th><th class="num">Tolerance</th><th>Reg 28 category</th></tr></thead>
+          <tbody>
+            <tr><td>NPN</td><td>Naspers</td><td class="num">5.0</td><td class="num">±1.0</td><td>Equity · single issuer tier</td></tr>
+            <tr><td>FSR</td><td>FirstRand</td><td class="num">4.2</td><td class="num">±1.0</td><td>Equity · listed</td></tr>
+            <tr><td>SBK</td><td>Standard Bank</td><td class="num">3.5</td><td class="num">±1.0</td><td>Equity · listed</td></tr>
+            <tr><td>BHP</td><td>BHP</td><td class="num">3.0</td><td class="num">±1.0</td><td>Equity · foreign (45% cap)</td></tr>
+            <tr><td>R2030</td><td>RSA govt bond</td><td class="num">12.0</td><td class="num">±2.0</td><td>Fixed income · govt</td></tr>
+            <tr><td>CASH</td><td>Money market</td><td class="num">5.0</td><td class="num">±3.0</td><td>Cash</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ REBALANCE ============ -->
+    <!-- Screen: rebalance | Source: Section 3.6 Rebalancing Engine + Section 4.2 journey -->
+    <section data-screen id="rebalance" hidden>
+      <h1>Rebalance proposal — Core Equity Fund</h1>
+      <p><span class="chip warn">drift detected</span> Financial sector +4.2% over tolerance (+3%). Engine proposes trade list below.</p>
+
+      <div class="grid grid-4">
+        <div class="card"><h4>Drift (largest)</h4><div class="kpi">4.2%</div><small>Financials</small></div>
+        <div class="card"><h4>Proposed trades</h4><div class="kpi">12</div><small>8 sells · 4 buys</small></div>
+        <div class="card"><h4>Turnover</h4><div class="kpi">3.8%</div><small>R 107m notional</small></div>
+        <div class="card"><h4>Est. tax drag</h4><div class="kpi">R 1.2m</div><small>HIFO lot selection applied</small></div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Proposed trade list</h3>
+        <table>
+          <thead><tr><th>Ticker</th><th>Side</th><th class="num">Shares</th><th class="num">Est. price</th><th class="num">Notional</th><th>Reason</th></tr></thead>
+          <tbody>
+            <tr><td>FSR</td><td><span class="chip danger">sell</span></td><td class="num">85 000</td><td class="num">R 74.20</td><td class="num">R 6.31m</td><td>Overweight</td></tr>
+            <tr><td>SBK</td><td><span class="chip danger">sell</span></td><td class="num">40 000</td><td class="num">R 195.40</td><td class="num">R 7.82m</td><td>Overweight</td></tr>
+            <tr><td>NED</td><td><span class="chip danger">sell</span></td><td class="num">22 000</td><td class="num">R 248.70</td><td class="num">R 5.47m</td><td>Overweight</td></tr>
+            <tr><td>BVT</td><td><span class="chip success">buy</span></td><td class="num">45 000</td><td class="num">R 278.50</td><td class="num">R 12.53m</td><td>Target uplift</td></tr>
+            <tr><td>SHP</td><td><span class="chip success">buy</span></td><td class="num">52 000</td><td class="num">R 226.10</td><td class="num">R 11.76m</td><td>New position</td></tr>
+            <tr><td>CPI</td><td><span class="chip success">buy</span></td><td class="num">90 000</td><td class="num">R 315.80</td><td class="num">R 28.42m</td><td>Target uplift</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex end mt-16">
+        <button class="btn">Reject proposal</button>
+        <button class="btn" onclick="show('research')">Get AI rationale</button>
+        <button class="btn primary" onclick="show('pre-trade-pass')">Run pre-trade compliance →</button>
+      </div>
+    </section>
+
+    <!-- ============ PRE-TRADE PASS ============ -->
+    <!-- Screen: pre-trade-pass | Source: Section 3.7 compliance engine (pass path) -->
+    <section data-screen id="pre-trade-pass" hidden>
+      <h1>Pre-trade compliance — Core Equity Fund</h1>
+      <p><span class="chip success">all checks passed</span> Proposal ready for authorization.</p>
+      <div class="card">
+        <table>
+          <thead><tr><th>Check</th><th>Rule</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td>Mandate — equity range</td><td>35-55%</td><td><span class="chip success">48.1%</span></td></tr>
+            <tr><td>Mandate — sector cap (Financials)</td><td>≤ 30%</td><td><span class="chip success">26.8%</span></td></tr>
+            <tr><td>Concentration — single issuer</td><td>≤ 5%</td><td><span class="chip success">max 4.4%</span></td></tr>
+            <tr><td>Liquidity — 20-day ADV</td><td>≤ 10% of ADV</td><td><span class="chip success">ok</span></td></tr>
+            <tr><td>Restricted list</td><td>no prohibited names</td><td><span class="chip success">ok</span></td></tr>
+            <tr><td>Suspended securities</td><td>no suspended</td><td><span class="chip success">ok</span></td></tr>
+            <tr><td>Reg 28 (N/A — segregated fund)</td><td>skipped</td><td><span class="chip neutral">N/A</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="flex end mt-16"><button class="btn primary" onclick="show('authorize')">Proceed to authorization →</button></div>
+    </section>
+
+    <!-- ============ PRE-TRADE BREACH ============ -->
+    <!-- Screen: pre-trade-breach | Source: Section 4.3 Reg 28 breach path -->
+    <section data-screen id="pre-trade-breach" hidden>
+      <h1>Pre-trade compliance — Retirement Fund A</h1>
+      <p><span class="chip danger">REG28_SINGLE_ISSUER_BREACH</span> Proposal blocked. No override available — Reg 28 is a hard rule.</p>
+
+      <div class="card">
+        <h3>Breach detail</h3>
+        <table>
+          <tr><td class="muted">Error code</td><td><code>REG28_SINGLE_ISSUER_BREACH</code></td></tr>
+          <tr><td class="muted">Rule reference</td><td><span class="citation">trading/regulation-28-compliance · single_issuer_cap_non_gov</span></td></tr>
+          <tr><td class="muted">Issuer</td><td>Naspers + Prosus (combined per Reg 28 issuer aggregation)</td></tr>
+          <tr><td class="muted">Proposed weight</td><td>28.4%</td></tr>
+          <tr><td class="muted">Cap</td><td>15% (non-top40 issuer tier)</td></tr>
+          <tr><td class="muted">Over by</td><td class="neg">+13.4%</td></tr>
+        </table>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Reg 28 allocation vs limits (post-proposal)</h3>
+        <div class="bar-row"><span>Equities</span><div class="bar-track"><div class="bar-fill warn" style="width:66%"></div><div class="bar-limit" style="left:75%"></div></div><span class="num">66% / 75%</span></div>
+        <div class="bar-row"><span>Property</span><div class="bar-track"><div class="bar-fill" style="width:11%"></div><div class="bar-limit" style="left:25%"></div></div><span class="num">11% / 25%</span></div>
+        <div class="bar-row"><span>Foreign</span><div class="bar-track"><div class="bar-fill" style="width:38%"></div><div class="bar-limit" style="left:45%"></div></div><span class="num">38% / 45%</span></div>
+        <div class="bar-row"><span>Hedge funds</span><div class="bar-track"><div class="bar-fill" style="width:4%"></div><div class="bar-limit" style="left:10%"></div></div><span class="num">4% / 10%</span></div>
+        <div class="bar-row"><span>Single issuer (NPN+PRX)</span><div class="bar-track"><div class="bar-fill danger" style="width:95%"></div><div class="bar-limit" style="left:50%"></div></div><span class="num neg">28% / 15%</span></div>
+        <small class="muted">Vertical line marks the limit. Bar overflow = breach.</small>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Suggested remediation</h3>
+        <ul>
+          <li>Reduce proposed NPN+PRX purchase by 13.4% of fund value (R 194m notional)</li>
+          <li>Redirect to alternatives: REM, BHP, CPI — all clear of issuer cap</li>
+        </ul>
+        <div class="flex end"><button class="btn" onclick="show('rebalance')">Edit proposal</button><button class="btn primary" onclick="alert('Breach logged to compliance audit (fake)')">Log &amp; close</button></div>
+      </div>
+    </section>
+
+    <!-- ============ AUTHORIZE ============ -->
+    <!-- Screen: authorize | Source: Section 3.6 human authorization gate -->
+    <section data-screen id="authorize" hidden>
+      <h1>Authorize trade batch RBL-2026-0419-07</h1>
+      <p class="muted">Every trade requires a human signature. Second signature required on batches &gt; R 10m.</p>
+
+      <div class="card">
+        <h3>Summary</h3>
+        <div class="grid grid-4">
+          <div><small class="muted">Fund</small><div><b>Core Equity Fund</b></div></div>
+          <div><small class="muted">Orders</small><div><b>12</b></div></div>
+          <div><small class="muted">Notional</small><div><b>R 107.3m</b></div></div>
+          <div><small class="muted">Compliance</small><div><span class="chip success">passed</span></div></div>
+        </div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Signature</h3>
+        <div class="grid grid-2">
+          <div>
+            <div class="sig-box">
+              <div class="avatar" style="width:48px;height:48px;font-size:18px;margin:0 auto 8px;">TB</div>
+              <b>Theuns Barnardt</b> · PM<br>
+              <small class="muted">Hardware key required</small>
+              <div class="flex mt-8" style="justify-content:center"><button class="btn primary" onclick="this.innerHTML='<span class=spinner></span> Signed'">Sign as PM</button></div>
+            </div>
+          </div>
+          <div>
+            <div class="sig-box">
+              <div class="avatar" style="width:48px;height:48px;font-size:18px;margin:0 auto 8px;background:var(--warn)">LM</div>
+              <b>L. Mokoena</b> · Compliance<br>
+              <small class="muted">Second signature (required &gt; R 10m)</small>
+              <div class="flex mt-8" style="justify-content:center"><button class="btn" disabled>Awaiting PM signature</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Reason (required)</h3>
+        <textarea rows="2">Quarterly drift rebalance. Financials overweight per quarterly review; rotating into quality industrials and consumer defensive.</textarea>
+        <div class="flex end mt-16">
+          <button class="btn">Cancel</button>
+          <button class="btn success" onclick="show('oms')">Submit authorized batch →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ OMS ============ -->
+    <!-- Screen: oms | Source: Section 3.8 OMS -->
+    <section data-screen id="oms" hidden>
+      <h1>Order management</h1>
+      <div class="grid grid-4">
+        <div class="card"><h4>Working</h4><div class="kpi">7</div></div>
+        <div class="card"><h4>Filled</h4><div class="kpi">4</div></div>
+        <div class="card"><h4>Rejected</h4><div class="kpi">1</div></div>
+        <div class="card"><h4>Routed to</h4><div class="kpi">2</div><small class="muted">brokers</small></div>
+      </div>
+
+      <div class="card mt-16">
+        <table>
+          <thead><tr><th>Order ID</th><th>Ticker</th><th>Side</th><th class="num">Qty</th><th class="num">Working</th><th class="num">Filled</th><th class="num">Avg price</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>01HK7...A1</td><td>FSR</td><td>SELL</td><td class="num">85 000</td><td class="num">0</td><td class="num">85 000</td><td class="num">74.18</td><td><span class="chip success">filled</span></td></tr>
+            <tr><td>01HK7...A2</td><td>SBK</td><td>SELL</td><td class="num">40 000</td><td class="num">12 000</td><td class="num">28 000</td><td class="num">195.32</td><td><span class="chip info">working</span></td></tr>
+            <tr><td>01HK7...A3</td><td>NED</td><td>SELL</td><td class="num">22 000</td><td class="num">22 000</td><td class="num">0</td><td class="num">—</td><td><span class="chip info">working</span></td></tr>
+            <tr><td>01HK7...B1</td><td>BVT</td><td>BUY</td><td class="num">45 000</td><td class="num">0</td><td class="num">45 000</td><td class="num">278.65</td><td><span class="chip success">filled</span></td></tr>
+            <tr><td>01HK7...B2</td><td>SHP</td><td>BUY</td><td class="num">52 000</td><td class="num">52 000</td><td class="num">0</td><td class="num">—</td><td><span class="chip info">working</span></td></tr>
+            <tr><td>01HK7...B3</td><td>CPI</td><td>BUY</td><td class="num">90 000</td><td class="num">0</td><td class="num">0</td><td class="num">—</td><td><span class="chip danger">rejected</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Rejection detail — CPI</h3>
+        <p><span class="chip danger">BROKER_REJECT_LIQUIDITY</span> Order size exceeds venue liquidity threshold. Suggested: slice into 3 tranches over 2 days.</p>
+      </div>
+    </section>
+
+    <!-- ============ FILLS ============ -->
+    <section data-screen id="fills" hidden>
+      <h1>Fills &amp; allocations</h1>
+      <div class="card">
+        <h3>Allocation — FSR SELL 85 000 @ R 74.18</h3>
+        <table>
+          <thead><tr><th>Fund / account</th><th class="num">Shares</th><th class="num">%</th><th class="num">Proceeds</th><th>Lot method</th></tr></thead>
+          <tbody>
+            <tr><td>Core Equity Fund</td><td class="num">60 000</td><td class="num">70.6%</td><td class="num">R 4.45m</td><td>HIFO</td></tr>
+            <tr><td>Global Aggressive</td><td class="num">15 000</td><td class="num">17.6%</td><td class="num">R 1.11m</td><td>HIFO</td></tr>
+            <tr><td>Technology Focus</td><td class="num">10 000</td><td class="num">11.8%</td><td class="num">R 0.74m</td><td>FIFO</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ RECON ============ -->
+    <section data-screen id="recon" hidden>
+      <h1>Custodian reconciliation</h1>
+      <div class="grid grid-3">
+        <div class="card"><h4>As of</h4><div class="kpi">19:00 SAST</div><small>T+0</small></div>
+        <div class="card"><h4>Positions matched</h4><div class="kpi pos">487 / 487</div></div>
+        <div class="card"><h4>Cash breaks</h4><div class="kpi warn">1</div></div>
+      </div>
+      <div class="card mt-16">
+        <h3>Breaks</h3>
+        <table>
+          <thead><tr><th>Fund</th><th>Type</th><th>Our value</th><th>Custodian</th><th>Delta</th></tr></thead>
+          <tbody>
+            <tr><td>Retirement Fund A</td><td>Cash (ZAR)</td><td class="num">R 12 340 520</td><td class="num">R 12 340 100</td><td class="num neg">-R 420</td></tr>
+          </tbody>
+        </table>
+        <p class="muted mt-8">Likely fee accrual timing. Auto-remediation pending.</p>
+      </div>
+    </section>
+
+    <!-- ============ PERFORMANCE ============ -->
+    <!-- Screen: performance | Source: Section 3.9 GIPS + TWR -->
+    <section data-screen id="performance" hidden>
+      <h1>Performance — Core Equity Fund</h1>
+      <div class="grid grid-4">
+        <div class="card"><h4>YTD (TWR)</h4><div class="kpi pos">+8.4%</div><small>vs SWIX +6.9%</small></div>
+        <div class="card"><h4>1y</h4><div class="kpi pos">+14.1%</div><small>vs SWIX +11.8%</small></div>
+        <div class="card"><h4>3y ann.</h4><div class="kpi pos">+11.2%</div></div>
+        <div class="card"><h4>Sharpe (3y)</h4><div class="kpi">0.74</div></div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>TWR chain-link</h3>
+        <p class="muted">Time-weighted return calculated per <span class="citation">trading/time-weighted-return</span> — sub-period HPRs chain-linked to neutralise cash-flow timing.</p>
+        <div class="bar-row"><span>Q1 2026</span><div class="bar-track"><div class="bar-fill success" style="width:42%"></div></div><span class="num pos">+4.2%</span></div>
+        <div class="bar-row"><span>Q4 2025</span><div class="bar-track"><div class="bar-fill success" style="width:31%"></div></div><span class="num pos">+3.1%</span></div>
+        <div class="bar-row"><span>Q3 2025</span><div class="bar-track"><div class="bar-fill danger" style="width:18%"></div></div><span class="num neg">-1.8%</span></div>
+        <div class="bar-row"><span>Q2 2025</span><div class="bar-track"><div class="bar-fill success" style="width:28%"></div></div><span class="num pos">+2.8%</span></div>
+        <div class="bar-row"><span>Q1 2025</span><div class="bar-track"><div class="bar-fill success" style="width:36%"></div></div><span class="num pos">+3.6%</span></div>
+      </div>
+    </section>
+
+    <!-- ============ ATTRIBUTION ============ -->
+    <!-- Screen: attribution | Source: Section 3.9 Brinson-Fachler -->
+    <section data-screen id="attribution" hidden>
+      <h1>Brinson-Fachler attribution — Core Equity Fund · 1y</h1>
+      <div class="card">
+        <table>
+          <thead><tr><th>Sector</th><th class="num">Alloc effect</th><th class="num">Selection</th><th class="num">Interaction</th><th class="num">Total</th></tr></thead>
+          <tbody>
+            <tr><td>Financials</td><td class="num pos">+0.41</td><td class="num pos">+0.52</td><td class="num muted">+0.03</td><td class="num pos">+0.96</td></tr>
+            <tr><td>Resources</td><td class="num neg">-0.18</td><td class="num pos">+0.78</td><td class="num neg">-0.05</td><td class="num pos">+0.55</td></tr>
+            <tr><td>Industrials</td><td class="num pos">+0.22</td><td class="num pos">+0.31</td><td class="num muted">+0.02</td><td class="num pos">+0.55</td></tr>
+            <tr><td>Consumer</td><td class="num muted">+0.05</td><td class="num neg">-0.12</td><td class="num muted">-0.01</td><td class="num neg">-0.08</td></tr>
+            <tr><td>Other</td><td class="num muted">+0.02</td><td class="num muted">+0.10</td><td class="num muted">+0.00</td><td class="num pos">+0.12</td></tr>
+            <tr style="font-weight:600; background:var(--surface-2)"><td>Total (vs SWIX)</td><td class="num pos">+0.52</td><td class="num pos">+1.59</td><td class="num neg">-0.01</td><td class="num pos">+2.10</td></tr>
+          </tbody>
+        </table>
+        <small class="muted">In percentage points. Selection dominates — stock picking, not sector timing, drove excess return.</small>
+      </div>
+    </section>
+
+    <!-- ============ REG 28 TRUSTEE ============ -->
+    <!-- Screen: reg28 | Source: Section 4.4 + regulation-28-compliance -->
+    <section data-screen id="reg28" hidden>
+      <h1>Regulation 28 — Retirement Fund A</h1>
+      <p><span class="chip success">compliant</span> As at 2026-04-19 18:30 SAST · filed quarterly to trustees &amp; FSCA.</p>
+
+      <div class="card">
+        <h3>Prudential limits</h3>
+        <div class="bar-row"><span>Equities</span><div class="bar-track"><div class="bar-fill success" style="width:62%"></div><div class="bar-limit" style="left:75%"></div></div><span class="num">62% / 75%</span></div>
+        <div class="bar-row"><span>Property</span><div class="bar-track"><div class="bar-fill success" style="width:9%"></div><div class="bar-limit" style="left:25%"></div></div><span class="num">9% / 25%</span></div>
+        <div class="bar-row"><span>Foreign</span><div class="bar-track"><div class="bar-fill success" style="width:32%"></div><div class="bar-limit" style="left:45%"></div></div><span class="num">32% / 45%</span></div>
+        <div class="bar-row"><span>Hedge funds</span><div class="bar-track"><div class="bar-fill success" style="width:3%"></div><div class="bar-limit" style="left:10%"></div></div><span class="num">3% / 10%</span></div>
+        <div class="bar-row"><span>Private equity</span><div class="bar-track"><div class="bar-fill success" style="width:5%"></div><div class="bar-limit" style="left:15%"></div></div><span class="num">5% / 15%</span></div>
+        <div class="bar-row"><span>Crypto</span><div class="bar-track"><div class="bar-fill" style="width:0%"></div><div class="bar-limit" style="left:0%"></div></div><span class="num">0% / 0%</span></div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Issuer concentration (top 5)</h3>
+        <table>
+          <thead><tr><th>Issuer</th><th>Tier</th><th class="num">Weight</th><th class="num">Cap</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Naspers + Prosus</td><td>Non-top40 aggregated</td><td class="num">11.2%</td><td class="num">15%</td><td><span class="chip success">ok</span></td></tr>
+            <tr><td>FirstRand</td><td>Listed bank</td><td class="num">4.2%</td><td class="num">5%</td><td><span class="chip success">ok</span></td></tr>
+            <tr><td>Standard Bank</td><td>Listed bank</td><td class="num">3.8%</td><td class="num">5%</td><td><span class="chip success">ok</span></td></tr>
+            <tr><td>BHP</td><td>Foreign listed</td><td class="num">3.0%</td><td class="num">5%</td><td><span class="chip success">ok</span></td></tr>
+            <tr><td>Sasol</td><td>Listed</td><td class="num">2.8%</td><td class="num">5%</td><td><span class="chip success">ok</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex end mt-16"><button class="btn">Download quarterly report (PDF)</button><button class="btn primary" onclick="alert('Filed to FSCA (fake).')">File to FSCA</button></div>
+    </section>
+
+    <!-- ============ GIPS ============ -->
+    <!-- Screen: gips | Source: gips-standards-l3 blueprint -->
+    <section data-screen id="gips" hidden>
+      <h1>GIPS composite presentation — SA Equity Core</h1>
+      <div class="card">
+        <small class="muted">Firm: Anonymous Advisory · Composite inception: 2019-03-01 · Verifier: Independent · Compliant: Yes</small>
+        <table class="mt-8">
+          <thead><tr><th>Year</th><th class="num">Composite gross</th><th class="num">Composite net</th><th class="num">SWIX</th><th class="num">Composite 3y SD</th><th class="num">Benchmark 3y SD</th><th class="num">Dispersion</th><th class="num"># portfolios</th><th class="num">AUM (ZAR m)</th></tr></thead>
+          <tbody>
+            <tr><td>2020</td><td class="num">+6.8</td><td class="num">+5.9</td><td class="num">+5.3</td><td class="num">14.1</td><td class="num">14.8</td><td class="num">0.38</td><td class="num">4</td><td class="num">820</td></tr>
+            <tr><td>2021</td><td class="num">+24.1</td><td class="num">+23.0</td><td class="num">+21.0</td><td class="num">15.2</td><td class="num">15.9</td><td class="num">0.52</td><td class="num">5</td><td class="num">1 145</td></tr>
+            <tr><td>2022</td><td class="num">+4.8</td><td class="num">+3.9</td><td class="num">+3.6</td><td class="num">14.8</td><td class="num">15.2</td><td class="num">0.44</td><td class="num">5</td><td class="num">1 312</td></tr>
+            <tr><td>2023</td><td class="num">+9.7</td><td class="num">+8.8</td><td class="num">+8.0</td><td class="num">13.9</td><td class="num">14.4</td><td class="num">0.36</td><td class="num">5</td><td class="num">1 780</td></tr>
+            <tr><td>2024</td><td class="num">+14.2</td><td class="num">+13.2</td><td class="num">+11.6</td><td class="num">13.7</td><td class="num">14.1</td><td class="num">0.41</td><td class="num">5</td><td class="num">2 280</td></tr>
+            <tr><td>2025</td><td class="num">+12.6</td><td class="num">+11.7</td><td class="num">+10.1</td><td class="num">13.1</td><td class="num">13.8</td><td class="num">0.39</td><td class="num">5</td><td class="num">2 710</td></tr>
+          </tbody>
+        </table>
+        <small class="muted mt-8" style="display:block">Returns are time-weighted per GIPS <span class="citation">trading/gips-standards-l3</span>. Net returns use actual fees. Past performance is not indicative.</small>
+      </div>
+    </section>
+
+    <!-- ============ FACTSHEET LIBRARY ============ -->
+    <!-- Screen: factsheet-list | Source: fund-factsheet (new blueprint) -->
+    <section data-screen id="factsheet-list" hidden>
+      <h1>Factsheet Library</h1>
+      <p class="muted">Monthly and quarterly Minimum Disclosure Documents. Every version retained 7 years. Compliance sign-off required before publication.</p>
+      <div class="card">
+        <div class="flex between">
+          <div>
+            <span class="chip info">4 funds</span>
+            <span class="chip success">18 published this quarter</span>
+            <span class="chip warn">1 in compliance review</span>
+          </div>
+          <button class="nav-btn" style="width:auto">+ Generate factsheet</button>
+        </div>
+        <table class="mt-16">
+          <thead><tr><th>Fund</th><th>As-of</th><th>Frequency</th><th>Status</th><th>Approver</th><th>Hash</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>SA Equity Core</td><td>2026-03-31</td><td>Monthly</td><td><span class="chip success">Published</span></td><td>L. Mokoena</td><td><code>4e11...d9ac</code></td><td><a href="#" onclick="show('factsheet');return false">View</a></td></tr>
+            <tr><td>Global Equity</td><td>2026-03-31</td><td>Monthly</td><td><span class="chip warn">Compliance review</span></td><td>—</td><td><code>pending</code></td><td><a href="#">View</a></td></tr>
+            <tr><td>Retirement Fund A</td><td>2026-03-31</td><td>Monthly</td><td><span class="chip success">Published</span></td><td>L. Mokoena</td><td><code>a8b2...71f0</code></td><td><a href="#">View</a></td></tr>
+            <tr><td>Balanced Income</td><td>2026-Q1</td><td>Quarterly</td><td><span class="chip success">Published</span></td><td>L. Mokoena</td><td><code>c5ee...3920</code></td><td><a href="#">View</a></td></tr>
+            <tr><td>SA Equity Core</td><td>2026-02-28</td><td>Monthly</td><td><span class="chip muted">Superseded</span></td><td>L. Mokoena</td><td><code>1203...aa8c</code></td><td><a href="#">View</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <small class="muted mt-8" style="display:block">Generated per <span class="citation">trading/fund-factsheet</span>. Published events recorded to <span class="citation">infrastructure/immutable-audit-log</span>.</small>
+    </section>
+
+    <!-- ============ FACTSHEET ============ -->
+    <!-- Screen: factsheet | Source: fund-factsheet (new blueprint) -->
+    <section data-screen id="factsheet" hidden>
+      <h1>SA Equity Core — Factsheet · March 2026</h1>
+      <div class="flex between mb-16">
+        <div>
+          <span class="chip success">Published 2026-04-08</span>
+          <span class="chip info">Monthly</span>
+          <span class="chip info">Regulation 28 compliant</span>
+          <span class="muted" style="margin-left:8px">Hash <code>4e11...d9ac</code></span>
+        </div>
+        <div class="flex">
+          <button class="nav-btn" style="width:auto">Download PDF</button>
+          <button class="nav-btn" style="width:auto">Supersede</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Fund facts</h3>
+        <div class="grid grid-3 mt-8">
+          <div><small class="muted">Portfolio manager</small><div>Anonymous Advisory</div></div>
+          <div><small class="muted">Launch date</small><div>2019-03-01</div></div>
+          <div><small class="muted">Base currency</small><div>ZAR</div></div>
+          <div><small class="muted">Benchmark</small><div>FTSE/JSE SWIX</div></div>
+          <div><small class="muted">ASISA classification</small><div>SA — Equity — General</div></div>
+          <div><small class="muted">Fund size</small><div>R 2 710m</div></div>
+          <div><small class="muted">Minimum investment</small><div>R 10 000 lump / R 500 debit order</div></div>
+          <div><small class="muted">Risk profile</small><div>High</div></div>
+          <div><small class="muted">Recommended term</small><div>5 years +</div></div>
+        </div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Investment objective</h3>
+        <p>Deliver capital growth that outperforms the FTSE/JSE SWIX Index, net of fees, over rolling five-year periods while maintaining compliance with Regulation 28 of the Pension Funds Act.</p>
+        <h3 class="mt-16">Investment approach</h3>
+        <p>Fundamental, bottom-up stock selection emphasising quality (ROE, debt), valuation (DCF, multiples), and mandate alignment. Reg 28 limits enforced pre-trade.</p>
+      </div>
+
+      <div class="grid grid-2 mt-16">
+        <div class="card">
+          <h3>Performance (net of fees)</h3>
+          <table>
+            <thead><tr><th>Period</th><th class="num">Fund</th><th class="num">SWIX</th><th class="num">Active</th></tr></thead>
+            <tbody>
+              <tr><td>1 month</td><td class="num pos">+1.4%</td><td class="num">+1.0%</td><td class="num pos">+0.4%</td></tr>
+              <tr><td>3 months</td><td class="num pos">+4.8%</td><td class="num">+4.1%</td><td class="num pos">+0.7%</td></tr>
+              <tr><td>YTD</td><td class="num pos">+4.8%</td><td class="num">+4.1%</td><td class="num pos">+0.7%</td></tr>
+              <tr><td>1 year</td><td class="num pos">+13.2%</td><td class="num">+11.6%</td><td class="num pos">+1.6%</td></tr>
+              <tr><td>3 years (p.a.)</td><td class="num pos">+11.9%</td><td class="num">+10.5%</td><td class="num pos">+1.4%</td></tr>
+              <tr><td>5 years (p.a.)</td><td class="num pos">+12.4%</td><td class="num">+10.9%</td><td class="num pos">+1.5%</td></tr>
+              <tr><td>Since inception</td><td class="num pos">+11.8%</td><td class="num">+10.2%</td><td class="num pos">+1.6%</td></tr>
+            </tbody>
+          </table>
+          <small class="muted">TWR chain-linked per GIPS. Net-of-fees using actual management fee.</small>
+        </div>
+
+        <div class="card">
+          <h3>Risk measures (36-month rolling)</h3>
+          <table>
+            <thead><tr><th>Measure</th><th class="num">Fund</th><th class="num">Benchmark</th></tr></thead>
+            <tbody>
+              <tr><td>Standard deviation</td><td class="num">13.7%</td><td class="num">14.1%</td></tr>
+              <tr><td>Sharpe ratio</td><td class="num">0.68</td><td class="num">0.59</td></tr>
+              <tr><td>Sortino ratio</td><td class="num">1.04</td><td class="num">0.92</td></tr>
+              <tr><td>Max drawdown</td><td class="num">−18.4%</td><td class="num">−21.0%</td></tr>
+              <tr><td>Best month</td><td class="num pos">+8.1%</td><td class="num">+7.6%</td></tr>
+              <tr><td>Worst month</td><td class="num neg">−9.3%</td><td class="num">−10.8%</td></tr>
+              <tr><td>VaR (95%, 1m)</td><td class="num">−5.6%</td><td class="num">−5.9%</td></tr>
+            </tbody>
+          </table>
+          <small class="muted">Risk-free proxy: SA 3-month T-bill.</small>
+        </div>
+      </div>
+
+      <div class="grid grid-2 mt-16">
+        <div class="card">
+          <h3>Top 10 holdings</h3>
+          <small class="muted">As at 2026-02-28 (30-day lag to prevent front-running)</small>
+          <table class="mt-8">
+            <thead><tr><th>Security</th><th class="num">Weight</th></tr></thead>
+            <tbody>
+              <tr><td>Naspers N</td><td class="num">8.4%</td></tr>
+              <tr><td>Standard Bank</td><td class="num">7.1%</td></tr>
+              <tr><td>FirstRand</td><td class="num">6.5%</td></tr>
+              <tr><td>AB InBev</td><td class="num">5.9%</td></tr>
+              <tr><td>Anglo American</td><td class="num">5.2%</td></tr>
+              <tr><td>BHP</td><td class="num">4.8%</td></tr>
+              <tr><td>Sasol</td><td class="num">4.1%</td></tr>
+              <tr><td>MTN Group</td><td class="num">3.9%</td></tr>
+              <tr><td>Capitec</td><td class="num">3.7%</td></tr>
+              <tr><td>Discovery</td><td class="num">3.3%</td></tr>
+              <tr><td><b>Top 10 total</b></td><td class="num"><b>52.9%</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>Sector allocation</h3>
+          <div class="bar"><div class="bar-fill" style="width:28%"></div></div><small class="muted">Financials · 28%</small>
+          <div class="bar mt-8"><div class="bar-fill" style="width:22%"></div></div><small class="muted">Resources · 22%</small>
+          <div class="bar mt-8"><div class="bar-fill" style="width:18%"></div></div><small class="muted">Industrials · 18%</small>
+          <div class="bar mt-8"><div class="bar-fill" style="width:15%"></div></div><small class="muted">Consumer · 15%</small>
+          <div class="bar mt-8"><div class="bar-fill" style="width:9%"></div></div><small class="muted">Telecoms · 9%</small>
+          <div class="bar mt-8"><div class="bar-fill" style="width:8%"></div></div><small class="muted">Cash &amp; other · 8%</small>
+          <h3 class="mt-16">Geographic</h3>
+          <div class="bar"><div class="bar-fill" style="width:72%"></div></div><small class="muted">SA · 72%</small>
+          <div class="bar mt-8"><div class="bar-fill" style="width:20%"></div></div><small class="muted">Developed markets · 20%</small>
+          <div class="bar mt-8"><div class="bar-fill" style="width:8%"></div></div><small class="muted">Emerging ex-SA · 8%</small>
+        </div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Fees</h3>
+        <div class="grid grid-3">
+          <div><small class="muted">Management fee</small><div>1.00% p.a. (sliding scale)</div></div>
+          <div><small class="muted">Performance fee</small><div>None</div></div>
+          <div><small class="muted">Total Expense Ratio (TER)</small><div>1.12%</div></div>
+          <div><small class="muted">Transaction Costs (TC)</small><div>0.09%</div></div>
+          <div><small class="muted">Total Investment Charge (TIC)</small><div>1.21%</div></div>
+          <div><small class="muted">Period</small><div>36 months ending 2026-03-31</div></div>
+        </div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Manager commentary</h3>
+        <p class="muted">Q1 2026 delivered solid absolute and relative returns. Financials contributed most to active return (Standard Bank, FirstRand) offset by a modest drag from resources exposure. We trimmed energy names into strength and added to healthcare on valuation grounds. Reg 28 limits were respected throughout.</p>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Disclosures</h3>
+        <small class="muted" style="display:block;line-height:1.6">
+          Collective Investment Schemes (CIS) are generally medium to long-term investments. Past performance is not necessarily a guide to future performance. The value of participatory interests may go down as well as up. CIS are traded at ruling prices and may engage in scrip lending and borrowing. Annualised returns are period returns re-scaled to a period of 1 year. A schedule of fees and charges is available on request from the Manager. This document is a Minimum Disclosure Document as required by the FSCA. Returns are time-weighted per GIPS <span class="citation">trading/gips-standards-l3</span>. Reg 28 status verified per <span class="citation">trading/regulation-28-compliance</span>. Approval of this factsheet is recorded in the immutable audit log <span class="citation">infrastructure/immutable-audit-log</span>.
+        </small>
+      </div>
+    </section>
+
+    <!-- ============ AUDIT LOG ============ -->
+    <!-- Screen: audit-log | Source: immutable-audit-log (new blueprint) -->
+    <section data-screen id="audit-log" hidden>
+      <h1>Immutable audit log</h1>
+      <p class="muted">Hash-chained append-only. Any tamper is detectable on read. Retention 7 years (POPIA + FSCA).</p>
+      <div class="card">
+        <table>
+          <thead><tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Subject</th><th>Hash (truncated)</th></tr></thead>
+          <tbody>
+            <tr><td>14:22:41</td><td>T. Barnardt</td><td>trade.authorize</td><td>RBL-2026-0419-07</td><td><code>a3f9...c21d</code></td></tr>
+            <tr><td>13:58:02</td><td>system</td><td>drift.detect</td><td>Core Equity · financials</td><td><code>b81c...f402</code></td></tr>
+            <tr><td>13:10:11</td><td>L. Mokoena</td><td>trade.counter_sign</td><td>RBL-2026-0419-07</td><td><code>7e20...19af</code></td></tr>
+            <tr><td>11:44:59</td><td>ai-assistant</td><td>research.draft</td><td>SBK note · grounded</td><td><code>c04d...88b3</code></td></tr>
+            <tr><td>09:32:07</td><td>system</td><td>reg28.scan</td><td>Retirement Fund A</td><td><code>ff19...2a70</code></td></tr>
+            <tr><td>09:02:18</td><td>system</td><td>marketdata.load</td><td>JSE EOD 487 rec</td><td><code>240a...90c6</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card mt-16">
+        <h3>Integrity</h3>
+        <p><span class="chip success">chain intact</span> Last verified 19:01 SAST · 2 314 874 entries · root hash <code>d9ac...4e11</code></p>
+      </div>
+    </section>
+
+    <!-- ============ CLIENT PORTAL ============ -->
+    <section data-screen id="client-portal" hidden>
+      <h1>Client portal — Anonymous Client</h1>
+      <div class="grid grid-3">
+        <div class="card"><h4>Portfolio value</h4><div class="kpi">R 4.82m</div><small class="muted pos">+R 42 000 today</small></div>
+        <div class="card"><h4>YTD return</h4><div class="kpi pos">+8.4%</div></div>
+        <div class="card"><h4>Next rebalance</h4><div class="kpi">Q3 2026</div></div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Holdings</h3>
+        <table>
+          <thead><tr><th>Security</th><th class="num">Shares</th><th class="num">Price</th><th class="num">Value</th><th class="num">Weight</th></tr></thead>
+          <tbody>
+            <tr><td>NPN · Naspers</td><td class="num">1 200</td><td class="num">R 3 420</td><td class="num">R 4.10m</td><td class="num">11.2%</td></tr>
+            <tr><td>FSR · FirstRand</td><td class="num">15 000</td><td class="num">R 74.20</td><td class="num">R 1.11m</td><td class="num">4.2%</td></tr>
+            <tr><td>SBK · Standard Bank</td><td class="num">5 000</td><td class="num">R 195.40</td><td class="num">R 0.98m</td><td class="num">3.8%</td></tr>
+            <tr><td>BHP · BHP</td><td class="num">2 500</td><td class="num">R 580.10</td><td class="num">R 1.45m</td><td class="num">3.0%</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card mt-16">
+        <h3>POPIA rights</h3>
+        <div class="flex"><button class="btn">Download my data</button><button class="btn">Request correction</button><button class="btn danger">Request deletion</button></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('[data-screen]').forEach(s => s.hidden = true);
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.hidden = false;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const btn = Array.from(document.querySelectorAll('.nav-btn'))
+    .find(b => b.getAttribute('onclick') && b.getAttribute('onclick').includes("'" + id + "'"));
+  if (btn) btn.classList.add('active');
+  const crumb = document.getElementById('crumb');
+  if (crumb && btn) crumb.textContent = btn.textContent.trim();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function runResearch() {
+  const spin = document.getElementById('research-spinner');
+  spin.classList.remove('hidden');
+  setTimeout(() => { spin.classList.add('hidden'); show('research-note'); }, 1200);
+}
+
+// Init
+show('dashboard');
+</script>
+
+</body>
+</html>

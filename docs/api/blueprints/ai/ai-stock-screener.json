@@ -1,0 +1,477 @@
+{
+  "feature": "ai-stock-screener",
+  "version": "1.0.0",
+  "description": "AI-assisted stock screener that parses natural-language queries into deterministic filters and returns ranked candidates with sources",
+  "category": "ai",
+  "tags": [
+    "screener",
+    "ai",
+    "nlp",
+    "filters",
+    "equity-research",
+    "ranking"
+  ],
+  "aliases": [
+    "stock-screener",
+    "ai-screener",
+    "equity-screener",
+    "nl-screener",
+    "natural-language-screener",
+    "smart-screener",
+    "screening-tool"
+  ],
+  "fields": [
+    {
+      "name": "query_text",
+      "type": "text",
+      "required": true,
+      "label": "Natural Language Query"
+    },
+    {
+      "name": "parsed_filters",
+      "type": "json",
+      "required": false,
+      "label": "Parsed Filters"
+    },
+    {
+      "name": "universe",
+      "type": "select",
+      "required": true,
+      "label": "Investment Universe",
+      "options": [
+        {
+          "value": "jse_top40",
+          "label": "JSE Top 40"
+        },
+        {
+          "value": "jse_all_share",
+          "label": "JSE All Share"
+        },
+        {
+          "value": "sp500",
+          "label": "S and P 500"
+        },
+        {
+          "value": "global_developed",
+          "label": "Global Developed"
+        }
+      ]
+    },
+    {
+      "name": "ranking_metric",
+      "type": "select",
+      "required": false,
+      "label": "Ranking Metric",
+      "options": [
+        {
+          "value": "score",
+          "label": "Composite Score"
+        },
+        {
+          "value": "yield",
+          "label": "Dividend Yield"
+        },
+        {
+          "value": "roe",
+          "label": "Return on Equity"
+        },
+        {
+          "value": "momentum",
+          "label": "Price Momentum"
+        }
+      ]
+    },
+    {
+      "name": "results",
+      "type": "json",
+      "required": false,
+      "label": "Ranked Results"
+    },
+    {
+      "name": "data_sources",
+      "type": "json",
+      "required": false,
+      "label": "Data Source Citations"
+    }
+  ],
+  "rules": {
+    "deterministic_parsing": {
+      "description": "MUST: LLM only translates NL to a structured filter AST; ranking and data fetch are deterministic code paths",
+      "no_llm_in_ranking": true
+    },
+    "no_hallucinated_tickers": {
+      "description": "MUST: Results only include tickers present in the selected universe; LLM never names securities directly",
+      "whitelist_source": "universe"
+    },
+    "data_citation": {
+      "description": "MUST: Every metric in the result carries a data-source citation (vendor, field, as-of timestamp)"
+    },
+    "watermark": {
+      "description": "MUST: Results are clearly labelled AI-assisted; advisors must review before client use"
+    },
+    "ambiguity_handling": {
+      "description": "MUST: Ambiguous queries return a clarification prompt, never a guess"
+    },
+    "rate_limit": {
+      "description": "MUST: 30 screens per user per minute; LLM cost capped per user",
+      "limit_per_minute": 30
+    },
+    "audit": {
+      "description": "MUST: Every query, parsed filter, and result set logged for compliance review",
+      "retention_days": 365
+    }
+  },
+  "outcomes": {
+    "screen_executed_successfully": {
+      "priority": 10,
+      "description": "Query parsed, filters applied, and results produced",
+      "given": [
+        {
+          "field": "query_text",
+          "source": "input",
+          "operator": "exists"
+        },
+        "parsed filters are non-empty and valid"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "screener.executed",
+          "payload": [
+            "query_text",
+            "universe",
+            "result_count"
+          ]
+        }
+      ],
+      "result": "Ranked candidates returned with citations",
+      "transaction": true
+    },
+    "results_ranked": {
+      "priority": 10,
+      "description": "Candidates ranked by selected metric",
+      "given": [
+        "results are non-empty",
+        "ranking_metric is set"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "screener.results_ranked",
+          "payload": [
+            "ranking_metric",
+            "result_count"
+          ]
+        }
+      ],
+      "result": "Ranked list presented"
+    },
+    "query_parsed": {
+      "priority": 9,
+      "description": "Natural language translated to structured filter AST",
+      "given": [
+        "LLM returned a valid filter AST"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "parsed_filters",
+          "value": "ast"
+        },
+        {
+          "action": "emit_event",
+          "event": "screener.query_parsed",
+          "payload": [
+            "query_text",
+            "filter_count"
+          ]
+        }
+      ],
+      "result": "Filter AST available"
+    },
+    "query_ambiguous": {
+      "priority": 2,
+      "error": "SCREENER_QUERY_AMBIGUOUS",
+      "description": "LLM could not confidently parse the query",
+      "given": [
+        "LLM confidence below threshold or multiple valid interpretations"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "screener.query_ambiguous",
+          "payload": [
+            "query_text"
+          ]
+        }
+      ],
+      "result": "Clarification prompt returned to user"
+    },
+    "no_results": {
+      "priority": 5,
+      "description": "Filters valid but matched zero candidates",
+      "given": [
+        "parsed filters valid",
+        "candidate count is 0"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "screener.no_results",
+          "payload": [
+            "query_text",
+            "universe"
+          ]
+        }
+      ],
+      "result": "Empty result set with suggestion to relax filters"
+    },
+    "data_missing": {
+      "priority": 3,
+      "error": "SCREENER_DATA_MISSING",
+      "description": "Required metric unavailable for a material portion of the universe",
+      "given": [
+        "required data field unavailable for more than 20% of the universe"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "data_ops",
+          "target": "data_team"
+        },
+        {
+          "action": "emit_event",
+          "event": "screener.data_missing",
+          "payload": [
+            "missing_field",
+            "universe"
+          ]
+        }
+      ],
+      "result": "User warned; ranking may be biased"
+    }
+  },
+  "errors": [
+    {
+      "code": "SCREENER_QUERY_AMBIGUOUS",
+      "status": 422,
+      "message": "Please clarify your query.",
+      "retry": true
+    },
+    {
+      "code": "SCREENER_DATA_MISSING",
+      "status": 503,
+      "message": "Required data is currently unavailable.",
+      "retry": true
+    },
+    {
+      "code": "SCREENER_RATE_LIMITED",
+      "status": 429,
+      "message": "Too many screens; please slow down.",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "screener.executed",
+      "description": "Screen executed successfully",
+      "payload": [
+        "query_text",
+        "universe",
+        "result_count"
+      ]
+    },
+    {
+      "name": "screener.results_ranked",
+      "description": "Results ranked",
+      "payload": [
+        "ranking_metric",
+        "result_count"
+      ]
+    },
+    {
+      "name": "screener.query_parsed",
+      "description": "NL query parsed to filter AST",
+      "payload": [
+        "query_text",
+        "filter_count"
+      ]
+    },
+    {
+      "name": "screener.query_ambiguous",
+      "description": "Query ambiguous",
+      "payload": [
+        "query_text"
+      ]
+    },
+    {
+      "name": "screener.no_results",
+      "description": "No candidates matched",
+      "payload": [
+        "query_text",
+        "universe"
+      ]
+    },
+    {
+      "name": "screener.data_missing",
+      "description": "Required data missing",
+      "payload": [
+        "missing_field",
+        "universe"
+      ]
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/ai/screener"
+    },
+    "request": {
+      "content_type": "application/json",
+      "schema": {
+        "query_text": "string",
+        "universe": "string",
+        "ranking_metric": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "results": "array",
+          "parsed_filters": "object",
+          "data_sources": "array"
+        }
+      },
+      "errors": [
+        {
+          "status": 422,
+          "error_code": "SCREENER_QUERY_AMBIGUOUS"
+        },
+        {
+          "status": 503,
+          "error_code": "SCREENER_DATA_MISSING"
+        },
+        {
+          "status": 429,
+          "error_code": "SCREENER_RATE_LIMITED"
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not let the LLM name tickers directly",
+      "why": "Hallucinated tickers cause real trading mistakes; LLM output constrained to filter AST"
+    },
+    {
+      "rule": "Do not rank via LLM",
+      "why": "Ranking must be reproducible and auditable; LLM ranking is neither"
+    },
+    {
+      "rule": "Do not present results without a data-source citation",
+      "why": "Advisors need to verify the underlying data before acting"
+    },
+    {
+      "rule": "Do not auto-execute trades from screener output",
+      "why": "Screener is a research tool, not an execution path"
+    },
+    {
+      "rule": "Do not hide the AI-assisted watermark",
+      "why": "Clients and regulators must know AI contributed to the output"
+    },
+    {
+      "rule": "Do not ignore data gaps in the ranking calculation",
+      "why": "Missing data biases rankings; warn users and offer alternatives"
+    }
+  ],
+  "related": [
+    {
+      "feature": "market-data-ingestion",
+      "type": "required",
+      "reason": "Fundamentals and prices come from the internal data store"
+    },
+    {
+      "feature": "ai-stock-research-assistant",
+      "type": "recommended",
+      "reason": "Screener results feed into research workflow"
+    },
+    {
+      "feature": "immutable-audit-log",
+      "type": "required",
+      "reason": "Queries and results are audited for compliance"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_screener",
+        "description": "Turn natural-language screening intents into deterministic, cited, AI-assisted shortlists without hallucinations",
+        "success_metrics": [
+          {
+            "metric": "parse_success_rate",
+            "target": ">= 90%",
+            "measurement": "Fraction of queries parsed without clarification"
+          },
+          {
+            "metric": "hallucination_rate",
+            "target": "= 0%",
+            "measurement": "Tickers returned that are not in the selected universe"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "regulatory",
+            "description": "AI-assisted disclosure must appear on output",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "User queries are scrubbed of PII before LLM call",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before acting on screener output (advisor review)"
+      ],
+      "escalation_triggers": [
+        "data_missing",
+        "query_ambiguous"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "screen_executed_successfully",
+          "permission": "autonomous"
+        },
+        {
+          "action": "query_parsed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "results_ranked",
+          "permission": "autonomous"
+        },
+        {
+          "action": "trade_from_results",
+          "permission": "human_required"
+        }
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "every ticker returned is in the selected universe",
+        "every metric has a citation",
+        "LLM output constrained to filter AST schema"
+      ]
+    },
+    "coordination": {
+      "protocol": "request_response"
+    }
+  }
+}

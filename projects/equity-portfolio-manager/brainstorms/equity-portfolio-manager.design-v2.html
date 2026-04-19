@@ -1,0 +1,992 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Equity Portfolio Manager · Design v2 (Otto-inspired)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: { extend: {
+      fontFamily: {
+        serif: ['Fraunces','Georgia','serif'],
+        sans:  ['Inter','system-ui','sans-serif'],
+        mono:  ['JetBrains Mono','monospace'],
+      },
+      colors: {
+        paper:   { DEFAULT:'#fbf0ec', 50:'#fbf5f2', 100:'#fbf0ec', 200:'#f3e6df', 300:'#e6d7ce', 400:'#c8c0bd' },
+        ink:     { 50:'#f2f2f2', 100:'#e6e6e6', 200:'#cecece', 300:'#a8a8a8', 400:'#6b6b6b', 500:'#4a4a4a', 600:'#383838', 700:'#2a2a2a', 800:'#1a1a1a', 900:'#0a0a0a' },
+        obsidian:{ 50:'#d8edee', 100:'#bbe0e3', 500:'#052c2b', 600:'#042322', 700:'#031a19', 900:'#010f0e' },
+        vermilion:{ 50:'#fad8d0', 100:'#f8b4a7', 500:'#e63e17', 600:'#b83112', 700:'#74210f', 800:'#5c1809', 900:'#3c1108' },
+        magenta: { 50:'#e999c0', 500:'#bc005e', 600:'#96004b', 700:'#680139', 800:'#38001c' },
+        gold:    { 50:'#fce798', 500:'#f6c100', 700:'#7a6200', 900:'#3e3200' },
+        mint:    { 50:'#d8edee', 500:'#bbe0e3' },
+      },
+      borderRadius: { xs:'2px', DEFAULT:'4px', md:'6px', lg:'6px', xl:'8px' },
+      boxShadow: {
+        'paper': '0 1px 2px 0 rgba(60,17,8,0.04), 0 1px 3px 0 rgba(60,17,8,0.06)',
+        'card':  '0 1px 2px 0 rgba(60,17,8,0.05), 0 8px 24px -6px rgba(60,17,8,0.08)',
+        'pop':   '0 18px 40px -12px rgba(60,17,8,0.22)',
+      },
+    }}
+  }
+</script>
+<style>
+  html { background:#fbf0ec; }
+  body { font-family:'Inter',system-ui,sans-serif; color:#383838; background:#fbf0ec; font-feature-settings:"ss01","cv11"; }
+  .serif { font-family:'Fraunces',Georgia,serif; font-optical-sizing:auto; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .oldstyle { font-variant-numeric: oldstyle-nums; }
+  .tracker { text-transform:uppercase; letter-spacing:0.14em; font-size:10.5px; font-weight:500; }
+  .rule { border-top:1px solid #c8c0bd; }
+  .rule-ink { border-top:1px solid #383838; }
+  .rule-thin { border-top:1px solid #e6d7ce; }
+  .dropcap::first-letter { font-family:'Fraunces',serif; font-weight:600; font-size:3.6em; line-height:0.9; float:left; padding:0.08em 0.1em 0 0; color:#042322; }
+  .cite { font-family:'JetBrains Mono',monospace; font-size:10.5px; padding:1px 6px; border-radius:2px; background:#f3e6df; color:#74210f; border:1px solid #e6d7ce; }
+  .pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:500; letter-spacing:0.02em; }
+  .dot { width:6px; height:6px; border-radius:999px; display:inline-block; }
+  .navbtn { display:flex; align-items:center; gap:.55rem; width:100%; padding:.45rem .6rem; border-radius:3px; color:#383838; text-align:left; font-size:13px; }
+  .navbtn:hover { background:#f3e6df; color:#042322; }
+  .navbtn.active { background:#042322; color:#fbf0ec; }
+  .navbtn.active .dot-nav { background:#f6c100; }
+  .dot-nav { width:4px; height:4px; border-radius:999px; background:#c8c0bd; display:inline-block; }
+  .kbd { font-family:'JetBrains Mono',monospace; font-size:10px; padding:1px 5px; border:1px solid #c8c0bd; border-bottom-width:2px; border-radius:3px; background:#fbf5f2; color:#4a4a4a; }
+  .chip { display:inline-flex; align-items:center; gap:4px; padding:2px 6px; border-radius:3px; background:#f3e6df; border:1px solid #e6d7ce; font-size:10.5px; color:#4a4a4a; }
+  .field { display:block; width:100%; padding:7px 10px; font-size:13px; color:#1a1a1a; background:#fbf5f2; border:1px solid #c8c0bd; border-radius:3px; }
+  .field:focus { outline:none; border-color:#042322; box-shadow:0 0 0 3px rgba(4,35,34,0.12); }
+  .field-label { display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:0.14em; color:#4a4a4a; margin-bottom:5px; }
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:3px; font-size:13px; font-weight:500; line-height:1; transition:all .12s; border:1px solid transparent; }
+  .btn-primary { background:#042322; color:#fbf0ec; }
+  .btn-primary:hover { background:#052c2b; }
+  .btn-ghost { background:transparent; color:#042322; border-color:#c8c0bd; }
+  .btn-ghost:hover { background:#f3e6df; }
+  .table-editorial { width:100%; border-collapse:collapse; font-size:13px; }
+  .table-editorial th { text-align:left; font-weight:500; font-size:10.5px; text-transform:uppercase; letter-spacing:0.12em; color:#6b6b6b; padding:10px 12px; border-bottom:1px solid #c8c0bd; }
+  .table-editorial td { padding:11px 12px; border-bottom:1px solid #e6d7ce; }
+  .table-editorial tr:hover td { background:#fbf5f2; }
+  .marg { font-family:'Fraunces',serif; font-style:italic; color:#6b6b6b; font-size:13px; line-height:1.5; }
+  .sparkpath { fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+  select.field { appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%23383838' fill='none' stroke-width='1.5'/></svg>"); background-repeat:no-repeat; background-position:right 10px center; padding-right:28px; }
+  /* DARK MODE */
+  body.theme-dark { background:#042322; color:#fbf0ec; }
+  body.theme-dark .bg-paper { background-color:#052c2b !important; }
+  body.theme-dark .bg-paper-50 { background-color:#031a19 !important; }
+  body.theme-dark .bg-paper-100 { background-color:#042322 !important; }
+  body.theme-dark .bg-paper-200, body.theme-dark .bg-paper-300 { background-color:#052c2b !important; }
+  body.theme-dark .text-ink-600, body.theme-dark .text-ink-700, body.theme-dark .text-ink-800, body.theme-dark .text-ink-900 { color:#fbf0ec !important; }
+  body.theme-dark .text-ink-400, body.theme-dark .text-ink-500 { color:#bbe0e3 !important; }
+  body.theme-dark .text-obsidian-600, body.theme-dark .text-obsidian-700 { color:#f6c100 !important; }
+  body.theme-dark .border-paper-400, body.theme-dark .border-paper-300 { border-color:#052c2b !important; }
+  body.theme-dark .rule, body.theme-dark .rule-ink, body.theme-dark .rule-thin { border-color:#0a3130 !important; }
+  body.theme-dark .field { background:#031a19; color:#fbf0ec; border-color:#0a3130; }
+  body.theme-dark .table-editorial th { color:#bbe0e3; border-color:#0a3130; }
+  body.theme-dark .table-editorial td { border-color:#0a3130; }
+  body.theme-dark .table-editorial tr:hover td { background:#052c2b; }
+  body.theme-dark .navbtn { color:#bbe0e3; }
+  body.theme-dark .navbtn:hover { background:#052c2b; color:#fbf0ec; }
+  body.theme-dark .navbtn.active { background:#f6c100; color:#042322; }
+  body.theme-dark .cite { background:#052c2b; color:#f6c100; border-color:#0a3130; }
+  body.theme-dark .chip { background:#052c2b; border-color:#0a3130; color:#bbe0e3; }
+  body.theme-dark .btn-ghost { color:#fbf0ec; border-color:#0a3130; }
+  body.theme-dark .btn-primary { background:#f6c100; color:#042322; }
+  body.theme-dark .btn-primary:hover { background:#fce798; }
+  body.theme-dark .dropcap::first-letter { color:#f6c100; }
+  body.theme-dark .marg { color:#bbe0e3; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="fixed top-3 right-3 z-50 px-3 py-1.5 rounded-full bg-obsidian-600 text-paper text-xs font-medium shadow-pop flex items-center gap-2">
+  <span class="dot" style="background:#f6c100"></span>
+  Design v2 · Otto-inspired · Not for production
+</div>
+
+<!-- Modal: New Fund -->
+<div id="modal-newFund" class="fixed inset-0 z-40 hidden items-center justify-center" style="background:rgba(4,35,34,0.55)" onclick="if(event.target===this)closeModal('newFund')">
+  <div class="w-full max-w-2xl bg-paper shadow-pop" style="border:1px solid #c8c0bd">
+    <div class="flex items-baseline justify-between px-6 py-4 border-b" style="border-color:#c8c0bd">
+      <div>
+        <div class="tracker text-ink-500">Register · New entry</div>
+        <h3 class="serif text-2xl text-obsidian-600">Constitute a Fund</h3>
+      </div>
+      <button class="btn btn-ghost" onclick="closeModal('newFund')">Close <span class="kbd">esc</span></button>
+    </div>
+    <div class="px-6 py-5 grid grid-cols-2 gap-4">
+      <div class="col-span-2"><label class="field-label">Fund name</label><input class="field" placeholder="e.g. Sovereign Global Equity Fund"/></div>
+      <div><label class="field-label">Vehicle type</label><select class="field"><option>CIS (Unit Trust)</option><option>Hedge Fund (QIHF)</option><option>Segregated Mandate</option><option>Retirement Fund Portfolio</option></select></div>
+      <div><label class="field-label">Base currency</label><select class="field"><option>ZAR</option><option>USD</option><option>EUR</option><option>GBP</option></select></div>
+      <div><label class="field-label">Domicile</label><select class="field"><option>South Africa</option><option>Mauritius</option><option>Luxembourg</option></select></div>
+      <div><label class="field-label">Inception date</label><input type="date" class="field" value="2026-05-01"/></div>
+      <div><label class="field-label">Portfolio manager</label><select class="field"><option>T. Mbeki, CFA</option><option>K. Naidoo, CFA</option><option>J. van der Merwe, CFA</option></select></div>
+      <div><label class="field-label">Custodian</label><select class="field"><option>Standard Bank Nominees</option><option>Nedbank Investor Services</option><option>RMB Custody</option></select></div>
+      <div class="col-span-2"><label class="field-label">Bind to model portfolio</label><select class="field"><option>— None —</option><option>Growth 70/30 (ZAR)</option><option>Balanced Reg 28 (ZAR)</option><option>Global Equity Alpha (USD)</option></select></div>
+      <div class="col-span-2"><label class="field-label">Mandate summary</label><textarea class="field" rows="3" placeholder="One-paragraph investment mandate, benchmarks, constraints…"></textarea></div>
+    </div>
+    <div class="px-6 py-4 border-t flex items-center justify-between" style="border-color:#c8c0bd;background:#fbf5f2">
+      <div class="text-xs text-ink-500">Constitution triggers <span class="cite">trading/fund-registration</span> and seeds <span class="cite">infrastructure/immutable-audit-log</span>.</div>
+      <div class="flex gap-2"><button class="btn btn-ghost" onclick="closeModal('newFund')">Cancel</button><button class="btn btn-primary" onclick="closeModal('newFund')">Constitute fund →</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: New Client -->
+<div id="modal-newClient" class="fixed inset-0 z-40 hidden items-center justify-center" style="background:rgba(4,35,34,0.55)" onclick="if(event.target===this)closeModal('newClient')">
+  <div class="w-full max-w-2xl bg-paper shadow-pop" style="border:1px solid #c8c0bd">
+    <div class="flex items-baseline justify-between px-6 py-4 border-b" style="border-color:#c8c0bd">
+      <div>
+        <div class="tracker text-ink-500">Onboarding · New client</div>
+        <h3 class="serif text-2xl text-obsidian-600">Admit a Client</h3>
+      </div>
+      <button class="btn btn-ghost" onclick="closeModal('newClient')">Close</button>
+    </div>
+    <div class="px-6 py-5 grid grid-cols-2 gap-4">
+      <div><label class="field-label">Legal name</label><input class="field" placeholder="Full registered name"/></div>
+      <div><label class="field-label">Entity type</label><select class="field"><option>Natural person</option><option>Trust</option><option>Company (Pty) Ltd</option><option>Retirement fund</option></select></div>
+      <div><label class="field-label">Tax residence</label><select class="field"><option>South Africa</option><option>Namibia</option><option>United Kingdom</option><option>Other (FATCA)</option></select></div>
+      <div><label class="field-label">Risk tolerance</label><select class="field"><option>Conservative</option><option>Moderate</option><option>Balanced</option><option>Growth</option><option>Aggressive</option></select></div>
+      <div class="col-span-2"><label class="field-label">Suitability notes</label><textarea class="field" rows="3" placeholder="CFA's qualitative observations (recorded for regulator review)"></textarea></div>
+      <div class="col-span-2 rounded p-3 flex items-start gap-3" style="background:#fbf5f2;border:1px solid #e6d7ce">
+        <span class="dot mt-2" style="background:#f6c100"></span>
+        <div class="text-xs text-ink-500">FICA packet, source-of-funds evidence and POPIA consent will be requested automatically after admission. <span class="cite">auth/client-onboarding</span> <span class="cite">data/popia-compliance</span></div>
+      </div>
+    </div>
+    <div class="px-6 py-4 border-t flex justify-end gap-2" style="border-color:#c8c0bd;background:#fbf5f2">
+      <button class="btn btn-ghost" onclick="closeModal('newClient')">Cancel</button><button class="btn btn-primary" onclick="closeModal('newClient')">Admit client →</button>
+    </div>
+  </div>
+</div>
+
+<div class="flex min-h-screen">
+
+<aside class="w-[260px] shrink-0 border-r bg-paper-50" style="border-color:#c8c0bd">
+  <div class="sticky top-0 px-5 py-5">
+    <div class="flex items-center gap-3 pb-5 border-b" style="border-color:#c8c0bd">
+      <div class="w-9 h-9 rounded flex items-center justify-center serif text-paper" style="background:#042322">
+        <span class="text-xl font-semibold italic">Æ</span>
+      </div>
+      <div>
+        <div class="serif text-lg text-obsidian-600 leading-none">Ambrosia</div>
+        <div class="tracker text-ink-400">Est. MMXXVI · Equity</div>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <div class="tracker text-ink-400 mb-2">Viewing as</div>
+      <div id="roleSwitch" class="flex text-xs rounded-md overflow-hidden" style="border:1px solid #c8c0bd">
+        <button data-role="cfa"     class="flex-1 py-1.5 bg-obsidian-600 text-paper">CFA</button>
+        <button data-role="trustee" class="flex-1 py-1.5">Trustee</button>
+        <button data-role="client"  class="flex-1 py-1.5">Client</button>
+      </div>
+    </div>
+
+    <div class="mt-4 relative">
+      <input class="field pl-8" placeholder="Search tickers, funds, clients"/>
+      <svg class="w-4 h-4 absolute left-2.5 top-2.5 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke-width="1.6"/><path d="M20 20l-3-3" stroke-width="1.6"/></svg>
+      <span class="kbd absolute right-2 top-2">/</span>
+    </div>
+
+    <nav class="mt-5 space-y-5 text-sm">
+      <div data-role="cfa">
+        <div class="tracker text-ink-400 px-2 mb-1">Research</div>
+        <button class="navbtn active" data-screen="research"   onclick="show('research')"><span class="dot-nav"></span>AI research desk</button>
+        <button class="navbtn"        data-screen="screener"   onclick="show('screener')"><span class="dot-nav"></span>Screener</button>
+        <button class="navbtn"        data-screen="securities" onclick="show('securities')"><span class="dot-nav"></span>Securities master</button>
+      </div>
+      <div data-role="cfa">
+        <div class="tracker text-ink-400 px-2 mb-1">Construct</div>
+        <button class="navbtn" data-screen="funds"     onclick="show('funds')"><span class="dot-nav"></span>Fund register</button>
+        <button class="navbtn" data-screen="models"    onclick="show('models')"><span class="dot-nav"></span>Model portfolios</button>
+        <button class="navbtn" data-screen="onboard"   onclick="show('onboard')"><span class="dot-nav"></span>Client onboarding</button>
+      </div>
+      <div data-role="cfa">
+        <div class="tracker text-ink-400 px-2 mb-1">Execute</div>
+        <button class="navbtn" data-screen="rebalance" onclick="show('rebalance')"><span class="dot-nav"></span>Rebalance</button>
+        <button class="navbtn" data-screen="gate"      onclick="show('gate')"><span class="dot-nav"></span>Authorization gate</button>
+        <button class="navbtn" data-screen="oms"       onclick="show('oms')"><span class="dot-nav"></span>Order management</button>
+      </div>
+      <div data-role="cfa">
+        <div class="tracker text-ink-400 px-2 mb-1">Measure</div>
+        <button class="navbtn" data-screen="performance" onclick="show('performance')"><span class="dot-nav"></span>Performance &amp; attribution</button>
+        <button class="navbtn" data-screen="marketdata"  onclick="show('marketdata')"><span class="dot-nav"></span>Market data</button>
+      </div>
+      <div data-role="trustee" hidden>
+        <div class="tracker text-ink-400 px-2 mb-1">Oversight</div>
+        <button class="navbtn" data-screen="trustee" onclick="show('trustee')"><span class="dot-nav"></span>Regulation 28</button>
+        <button class="navbtn" data-screen="audit"   onclick="show('audit')"><span class="dot-nav"></span>Audit trail</button>
+      </div>
+      <div data-role="client" hidden>
+        <div class="tracker text-ink-400 px-2 mb-1">My portfolio</div>
+        <button class="navbtn" data-screen="client" onclick="show('client')"><span class="dot-nav"></span>Factsheet &amp; holdings</button>
+      </div>
+    </nav>
+
+    <div class="mt-8 pt-4 border-t text-xs text-ink-400 space-y-2" style="border-color:#c8c0bd">
+      <div class="flex items-center justify-between">
+        <span>FDL v0.3.3 · blueprints 39</span>
+        <button id="themeBtn" class="kbd hover:bg-paper-200" onclick="toggleTheme()" title="Toggle theme">◐</button>
+      </div>
+      <div class="marg text-[11px]">“Patience is the soul of investing.” <br/>— House maxim.</div>
+    </div>
+  </div>
+</aside>
+
+<main class="flex-1 min-w-0">
+
+  <header class="sticky top-0 z-30 bg-paper/95 backdrop-blur border-b" style="border-color:#c8c0bd">
+    <div class="flex items-center justify-between px-8 py-3.5">
+      <div class="flex items-baseline gap-3">
+        <span class="tracker text-ink-400">Workbench</span>
+        <span class="text-ink-300">/</span>
+        <span id="crumb" class="serif text-lg text-obsidian-600">AI research desk</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="chip"><span class="dot" style="background:#f6c100"></span> JSE open · 14:22 SAST</span>
+        <span class="chip"><span class="dot" style="background:#bc005e"></span> 3 items need attention</span>
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium" style="background:#042322;color:#f6c100">TM</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- RESEARCH -->
+  <section id="research" data-screen class="px-8 py-8 max-w-[1280px]">
+    <div class="mb-7">
+      <div class="tracker text-vermilion-700">The Morning Despatch · Issue no. 0417</div>
+      <h1 class="serif text-[56px] leading-[1.02] font-semibold text-obsidian-600 mt-1">
+        Good morning, Theuns.<br/>
+        <span class="italic font-normal text-ink-500">Three positions require your consideration.</span>
+      </h1>
+      <div class="rule-ink mt-5"></div>
+      <div class="flex items-center justify-between mt-2 text-xs text-ink-500">
+        <div>Monday · 20 April 2026 · &nbsp; <span class="serif italic">Anno Domini</span></div>
+        <div>Ambrosia Equity · Workbench edition</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-4 gap-5 mb-8">
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce">
+        <div class="tracker text-ink-400">Assets under management</div>
+        <div class="serif text-3xl tabular text-obsidian-600 mt-2">R 8,420<span class="text-xl text-ink-400">.6m</span></div>
+        <div class="mt-1 text-xs text-ink-500 flex items-center gap-2"><span class="dot" style="background:#f6c100"></span> +R 42.1m · trailing week</div>
+        <svg class="mt-3" viewBox="0 0 160 34" width="100%" height="34"><path class="sparkpath" stroke="#042322" d="M2,22 L14,19 L26,24 L38,17 L50,21 L62,14 L74,18 L86,12 L98,15 L110,9 L122,13 L134,8 L146,11 L158,6"/></svg>
+      </div>
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce">
+        <div class="tracker text-ink-400">YTD composite return</div>
+        <div class="serif text-3xl tabular text-obsidian-600 mt-2">+12.84<span class="text-xl">%</span></div>
+        <div class="mt-1 text-xs text-ink-500">vs Capped SWIX 40 · +8.91%</div>
+        <svg class="mt-3" viewBox="0 0 160 34" width="100%" height="34"><path class="sparkpath" stroke="#bc005e" d="M2,28 L14,26 L26,27 L38,22 L50,24 L62,18 L74,20 L86,14 L98,16 L110,11 L122,13 L134,8 L146,10 L158,5"/></svg>
+      </div>
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce">
+        <div class="tracker text-ink-400">Compliance pulse</div>
+        <div class="serif text-3xl tabular text-obsidian-600 mt-2">72 <span class="text-base text-ink-400 serif italic">of 74</span></div>
+        <div class="mt-1 text-xs flex items-center gap-2"><span class="pill" style="background:#fad8d0;color:#74210f">2 approaching Reg 28</span></div>
+        <svg class="mt-3" viewBox="0 0 160 34" width="100%" height="34"><path class="sparkpath" stroke="#74210f" d="M2,10 L14,12 L26,11 L38,14 L50,13 L62,18 L74,17 L86,22 L98,20 L110,24 L122,22 L134,26 L146,24 L158,28"/></svg>
+      </div>
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce">
+        <div class="tracker text-ink-400">AI confidence index</div>
+        <div class="serif text-3xl tabular text-obsidian-600 mt-2">0.84</div>
+        <div class="mt-1 text-xs text-ink-500">14 recommendations pending ack.</div>
+        <svg class="mt-3" viewBox="0 0 160 34" width="100%" height="34"><path class="sparkpath" stroke="#7a6200" d="M2,24 L14,21 L26,22 L38,18 L50,16 L62,19 L74,15 L86,12 L98,14 L110,10 L122,12 L134,9 L146,11 L158,7"/></svg>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-7">
+      <article class="col-span-2 bg-paper-50 shadow-paper p-7" style="border:1px solid #e6d7ce">
+        <div class="flex items-baseline justify-between">
+          <div>
+            <div class="tracker text-magenta-500">Leader · AI Research</div>
+            <h2 class="serif text-3xl text-obsidian-600 mt-1">Naspers &amp; the Tencent Discount</h2>
+            <div class="serif italic text-ink-500 text-sm mt-1">A contrarian case for increasing the overweight · confidence 0.87</div>
+          </div>
+          <span class="pill" style="background:#042322;color:#f6c100"><span class="dot" style="background:#f6c100"></span> AI-assisted</span>
+        </div>
+        <div class="rule mt-4 mb-5"></div>
+        <p class="dropcap serif text-[15.5px] leading-[1.65] text-ink-700">
+          The discount at which the market values Naspers relative to its Tencent holding has widened to <span class="tabular oldstyle">41.2%</span>, eclipsing the <span class="tabular oldstyle">36%</span> three-year mean. Our counsel, to the extent that it is counsel at all, is that the dislocation now exceeds the threshold at which the house has historically added rather than trimmed — albeit with the usual prudential reservations.
+        </p>
+        <p class="serif text-[15.5px] leading-[1.65] text-ink-700 mt-3">
+          The AI research engine <span class="cite">ai/research-agent</span> has reconciled eleven analyst primers, four quarterly statements, and the prevailing sentiment in the Hong Kong derivatives market. Its proposal — to raise the house weight by <span class="tabular">+2.30pp</span> — respects the <span class="italic serif">Regulation 28</span> single-issuer ceiling and the domicile constraint in your <em>Growth 70/30</em> mandate. It does not, and cannot, replace your judgement.
+        </p>
+        <div class="grid grid-cols-3 gap-4 mt-5 pt-5 border-t" style="border-color:#e6d7ce">
+          <div><div class="tracker text-ink-400">Current weight</div><div class="serif text-2xl tabular text-obsidian-600">6.80%</div></div>
+          <div><div class="tracker text-ink-400">Proposed</div><div class="serif text-2xl tabular text-vermilion-600">9.10%</div></div>
+          <div><div class="tracker text-ink-400">Expected 12m alpha</div><div class="serif text-2xl tabular text-obsidian-600">+3.2%</div></div>
+        </div>
+        <div class="flex items-center gap-2 mt-5">
+          <button class="btn btn-primary" onclick="show('rebalance')">Move to rebalance →</button>
+          <button class="btn btn-ghost">Counter-argue</button>
+          <button class="btn btn-ghost">Archive with note</button>
+          <span class="ml-auto text-xs text-ink-400">Cited: <span class="cite">ai/research-agent</span> · <span class="cite">trading/regulation-28-compliance</span></span>
+        </div>
+      </article>
+
+      <aside class="space-y-5">
+        <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce">
+          <div class="tracker text-ink-400 mb-3">Attention · Queue</div>
+          <ul class="divide-y" style="border-color:#e6d7ce">
+            <li class="py-3 flex gap-3 cursor-pointer" onclick="show('gate')">
+              <span class="w-8 h-8 rounded-md flex items-center justify-center shrink-0" style="background:#fad8d0;color:#74210f">!</span>
+              <div class="flex-1">
+                <div class="text-[13.5px] text-ink-800 font-medium">Sovereign Global Equity — awaits counter-sign</div>
+                <div class="marg text-xs mt-0.5">Prepared by you at 09:02; K. Naidoo, CFA is the second signer.</div>
+                <div class="flex gap-1.5 mt-1.5"><span class="chip">R 12.4m notional</span><span class="chip">4 instruments</span></div>
+              </div>
+              <span class="text-ink-300 self-center">→</span>
+            </li>
+            <li class="py-3 flex gap-3 cursor-pointer" onclick="show('trustee')">
+              <span class="w-8 h-8 rounded-md flex items-center justify-center shrink-0" style="background:#fce798;color:#7a6200">§</span>
+              <div class="flex-1">
+                <div class="text-[13.5px] text-ink-800 font-medium">Balanced Reg 28 — foreign at 42.1%</div>
+                <div class="marg text-xs mt-0.5">Within regulation but approaching the 45% statutory limit.</div>
+                <div class="flex gap-1.5 mt-1.5"><span class="chip">trading/regulation-28-compliance</span></div>
+              </div>
+              <span class="text-ink-300 self-center">→</span>
+            </li>
+            <li class="py-3 flex gap-3 cursor-pointer" onclick="show('marketdata')">
+              <span class="w-8 h-8 rounded-md flex items-center justify-center shrink-0" style="background:#d8edee;color:#052c2b">◇</span>
+              <div class="flex-1">
+                <div class="text-[13.5px] text-ink-800 font-medium">AGL corporate action — special div R 4.20</div>
+                <div class="marg text-xs mt-0.5">Ex-div 24 April. Requires allocation across four funds.</div>
+              </div>
+              <span class="text-ink-300 self-center">→</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="p-5" style="background:#042322;color:#bbe0e3">
+          <div class="tracker" style="color:#f6c100">Despatch · Marginalia</div>
+          <p class="serif italic text-[15px] leading-[1.55] mt-2" style="color:#fbf0ec">
+            “The hash chain advanced <span class="tabular font-mono">7a9f…c042</span> overnight. Integrity verified.”
+          </p>
+          <div class="rule mt-3" style="border-color:#0a3130"></div>
+          <div class="mt-2 text-xs font-mono opacity-80">infrastructure/immutable-audit-log · 23,481 entries</div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="mt-8 bg-paper-50 shadow-paper p-6" style="border:1px solid #e6d7ce">
+      <div class="flex items-baseline justify-between">
+        <div>
+          <div class="tracker text-ink-400">House · Sector exposure</div>
+          <h3 class="serif text-2xl text-obsidian-600 mt-1">The shape of the book</h3>
+        </div>
+        <div class="flex gap-1 text-xs">
+          <button class="chip" style="background:#042322;color:#fbf0ec">Composite</button>
+          <button class="chip">By fund</button>
+          <button class="chip">By client</button>
+        </div>
+      </div>
+      <div class="rule mt-4 mb-5"></div>
+      <div class="grid grid-cols-8 gap-1.5 text-[11px]">
+        <div class="p-3 rounded" style="background:#042322;color:#fbf0ec"><div class="tracker opacity-70">Financials</div><div class="tabular text-lg mt-0.5">24.1%</div></div>
+        <div class="p-3 rounded" style="background:#052c2b;color:#fbf0ec"><div class="tracker opacity-70">Resources</div><div class="tabular text-lg mt-0.5">19.3%</div></div>
+        <div class="p-3 rounded" style="background:#bc005e;color:#fbf0ec"><div class="tracker opacity-70">Tech</div><div class="tabular text-lg mt-0.5">14.8%</div></div>
+        <div class="p-3 rounded" style="background:#74210f;color:#fbf0ec"><div class="tracker opacity-70">Industrials</div><div class="tabular text-lg mt-0.5">11.2%</div></div>
+        <div class="p-3 rounded" style="background:#7a6200;color:#fbf0ec"><div class="tracker opacity-70">Consumer</div><div class="tabular text-lg mt-0.5">9.6%</div></div>
+        <div class="p-3 rounded" style="background:#e6d7ce;color:#383838"><div class="tracker">Healthcare</div><div class="tabular text-lg mt-0.5">6.1%</div></div>
+        <div class="p-3 rounded" style="background:#f3e6df;color:#383838"><div class="tracker">Property</div><div class="tabular text-lg mt-0.5">4.8%</div></div>
+        <div class="p-3 rounded" style="background:#fbf5f2;color:#383838;border:1px solid #e6d7ce"><div class="tracker">Cash</div><div class="tabular text-lg mt-0.5">10.1%</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCREENER -->
+  <section id="screener" data-screen hidden class="px-8 py-8 max-w-[1280px]">
+    <div class="mb-5">
+      <div class="tracker text-vermilion-700">Section II · Screener</div>
+      <h1 class="serif text-4xl text-obsidian-600 mt-1">Systematic equity screen</h1>
+      <div class="serif italic text-ink-500 mt-1">JSE All-Share · 162 constituents · updated 14:22 SAST</div>
+      <div class="rule-ink mt-4"></div>
+    </div>
+    <div class="grid grid-cols-12 gap-5">
+      <aside class="col-span-3 bg-paper-50 shadow-paper p-5 space-y-4" style="border:1px solid #e6d7ce">
+        <div><label class="field-label">Universe</label><select class="field"><option>JSE All-Share</option><option>Top 40</option><option>Capped SWIX</option><option>Mid-cap</option></select></div>
+        <div><label class="field-label">Sector</label><select class="field"><option>All sectors</option><option>Financials</option><option>Resources</option><option>Tech</option></select></div>
+        <div><label class="field-label">Market cap &ge; (R m)</label><input type="number" class="field" value="5000"/></div>
+        <div><label class="field-label">P/E band</label><div class="flex gap-2"><input class="field" value="6"/><input class="field" value="18"/></div></div>
+        <div><label class="field-label">Dividend yield &ge; (%)</label><input type="number" class="field" value="3.0" step="0.1"/></div>
+        <div><label class="field-label">ESG floor</label><select class="field"><option>None</option><option>B or better</option><option>A or better</option></select></div>
+        <div><label class="field-label">Exclude</label><div class="space-y-1.5 text-xs"><label class="flex items-center gap-2"><input type="checkbox" checked/> Tobacco</label><label class="flex items-center gap-2"><input type="checkbox"/> Alcohol</label><label class="flex items-center gap-2"><input type="checkbox" checked/> Controversial weapons</label></div></div>
+        <button class="btn btn-primary w-full justify-center">Run screen</button>
+      </aside>
+      <div class="col-span-9 bg-paper-50 shadow-paper overflow-hidden" style="border:1px solid #e6d7ce">
+        <table class="table-editorial">
+          <thead><tr><th>Ticker</th><th>Name</th><th class="text-right">Mkt cap</th><th class="text-right">P/E</th><th class="text-right">Yield</th><th class="text-right">3y CAGR</th><th>ESG</th><th>AI score</th><th></th></tr></thead>
+          <tbody>
+            <tr><td class="font-mono">NPN</td><td>Naspers</td><td class="text-right tabular">R 1.42tn</td><td class="text-right tabular">11.2</td><td class="text-right tabular">0.4%</td><td class="text-right tabular">+18.1%</td><td><span class="pill" style="background:#d8edee;color:#052c2b">A</span></td><td class="tabular">0.87</td><td><button class="btn btn-ghost text-xs">View</button></td></tr>
+            <tr><td class="font-mono">AGL</td><td>Anglo American</td><td class="text-right tabular">R 680bn</td><td class="text-right tabular">8.4</td><td class="text-right tabular">4.8%</td><td class="text-right tabular">+9.3%</td><td><span class="pill" style="background:#fce798;color:#7a6200">B</span></td><td class="tabular">0.74</td><td><button class="btn btn-ghost text-xs">View</button></td></tr>
+            <tr><td class="font-mono">BHG</td><td>BHP Group</td><td class="text-right tabular">R 3.10tn</td><td class="text-right tabular">10.1</td><td class="text-right tabular">5.2%</td><td class="text-right tabular">+11.6%</td><td><span class="pill" style="background:#fce798;color:#7a6200">B</span></td><td class="tabular">0.69</td><td><button class="btn btn-ghost text-xs">View</button></td></tr>
+            <tr><td class="font-mono">FSR</td><td>FirstRand</td><td class="text-right tabular">R 420bn</td><td class="text-right tabular">9.8</td><td class="text-right tabular">5.6%</td><td class="text-right tabular">+12.2%</td><td><span class="pill" style="background:#d8edee;color:#052c2b">A</span></td><td class="tabular">0.81</td><td><button class="btn btn-ghost text-xs">View</button></td></tr>
+            <tr><td class="font-mono">SBK</td><td>Standard Bank</td><td class="text-right tabular">R 310bn</td><td class="text-right tabular">8.9</td><td class="text-right tabular">6.1%</td><td class="text-right tabular">+8.7%</td><td><span class="pill" style="background:#d8edee;color:#052c2b">A</span></td><td class="tabular">0.78</td><td><button class="btn btn-ghost text-xs">View</button></td></tr>
+            <tr><td class="font-mono">PRX</td><td>Prosus</td><td class="text-right tabular">R 1.08tn</td><td class="text-right tabular">12.6</td><td class="text-right tabular">0.3%</td><td class="text-right tabular">+15.9%</td><td><span class="pill" style="background:#d8edee;color:#052c2b">A</span></td><td class="tabular">0.84</td><td><button class="btn btn-ghost text-xs">View</button></td></tr>
+            <tr><td class="font-mono">SOL</td><td>Sasol</td><td class="text-right tabular">R 98bn</td><td class="text-right tabular">6.2</td><td class="text-right tabular">8.1%</td><td class="text-right tabular">−2.3%</td><td><span class="pill" style="background:#fad8d0;color:#74210f">C</span></td><td class="tabular">0.52</td><td><button class="btn btn-ghost text-xs">View</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECURITIES -->
+  <section id="securities" data-screen hidden class="px-8 py-8 max-w-[1280px]">
+    <div class="flex items-baseline justify-between mb-5">
+      <div><div class="tracker text-vermilion-700">Section III · Instruments</div><h1 class="serif text-4xl text-obsidian-600 mt-1">Securities master</h1></div>
+      <div class="flex gap-2"><button class="btn btn-ghost">Import ISINs</button><button class="btn btn-primary">+ New instrument</button></div>
+    </div>
+    <div class="rule-ink mb-5"></div>
+    <div class="grid grid-cols-12 gap-5">
+      <div class="col-span-7 bg-paper-50 shadow-paper overflow-hidden" style="border:1px solid #e6d7ce">
+        <table class="table-editorial">
+          <thead><tr><th>Ticker</th><th>ISIN</th><th>Issuer</th><th>Sector</th><th>Venue</th><th>Ccy</th><th>Tier</th></tr></thead>
+          <tbody>
+            <tr class="cursor-pointer"><td class="font-mono">NPN</td><td class="font-mono text-xs">ZAE000015889</td><td>Naspers Ltd</td><td>Tech</td><td>JSE</td><td class="font-mono">ZAR</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Tier 1</span></td></tr>
+            <tr><td class="font-mono">AGL</td><td class="font-mono text-xs">GB00B1XZS820</td><td>Anglo American plc</td><td>Resources</td><td>JSE</td><td class="font-mono">ZAR</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Tier 1</span></td></tr>
+            <tr><td class="font-mono">FSR</td><td class="font-mono text-xs">ZAE000066304</td><td>FirstRand Ltd</td><td>Financials</td><td>JSE</td><td class="font-mono">ZAR</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Tier 1</span></td></tr>
+            <tr><td class="font-mono">SBK</td><td class="font-mono text-xs">ZAE000109815</td><td>Standard Bank</td><td>Financials</td><td>JSE</td><td class="font-mono">ZAR</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Tier 1</span></td></tr>
+            <tr><td class="font-mono">PRX</td><td class="font-mono text-xs">NL0013654783</td><td>Prosus NV</td><td>Tech</td><td>EUR</td><td class="font-mono">EUR</td><td><span class="pill" style="background:#fce798;color:#7a6200">Foreign</span></td></tr>
+            <tr><td class="font-mono">SOL</td><td class="font-mono text-xs">ZAE000006896</td><td>Sasol Ltd</td><td>Resources</td><td>JSE</td><td class="font-mono">ZAR</td><td><span class="pill" style="background:#fad8d0;color:#74210f">Watch</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <aside class="col-span-5 bg-paper-50 shadow-paper p-6" style="border:1px solid #e6d7ce">
+        <div class="tracker text-ink-400">Editing · Instrument</div>
+        <h3 class="serif text-2xl text-obsidian-600 mt-1">NPN · Naspers Ltd</h3>
+        <div class="rule mt-3 mb-4"></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="field-label">Ticker</label><input class="field" value="NPN"/></div>
+          <div><label class="field-label">ISIN</label><input class="field font-mono text-xs" value="ZAE000015889"/></div>
+          <div class="col-span-2"><label class="field-label">Issuer</label><input class="field" value="Naspers Ltd"/></div>
+          <div><label class="field-label">Sector</label><select class="field"><option>Tech</option><option>Financials</option><option>Resources</option></select></div>
+          <div><label class="field-label">Venue</label><select class="field"><option>JSE</option><option>LSE</option><option>NYSE</option></select></div>
+          <div><label class="field-label">Currency</label><select class="field"><option>ZAR</option><option>USD</option><option>EUR</option></select></div>
+          <div><label class="field-label">Reg 28 tier</label><select class="field"><option>Tier 1 (equity, local)</option><option>Foreign</option><option>Property</option><option>Watchlist</option></select></div>
+          <div class="col-span-2"><label class="field-label">ESG exclusions</label><div class="flex gap-3 text-xs pt-1"><label class="flex items-center gap-1.5"><input type="checkbox"/> Tobacco</label><label class="flex items-center gap-1.5"><input type="checkbox"/> Alcohol</label><label class="flex items-center gap-1.5"><input type="checkbox" checked/> Weapons</label><label class="flex items-center gap-1.5"><input type="checkbox"/> Thermal coal</label></div></div>
+        </div>
+        <div class="rule mt-4 mb-3"></div>
+        <div class="flex justify-between items-center"><span class="text-xs text-ink-400">Last edited · 14:02 by T. Mbeki</span><div class="flex gap-2"><button class="btn btn-ghost">Revert</button><button class="btn btn-primary">Save</button></div></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- FUNDS -->
+  <section id="funds" data-screen hidden class="px-8 py-8 max-w-[1280px]">
+    <div class="flex items-baseline justify-between mb-5">
+      <div><div class="tracker text-vermilion-700">Section IV · Funds</div><h1 class="serif text-4xl text-obsidian-600 mt-1">Register of constituted funds</h1><div class="serif italic text-ink-500 mt-1">Seven vehicles under discretionary mandate.</div></div>
+      <div class="flex gap-2"><button class="btn btn-ghost" onclick="openModal('newClient')">+ New client</button><button class="btn btn-primary" onclick="openModal('newFund')">+ Constitute fund</button></div>
+    </div>
+    <div class="rule-ink mb-5"></div>
+    <div class="bg-paper-50 shadow-paper overflow-hidden" style="border:1px solid #e6d7ce">
+      <table class="table-editorial">
+        <thead><tr><th>Fund</th><th>Type</th><th>Ccy</th><th class="text-right">AUM</th><th class="text-right">YTD</th><th>Mandate</th><th>PM</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><span class="serif text-[15px] text-obsidian-600">Sovereign Global Equity</span><div class="text-xs text-ink-400 font-mono">FND-SGE-001</div></td><td>CIS</td><td class="font-mono">USD</td><td class="text-right tabular">$ 312m</td><td class="text-right tabular text-obsidian-600">+18.4%</td><td>Growth 70/30</td><td>T. Mbeki</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Live</span></td><td><button class="btn btn-ghost text-xs">Open →</button></td></tr>
+          <tr><td><span class="serif text-[15px] text-obsidian-600">Capped SWIX Alpha</span><div class="text-xs text-ink-400 font-mono">FND-CSA-002</div></td><td>CIS</td><td class="font-mono">ZAR</td><td class="text-right tabular">R 1,840m</td><td class="text-right tabular text-obsidian-600">+12.1%</td><td>SWIX+2%</td><td>K. Naidoo</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Live</span></td><td><button class="btn btn-ghost text-xs">Open →</button></td></tr>
+          <tr><td><span class="serif text-[15px] text-obsidian-600">Balanced Reg 28</span><div class="text-xs text-ink-400 font-mono">FND-BR28-003</div></td><td>Retirement</td><td class="font-mono">ZAR</td><td class="text-right tabular">R 3,120m</td><td class="text-right tabular text-obsidian-600">+9.8%</td><td>Reg 28 Balanced</td><td>J. v.d. Merwe</td><td><span class="pill" style="background:#fce798;color:#7a6200">Near limit</span></td><td><button class="btn btn-ghost text-xs">Open →</button></td></tr>
+          <tr><td><span class="serif text-[15px] text-obsidian-600">Dividend Aristocrats</span><div class="text-xs text-ink-400 font-mono">FND-DIV-004</div></td><td>Seg. mandate</td><td class="font-mono">ZAR</td><td class="text-right tabular">R 680m</td><td class="text-right tabular text-obsidian-600">+7.2%</td><td>Income &amp; Growth</td><td>T. Mbeki</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Live</span></td><td><button class="btn btn-ghost text-xs">Open →</button></td></tr>
+          <tr><td><span class="serif text-[15px] text-obsidian-600">Frontier Resources</span><div class="text-xs text-ink-400 font-mono">FND-FR-005</div></td><td>QIHF</td><td class="font-mono">USD</td><td class="text-right tabular">$ 84m</td><td class="text-right tabular" style="color:#b83112">−2.1%</td><td>Alpha · unconstrained</td><td>K. Naidoo</td><td><span class="pill" style="background:#fad8d0;color:#74210f">Drawdown</span></td><td><button class="btn btn-ghost text-xs">Open →</button></td></tr>
+          <tr><td><span class="serif text-[15px] text-obsidian-600">Global Tech Leaders</span><div class="text-xs text-ink-400 font-mono">FND-GTL-006</div></td><td>CIS</td><td class="font-mono">USD</td><td class="text-right tabular">$ 142m</td><td class="text-right tabular text-obsidian-600">+22.6%</td><td>MSCI World Tech</td><td>T. Mbeki</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Live</span></td><td><button class="btn btn-ghost text-xs">Open →</button></td></tr>
+          <tr><td><span class="serif text-[15px] text-obsidian-600">Conservative Income</span><div class="text-xs text-ink-400 font-mono">FND-CI-007</div></td><td>CIS</td><td class="font-mono">ZAR</td><td class="text-right tabular">R 410m</td><td class="text-right tabular text-obsidian-600">+6.4%</td><td>Income · low-vol</td><td>J. v.d. Merwe</td><td><span class="pill" style="background:#e6d7ce;color:#4a4a4a">Soft-closed</span></td><td><button class="btn btn-ghost text-xs">Open →</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- MODELS -->
+  <section id="models" data-screen hidden class="px-8 py-8 max-w-[1280px]">
+    <div class="flex items-baseline justify-between mb-5">
+      <div><div class="tracker text-vermilion-700">Section V · Models</div><h1 class="serif text-4xl text-obsidian-600 mt-1">Model portfolios</h1></div>
+      <button class="btn btn-primary">+ New model</button>
+    </div>
+    <div class="rule-ink mb-5"></div>
+    <div class="grid grid-cols-12 gap-5">
+      <aside class="col-span-4 space-y-2">
+        <div class="p-4 bg-obsidian-600 text-paper rounded cursor-pointer"><div class="serif text-lg">Growth 70/30</div><div class="text-xs opacity-70 mt-1">70% equity · 30% bonds · foreign 40%</div><div class="flex gap-1 mt-2"><span class="chip" style="background:#052c2b;color:#f6c100;border:none">Bound to 3 funds</span></div></div>
+        <div class="p-4 bg-paper-50 rounded cursor-pointer" style="border:1px solid #e6d7ce"><div class="serif text-lg text-obsidian-600">Balanced Reg 28</div><div class="text-xs text-ink-500 mt-1">60% equity · 35% bonds · within Reg 28</div></div>
+        <div class="p-4 bg-paper-50 rounded cursor-pointer" style="border:1px solid #e6d7ce"><div class="serif text-lg text-obsidian-600">Global Equity Alpha</div><div class="text-xs text-ink-500 mt-1">100% global equity · unconstrained</div></div>
+        <div class="p-4 bg-paper-50 rounded cursor-pointer" style="border:1px solid #e6d7ce"><div class="serif text-lg text-obsidian-600">Income &amp; Growth</div><div class="text-xs text-ink-500 mt-1">Dividend focus · ZAR &amp; USD</div></div>
+        <div class="p-4 bg-paper-50 rounded cursor-pointer" style="border:1px solid #e6d7ce"><div class="serif text-lg text-obsidian-600">Conservative Income</div><div class="text-xs text-ink-500 mt-1">Low-vol · income-preserving</div></div>
+      </aside>
+      <div class="col-span-8 bg-paper-50 shadow-paper p-6" style="border:1px solid #e6d7ce">
+        <div class="flex items-baseline justify-between">
+          <div><div class="tracker text-ink-400">Editing</div><h3 class="serif text-3xl text-obsidian-600">Growth 70/30</h3><div class="serif italic text-ink-500 text-sm">Revision 14 · effective from 01 April 2026</div></div>
+          <div class="flex gap-2"><button class="btn btn-ghost">Clone</button><button class="btn btn-ghost">Backtest</button><button class="btn btn-primary">Publish revision</button></div>
+        </div>
+        <div class="rule mt-4 mb-5"></div>
+        <div class="grid grid-cols-3 gap-4 mb-5">
+          <div><div class="tracker text-ink-400">Benchmark</div><div class="serif text-lg text-obsidian-600">SWIX 40 (70%) + ALBI (30%)</div></div>
+          <div><div class="tracker text-ink-400">Tracking error (3y)</div><div class="serif text-lg text-obsidian-600 tabular">3.8%</div></div>
+          <div><div class="tracker text-ink-400">Sharpe (3y)</div><div class="serif text-lg text-obsidian-600 tabular">1.24</div></div>
+        </div>
+        <div class="rule-thin mb-3"></div>
+        <div class="tracker text-ink-400 mb-2">Target weights</div>
+        <table class="table-editorial">
+          <thead><tr><th>Bucket</th><th>Target</th><th>Min</th><th>Max</th><th>Current</th><th>Drift</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>SA Equity</td><td class="tabular">42.0%</td><td class="tabular">38</td><td class="tabular">46</td><td class="tabular">43.1%</td><td class="tabular text-obsidian-600">+1.1pp</td><td><button class="btn btn-ghost text-xs">edit</button></td></tr>
+            <tr><td>Foreign Equity</td><td class="tabular">28.0%</td><td class="tabular">24</td><td class="tabular">32</td><td class="tabular">26.4%</td><td class="tabular" style="color:#b83112">−1.6pp</td><td><button class="btn btn-ghost text-xs">edit</button></td></tr>
+            <tr><td>SA Bonds</td><td class="tabular">18.0%</td><td class="tabular">15</td><td class="tabular">22</td><td class="tabular">18.7%</td><td class="tabular text-obsidian-600">+0.7pp</td><td><button class="btn btn-ghost text-xs">edit</button></td></tr>
+            <tr><td>Foreign Bonds</td><td class="tabular">7.0%</td><td class="tabular">5</td><td class="tabular">10</td><td class="tabular">6.4%</td><td class="tabular" style="color:#b83112">−0.6pp</td><td><button class="btn btn-ghost text-xs">edit</button></td></tr>
+            <tr><td>Property</td><td class="tabular">3.0%</td><td class="tabular">0</td><td class="tabular">6</td><td class="tabular">2.8%</td><td class="tabular">−0.2pp</td><td><button class="btn btn-ghost text-xs">edit</button></td></tr>
+            <tr><td>Cash</td><td class="tabular">2.0%</td><td class="tabular">0</td><td class="tabular">8</td><td class="tabular">2.6%</td><td class="tabular text-obsidian-600">+0.6pp</td><td><button class="btn btn-ghost text-xs">edit</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ONBOARD -->
+  <section id="onboard" data-screen hidden class="px-8 py-8 max-w-[1100px]">
+    <div class="mb-5"><div class="tracker text-vermilion-700">Section VI · Admittance</div><h1 class="serif text-4xl text-obsidian-600 mt-1">Client onboarding</h1><div class="serif italic text-ink-500 mt-1">FICA · POPIA · suitability assessment.</div></div>
+    <div class="rule-ink mb-6"></div>
+    <div class="flex items-center gap-2 mb-6 text-xs">
+      <span class="pill" style="background:#042322;color:#f6c100">① Identity</span>
+      <span class="text-ink-300">—</span>
+      <span class="pill" style="background:#042322;color:#f6c100">② Source of funds</span>
+      <span class="text-ink-300">—</span>
+      <span class="pill" style="background:#bc005e;color:#fbf0ec">③ Suitability</span>
+      <span class="text-ink-300">—</span>
+      <span class="pill" style="background:#fbf5f2;color:#6b6b6b;border:1px solid #e6d7ce">④ Mandate</span>
+      <span class="text-ink-300">—</span>
+      <span class="pill" style="background:#fbf5f2;color:#6b6b6b;border:1px solid #e6d7ce">⑤ Sign &amp; admit</span>
+    </div>
+    <div class="bg-paper-50 shadow-paper p-7" style="border:1px solid #e6d7ce">
+      <div class="serif text-2xl text-obsidian-600 mb-1">Suitability assessment</div>
+      <div class="marg mb-5">Conducted in the CFA's own voice; retained verbatim for regulator review.</div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="field-label">Investment horizon</label><select class="field"><option>1–3 years</option><option selected>5–10 years</option><option>10+ years</option></select></div>
+        <div><label class="field-label">Liquidity need</label><select class="field"><option>None</option><option selected>Moderate</option><option>High</option></select></div>
+        <div><label class="field-label">Drawdown tolerance</label><select class="field"><option>&lt; 10%</option><option selected>10–20%</option><option>20–30%</option></select></div>
+        <div><label class="field-label">Experience</label><select class="field"><option>Novice</option><option>Informed</option><option selected>Experienced</option></select></div>
+        <div class="col-span-2"><label class="field-label">Verbatim objectives (client's words)</label><textarea class="field" rows="3">“Preserve capital in real terms for grandchildren's university costs; accept equity volatility.”</textarea></div>
+      </div>
+      <div class="rule mt-5 mb-4"></div>
+      <div class="flex items-center gap-3 p-4 rounded" style="background:#042322;color:#fbf0ec">
+        <span class="dot" style="background:#f6c100"></span>
+        <div class="serif italic">Recommended model · <strong class="not-italic">Growth 70/30</strong> — aligns with horizon, drawdown tolerance and liquidity profile.</div>
+        <span class="ml-auto cite" style="background:#052c2b;color:#f6c100;border:none">ai/suitability-advisor</span>
+      </div>
+      <div class="flex justify-between mt-5"><button class="btn btn-ghost">← Back</button><button class="btn btn-primary">Continue to mandate →</button></div>
+    </div>
+  </section>
+
+  <!-- REBALANCE -->
+  <section id="rebalance" data-screen hidden class="px-8 py-8 max-w-[1280px]">
+    <div class="flex items-baseline justify-between mb-5">
+      <div><div class="tracker text-vermilion-700">Section VII · Rebalance</div><h1 class="serif text-4xl text-obsidian-600 mt-1">Proposed trades · Growth 70/30</h1><div class="serif italic text-ink-500 mt-1">Prepared by <span class="font-mono">ai/research-agent</span> · accepted by T. Mbeki, CFA.</div></div>
+      <div class="flex gap-2"><button class="btn btn-ghost">Simulate</button><button class="btn btn-primary" onclick="show('gate')">Submit to gate →</button></div>
+    </div>
+    <div class="rule-ink mb-5"></div>
+    <div class="grid grid-cols-4 gap-4 mb-6">
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Gross notional</div><div class="serif text-2xl tabular text-obsidian-600 mt-1">R 12.41m</div></div>
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Est. costs</div><div class="serif text-2xl tabular text-obsidian-600 mt-1">R 14.2k</div><div class="text-xs text-ink-500 mt-0.5">11 bps</div></div>
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Tax drag</div><div class="serif text-2xl tabular text-obsidian-600 mt-1">R 8.9k</div></div>
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Expected TE</div><div class="serif text-2xl tabular text-obsidian-600 mt-1">2.7%</div><div class="text-xs" style="color:#059669">−0.4pp after trade</div></div>
+    </div>
+    <div class="bg-paper-50 shadow-paper overflow-hidden" style="border:1px solid #e6d7ce">
+      <table class="table-editorial">
+        <thead><tr><th>Action</th><th>Ticker</th><th>Name</th><th class="text-right">Current</th><th class="text-right">Target</th><th class="text-right">Δ</th><th class="text-right">Shares</th><th class="text-right">Notional</th><th>Rationale</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill" style="background:#d8edee;color:#052c2b">BUY</span></td><td class="font-mono">NPN</td><td>Naspers</td><td class="text-right tabular">6.80%</td><td class="text-right tabular">9.10%</td><td class="text-right tabular text-obsidian-600">+2.30pp</td><td class="text-right tabular">+3,240</td><td class="text-right tabular">R 9.12m</td><td class="text-xs text-ink-500">Tencent discount · AI 0.87</td></tr>
+          <tr><td><span class="pill" style="background:#fad8d0;color:#74210f">SELL</span></td><td class="font-mono">SOL</td><td>Sasol</td><td class="text-right tabular">4.20%</td><td class="text-right tabular">2.00%</td><td class="text-right tabular" style="color:#b83112">−2.20pp</td><td class="text-right tabular">−1,840</td><td class="text-right tabular">R 2.14m</td><td class="text-xs text-ink-500">ESG watch · momentum</td></tr>
+          <tr><td><span class="pill" style="background:#d8edee;color:#052c2b">BUY</span></td><td class="font-mono">FSR</td><td>FirstRand</td><td class="text-right tabular">5.10%</td><td class="text-right tabular">6.00%</td><td class="text-right tabular text-obsidian-600">+0.90pp</td><td class="text-right tabular">+1,120</td><td class="text-right tabular">R 0.94m</td><td class="text-xs text-ink-500">Dividend cover expanding</td></tr>
+          <tr><td><span class="pill" style="background:#fad8d0;color:#74210f">SELL</span></td><td class="font-mono">AGL</td><td>Anglo American</td><td class="text-right tabular">3.90%</td><td class="text-right tabular">3.20%</td><td class="text-right tabular" style="color:#b83112">−0.70pp</td><td class="text-right tabular">−620</td><td class="text-right tabular">R 0.21m</td><td class="text-xs text-ink-500">Rebalance drift</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- GATE -->
+  <section id="gate" data-screen hidden class="px-8 py-8 max-w-[1100px]">
+    <div class="mb-5"><div class="tracker text-vermilion-700">Section VIII · Gate</div><h1 class="serif text-4xl text-obsidian-600 mt-1">Pre-trade authorization</h1></div>
+    <div class="rule-ink mb-6"></div>
+    <div class="p-5 mb-5" style="background:#042322;color:#fbf0ec">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full flex items-center justify-center serif text-2xl" style="background:#f6c100;color:#042322">✓</div>
+        <div>
+          <div class="tracker" style="color:#f6c100">Compliance checks · all cleared</div>
+          <div class="serif text-xl">7 of 7 rules passed</div>
+        </div>
+        <div class="ml-auto text-right text-xs font-mono opacity-80">Ref: GATE-0417-3281<br/>Hash: 7a9f42c1…c04299b0</div>
+      </div>
+      <div class="grid grid-cols-4 gap-2 mt-4 text-xs">
+        <div class="flex items-center gap-2"><span class="dot" style="background:#f6c100"></span>Reg 28 equity ≤ 75% — now 71.4%</div>
+        <div class="flex items-center gap-2"><span class="dot" style="background:#f6c100"></span>Foreign ≤ 45% — now 38.9%</div>
+        <div class="flex items-center gap-2"><span class="dot" style="background:#f6c100"></span>Single issuer ≤ 25% — max 9.1%</div>
+        <div class="flex items-center gap-2"><span class="dot" style="background:#f6c100"></span>ESG exclusions — respected</div>
+        <div class="flex items-center gap-2"><span class="dot" style="background:#f6c100"></span>Mandate drift ≤ 4pp — 2.3pp</div>
+        <div class="flex items-center gap-2"><span class="dot" style="background:#f6c100"></span>Liquidity ≥ 5d ADV — 2.1d max</div>
+        <div class="flex items-center gap-2"><span class="dot" style="background:#f6c100"></span>Crossing disclosure — n/a</div>
+        <div class="flex items-center gap-2"><span class="dot" style="background:#bbe0e3"></span>AI confidence · 0.87 &gt; 0.60 floor</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-5 mb-5">
+      <div class="bg-paper-50 shadow-paper p-6" style="border:1px solid #e6d7ce">
+        <div class="tracker text-ink-400 mb-3">Primary signer</div>
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 rounded-full flex items-center justify-center serif text-lg" style="background:#042322;color:#f6c100">TM</div>
+          <div><div class="serif text-lg text-obsidian-600">T. Mbeki, CFA</div><div class="text-xs text-ink-500">Portfolio Manager · ID ***-**-4201</div></div>
+          <span class="ml-auto pill" style="background:#d8edee;color:#052c2b">Signed · 14:18</span>
+        </div>
+        <div class="p-3 rounded font-mono text-xs" style="background:#fbf5f2;border:1px solid #e6d7ce">
+          <div class="text-ink-400 mb-1">Signature hash</div>
+          3f21…b819e0 · ed25519 · 14:18:42 SAST
+        </div>
+      </div>
+      <div class="bg-paper-50 shadow-paper p-6" style="border:1px solid #e6d7ce">
+        <div class="tracker text-ink-400 mb-3">Counter-signer</div>
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 rounded-full flex items-center justify-center serif text-lg" style="background:#bc005e;color:#fbf0ec">KN</div>
+          <div><div class="serif text-lg text-obsidian-600">K. Naidoo, CFA</div><div class="text-xs text-ink-500">Head of Portfolio Construction</div></div>
+          <span class="ml-auto pill" style="background:#fce798;color:#7a6200">Awaiting · 17m</span>
+        </div>
+        <input class="field font-mono" placeholder="Enter passphrase to sign…"/>
+        <button class="btn btn-primary w-full justify-center mt-3" onclick="show('oms')">Counter-sign &amp; release →</button>
+      </div>
+    </div>
+    <div class="p-5 font-mono text-xs" style="background:#042322;color:#bbe0e3">
+      <div class="tracker mb-2" style="color:#f6c100">Audit chain · appending</div>
+      <div class="space-y-1">
+        <div>prev_hash &nbsp;→ <span style="color:#fbf0ec">7a9f42c1e83d0b4a…c04299b0</span></div>
+        <div>entry_id &nbsp;&nbsp;→ <span style="color:#fbf0ec">AUD-0417-3281</span></div>
+        <div>action &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#fbf0ec">trade.authorized</span></div>
+        <div>actor &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#fbf0ec">T. Mbeki (+ K. Naidoo)</span></div>
+        <div>entry_hash → <span style="color:#f6c100">c0a8f2d4…(computing)</span></div>
+      </div>
+      <div class="mt-2 text-[10px] opacity-60">infrastructure/immutable-audit-log · sha256 · RFC 8785 JCS</div>
+    </div>
+  </section>
+
+  <!-- OMS -->
+  <section id="oms" data-screen hidden class="px-8 py-8 max-w-[1280px]">
+    <div class="flex items-baseline justify-between mb-5">
+      <div><div class="tracker text-vermilion-700">Section IX · Execution</div><h1 class="serif text-4xl text-obsidian-600 mt-1">Order management blotter</h1></div>
+      <div class="flex gap-2"><button class="btn btn-ghost">Export FIX log</button><button class="btn btn-primary">+ Manual order</button></div>
+    </div>
+    <div class="rule-ink mb-5"></div>
+    <div class="grid grid-cols-4 gap-4 mb-5">
+      <div class="bg-paper-50 shadow-paper p-4" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Working</div><div class="serif text-2xl tabular text-obsidian-600">7</div></div>
+      <div class="bg-paper-50 shadow-paper p-4" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Filled today</div><div class="serif text-2xl tabular text-obsidian-600">23</div></div>
+      <div class="bg-paper-50 shadow-paper p-4" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Partial</div><div class="serif text-2xl tabular text-obsidian-600">2</div></div>
+      <div class="bg-paper-50 shadow-paper p-4" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Rejected</div><div class="serif text-2xl tabular" style="color:#b83112">1</div></div>
+    </div>
+    <div class="flex gap-1 text-xs mb-3"><button class="chip" style="background:#042322;color:#fbf0ec">Working</button><button class="chip">Filled</button><button class="chip">Partial</button><button class="chip">Rejected</button><button class="chip">All</button></div>
+    <div class="bg-paper-50 shadow-paper overflow-hidden" style="border:1px solid #e6d7ce">
+      <table class="table-editorial">
+        <thead><tr><th>Order</th><th>Ticker</th><th>Side</th><th class="text-right">Qty</th><th class="text-right">Filled</th><th class="text-right">Avg px</th><th>Venue</th><th>Algo</th><th>Status</th><th>Hash</th></tr></thead>
+        <tbody>
+          <tr><td class="font-mono">ORD-3281-01</td><td class="font-mono">NPN</td><td><span class="pill" style="background:#d8edee;color:#052c2b">BUY</span></td><td class="text-right tabular">3,240</td><td class="text-right tabular">1,820</td><td class="text-right tabular">R 2,812.40</td><td>JSE</td><td>VWAP 30m</td><td><span class="pill" style="background:#fce798;color:#7a6200">Working · 56%</span></td><td class="font-mono text-xs text-ink-400">c0a8…9b0</td></tr>
+          <tr><td class="font-mono">ORD-3281-02</td><td class="font-mono">SOL</td><td><span class="pill" style="background:#fad8d0;color:#74210f">SELL</span></td><td class="text-right tabular">1,840</td><td class="text-right tabular">1,840</td><td class="text-right tabular">R 1,163.28</td><td>JSE</td><td>TWAP 15m</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Filled</span></td><td class="font-mono text-xs text-ink-400">4e21…742</td></tr>
+          <tr><td class="font-mono">ORD-3281-03</td><td class="font-mono">FSR</td><td><span class="pill" style="background:#d8edee;color:#052c2b">BUY</span></td><td class="text-right tabular">1,120</td><td class="text-right tabular">780</td><td class="text-right tabular">R 836.12</td><td>JSE</td><td>IS 20bp</td><td><span class="pill" style="background:#fce798;color:#7a6200">Working · 69%</span></td><td class="font-mono text-xs text-ink-400">9a14…cc2</td></tr>
+          <tr><td class="font-mono">ORD-3281-04</td><td class="font-mono">AGL</td><td><span class="pill" style="background:#fad8d0;color:#74210f">SELL</span></td><td class="text-right tabular">620</td><td class="text-right tabular">0</td><td class="text-right tabular">—</td><td>JSE</td><td>Limit 338.00</td><td><span class="pill" style="background:#e6d7ce;color:#4a4a4a">Queued</span></td><td class="font-mono text-xs text-ink-400">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- MARKET DATA -->
+  <section id="marketdata" data-screen hidden class="px-8 py-8 max-w-[1280px]">
+    <div class="flex items-baseline justify-between mb-5">
+      <div><div class="tracker text-vermilion-700">Section X · Data</div><h1 class="serif text-4xl text-obsidian-600 mt-1">Market data &amp; corporate actions</h1></div>
+      <button class="btn btn-primary">+ Attach feed</button>
+    </div>
+    <div class="rule-ink mb-5"></div>
+    <div class="grid grid-cols-4 gap-4 mb-6">
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Feeds live</div><div class="serif text-2xl text-obsidian-600 tabular">4 / 4</div><div class="text-xs mt-1" style="color:#059669">All within SLA</div></div>
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Prices / sec</div><div class="serif text-2xl text-obsidian-600 tabular">1,428</div></div>
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Corp actions open</div><div class="serif text-2xl text-obsidian-600 tabular">9</div></div>
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Stale quotes</div><div class="serif text-2xl tabular" style="color:#b83112">0</div></div>
+    </div>
+    <div class="grid grid-cols-12 gap-5">
+      <div class="col-span-7 bg-paper-50 shadow-paper p-6" style="border:1px solid #e6d7ce">
+        <div class="tracker text-ink-400">Corporate actions queue</div>
+        <table class="table-editorial mt-3">
+          <thead><tr><th>Ticker</th><th>Type</th><th>Detail</th><th>Ex-date</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td class="font-mono">AGL</td><td>Special div</td><td>R 4.20 / sh</td><td>24 Apr</td><td><span class="pill" style="background:#fce798;color:#7a6200">Action · 4 funds</span></td></tr>
+            <tr><td class="font-mono">NPN</td><td>Stock split</td><td>3-for-1</td><td>06 May</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Scheduled</span></td></tr>
+            <tr><td class="font-mono">SBK</td><td>Dividend</td><td>R 8.80 final</td><td>19 Apr</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Booked</span></td></tr>
+            <tr><td class="font-mono">FSR</td><td>Rights offer</td><td>1-for-5 @ R 68.00</td><td>02 May</td><td><span class="pill" style="background:#fad8d0;color:#74210f">Decision due</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-span-5 bg-paper-50 shadow-paper p-6" style="border:1px solid #e6d7ce">
+        <div class="tracker text-ink-400">EOD loader · trailing 30 days</div>
+        <svg viewBox="0 0 320 140" class="w-full mt-3">
+          <g font-family="JetBrains Mono" font-size="9" fill="#6b6b6b">
+            <line x1="0" y1="130" x2="320" y2="130" stroke="#c8c0bd"/>
+            <line x1="0" y1="70"  x2="320" y2="70"  stroke="#e6d7ce" stroke-dasharray="2 3"/>
+            <text x="2" y="68">99%</text>
+            <text x="2" y="128">0</text>
+          </g>
+          <g fill="#042322">
+            <rect x="4"   y="10" width="8" height="120"/><rect x="14"  y="12" width="8" height="118"/><rect x="24"  y="8"  width="8" height="122"/>
+            <rect x="34"  y="14" width="8" height="116"/><rect x="44"  y="9"  width="8" height="121"/><rect x="54"  y="11" width="8" height="119"/>
+            <rect x="64"  y="7"  width="8" height="123"/><rect x="74"  y="10" width="8" height="120"/><rect x="84"  y="13" width="8" height="117"/>
+            <rect x="94"  y="8"  width="8" height="122"/><rect x="104" y="12" width="8" height="118"/><rect x="114" y="9"  width="8" height="121"/>
+            <rect x="124" y="14" width="8" height="116" fill="#b83112"/><rect x="134" y="10" width="8" height="120"/><rect x="144" y="8"  width="8" height="122"/>
+            <rect x="154" y="11" width="8" height="119"/><rect x="164" y="9"  width="8" height="121"/><rect x="174" y="13" width="8" height="117"/>
+            <rect x="184" y="7"  width="8" height="123"/><rect x="194" y="10" width="8" height="120"/><rect x="204" y="12" width="8" height="118"/>
+            <rect x="214" y="8"  width="8" height="122"/><rect x="224" y="14" width="8" height="116"/><rect x="234" y="9"  width="8" height="121"/>
+            <rect x="244" y="11" width="8" height="119"/><rect x="254" y="8"  width="8" height="122"/><rect x="264" y="10" width="8" height="120"/>
+            <rect x="274" y="7"  width="8" height="123"/><rect x="284" y="12" width="8" height="118"/><rect x="294" y="9"  width="8" height="121"/>
+          </g>
+        </svg>
+        <div class="text-xs text-ink-500 mt-2 flex items-center gap-3"><span class="dot" style="background:#042322"></span>Successful load &nbsp; <span class="dot" style="background:#b83112"></span>Partial retry (1 day)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PERFORMANCE -->
+  <section id="performance" data-screen hidden class="px-8 py-8 max-w-[1280px]">
+    <div class="flex items-baseline justify-between mb-5">
+      <div><div class="tracker text-vermilion-700">Section XI · Measurement</div><h1 class="serif text-4xl text-obsidian-600 mt-1">Performance &amp; attribution</h1><div class="serif italic text-ink-500 mt-1">Sovereign Global Equity Fund · trailing 12 months.</div></div>
+      <div class="flex gap-2">
+        <select class="field w-56"><option>Sovereign Global Equity</option><option>Capped SWIX Alpha</option><option>Balanced Reg 28</option></select>
+        <button class="btn btn-ghost">Export PDF</button>
+      </div>
+    </div>
+    <div class="rule-ink mb-5"></div>
+
+    <div class="bg-paper-50 shadow-paper p-6 mb-5" style="border:1px solid #e6d7ce">
+      <div class="flex items-baseline justify-between mb-3">
+        <div><div class="tracker text-ink-400">YTD time-weighted return · GIPS</div><div class="serif text-3xl text-obsidian-600 tabular mt-1">+18.42<span class="text-lg">%</span> <span class="text-ink-400 text-base serif italic">vs benchmark +12.68%</span></div></div>
+        <div class="flex gap-1 text-xs"><button class="chip">1M</button><button class="chip">QTD</button><button class="chip" style="background:#042322;color:#fbf0ec">YTD</button><button class="chip">1Y</button><button class="chip">3Y</button><button class="chip">Since inception</button></div>
+      </div>
+      <svg viewBox="0 0 900 260" class="w-full">
+        <defs>
+          <linearGradient id="perfArea" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#042322" stop-opacity="0.28"/>
+            <stop offset="100%" stop-color="#042322" stop-opacity="0.02"/>
+          </linearGradient>
+        </defs>
+        <g font-family="JetBrains Mono" font-size="10" fill="#6b6b6b">
+          <line x1="40" y1="40"  x2="880" y2="40"  stroke="#e6d7ce" stroke-dasharray="2 3"/><text x="4" y="44">+20%</text>
+          <line x1="40" y1="110" x2="880" y2="110" stroke="#e6d7ce" stroke-dasharray="2 3"/><text x="4" y="114">+10%</text>
+          <line x1="40" y1="180" x2="880" y2="180" stroke="#e6d7ce"/><text x="4" y="184">0%</text>
+          <line x1="40" y1="220" x2="880" y2="220" stroke="#e6d7ce" stroke-dasharray="2 3"/><text x="4" y="224">−5%</text>
+          <text x="40"  y="250">Jan</text><text x="180" y="250">Mar</text><text x="320" y="250">May</text>
+          <text x="460" y="250">Jul</text><text x="600" y="250">Sep</text><text x="740" y="250">Nov</text><text x="860" y="250">Apr</text>
+        </g>
+        <path d="M40,180 L110,172 L180,168 L250,160 L320,150 L390,145 L460,138 L530,130 L600,124 L670,120 L740,114 L810,108 L880,102" fill="none" stroke="#bc005e" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <path d="M40,180 L110,165 L180,155 L250,140 L320,128 L390,118 L460,102 L530,90 L600,78 L670,65 L740,52 L810,42 L880,28 L880,220 L40,220 Z" fill="url(#perfArea)"/>
+        <path d="M40,180 L110,165 L180,155 L250,140 L320,128 L390,118 L460,102 L530,90 L600,78 L670,65 L740,52 L810,42 L880,28" fill="none" stroke="#042322" stroke-width="2"/>
+        <circle cx="880" cy="28" r="4" fill="#042322"/><circle cx="880" cy="102" r="3" fill="#bc005e"/>
+      </svg>
+      <div class="flex gap-5 text-xs mt-2 text-ink-500"><span class="flex items-center gap-1.5"><span class="dot" style="background:#042322"></span>Fund (net, TWR)</span><span class="flex items-center gap-1.5"><span class="dot" style="background:#bc005e"></span>MSCI ACWI benchmark</span></div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-5">
+      <div class="bg-paper-50 shadow-paper p-6" style="border:1px solid #e6d7ce">
+        <div class="tracker text-ink-400">Periodic returns · TWR</div>
+        <table class="table-editorial mt-3">
+          <tbody>
+            <tr><td>QTD</td><td class="text-right tabular text-obsidian-600">+5.12%</td><td class="text-right tabular text-ink-400">+3.40%</td></tr>
+            <tr><td>YTD</td><td class="text-right tabular text-obsidian-600">+18.42%</td><td class="text-right tabular text-ink-400">+12.68%</td></tr>
+            <tr><td>1 year</td><td class="text-right tabular text-obsidian-600">+24.31%</td><td class="text-right tabular text-ink-400">+16.02%</td></tr>
+            <tr><td>3 year ann.</td><td class="text-right tabular text-obsidian-600">+14.82%</td><td class="text-right tabular text-ink-400">+10.21%</td></tr>
+            <tr><td>5 year ann.</td><td class="text-right tabular text-obsidian-600">+12.64%</td><td class="text-right tabular text-ink-400">+9.33%</td></tr>
+            <tr><td>Inception</td><td class="text-right tabular text-obsidian-600">+11.82%</td><td class="text-right tabular text-ink-400">+8.41%</td></tr>
+          </tbody>
+        </table>
+        <div class="text-xs text-ink-400 mt-2 serif italic">GIPS-compliant · net of fees · chain-linked.</div>
+      </div>
+      <div class="bg-paper-50 shadow-paper p-6" style="border:1px solid #e6d7ce">
+        <div class="tracker text-ink-400">Brinson-Fachler attribution · YTD</div>
+        <table class="table-editorial mt-3">
+          <thead><tr><th>Sector</th><th class="text-right">Alloc.</th><th class="text-right">Selec.</th><th class="text-right">Total</th></tr></thead>
+          <tbody>
+            <tr><td>Financials</td><td class="text-right tabular">+0.82</td><td class="text-right tabular text-obsidian-600">+1.41</td><td class="text-right tabular text-obsidian-600">+2.23</td></tr>
+            <tr><td>Tech</td><td class="text-right tabular text-obsidian-600">+1.12</td><td class="text-right tabular text-obsidian-600">+2.08</td><td class="text-right tabular text-obsidian-600">+3.20</td></tr>
+            <tr><td>Resources</td><td class="text-right tabular">−0.31</td><td class="text-right tabular" style="color:#b83112">−0.68</td><td class="text-right tabular" style="color:#b83112">−0.99</td></tr>
+            <tr><td>Industrials</td><td class="text-right tabular">+0.08</td><td class="text-right tabular text-obsidian-600">+0.42</td><td class="text-right tabular text-obsidian-600">+0.50</td></tr>
+            <tr><td>Consumer</td><td class="text-right tabular">+0.14</td><td class="text-right tabular">+0.09</td><td class="text-right tabular">+0.23</td></tr>
+            <tr><td>Cash</td><td class="text-right tabular">+0.03</td><td class="text-right tabular">—</td><td class="text-right tabular">+0.03</td></tr>
+            <tr class="serif"><td class="text-obsidian-600">Total active</td><td class="text-right tabular text-obsidian-600">+1.88</td><td class="text-right tabular text-obsidian-600">+3.32</td><td class="text-right tabular text-obsidian-600">+5.20</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="bg-paper-50 shadow-paper p-6" style="border:1px solid #e6d7ce">
+        <div class="tracker text-ink-400">Risk measures · 3-year</div>
+        <div class="space-y-3 mt-3">
+          <div class="flex justify-between border-b pb-2" style="border-color:#e6d7ce"><span>Sharpe</span><span class="serif text-xl tabular text-obsidian-600">1.24</span></div>
+          <div class="flex justify-between border-b pb-2" style="border-color:#e6d7ce"><span>Sortino</span><span class="serif text-xl tabular text-obsidian-600">1.82</span></div>
+          <div class="flex justify-between border-b pb-2" style="border-color:#e6d7ce"><span>Max drawdown</span><span class="serif text-xl tabular" style="color:#b83112">−12.4%</span></div>
+          <div class="flex justify-between border-b pb-2" style="border-color:#e6d7ce"><span>Volatility</span><span class="serif text-xl tabular text-obsidian-600">14.8%</span></div>
+          <div class="flex justify-between border-b pb-2" style="border-color:#e6d7ce"><span>Beta vs bench</span><span class="serif text-xl tabular text-obsidian-600">0.92</span></div>
+          <div class="flex justify-between"><span>Information ratio</span><span class="serif text-xl tabular text-obsidian-600">0.71</span></div>
+        </div>
+        <div class="rule mt-4 pt-3 flex gap-2"><button class="btn btn-ghost flex-1 justify-center">GIPS composite</button><button class="btn btn-primary flex-1 justify-center">Client report →</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRUSTEE -->
+  <section id="trustee" data-screen hidden class="px-8 py-8 max-w-[1280px]">
+    <div class="mb-5"><div class="tracker text-vermilion-700">Oversight · Trustee</div><h1 class="serif text-4xl text-obsidian-600 mt-1">Regulation 28 · compliance dashboard</h1><div class="serif italic text-ink-500 mt-1">Across all retirement-fund vehicles.</div></div>
+    <div class="rule-ink mb-5"></div>
+    <div class="grid grid-cols-5 gap-4 mb-6">
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Equity (≤ 75%)</div><div class="serif text-3xl tabular text-obsidian-600 mt-1">71.4<span class="text-base">%</span></div><div class="w-full mt-2 h-1.5 rounded-full overflow-hidden" style="background:#e6d7ce"><div style="width:95%;height:100%;background:#042322"></div></div></div>
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Foreign (≤ 45%)</div><div class="serif text-3xl tabular mt-1" style="color:#7a6200">42.1<span class="text-base">%</span></div><div class="w-full mt-2 h-1.5 rounded-full overflow-hidden" style="background:#e6d7ce"><div style="width:94%;height:100%;background:#f6c100"></div></div></div>
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Property (≤ 25%)</div><div class="serif text-3xl tabular text-obsidian-600 mt-1">8.2<span class="text-base">%</span></div><div class="w-full mt-2 h-1.5 rounded-full overflow-hidden" style="background:#e6d7ce"><div style="width:33%;height:100%;background:#042322"></div></div></div>
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Private equity (≤ 15%)</div><div class="serif text-3xl tabular text-obsidian-600 mt-1">3.4<span class="text-base">%</span></div><div class="w-full mt-2 h-1.5 rounded-full overflow-hidden" style="background:#e6d7ce"><div style="width:23%;height:100%;background:#042322"></div></div></div>
+      <div class="bg-paper-50 shadow-paper p-5" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Hedge funds (≤ 10%)</div><div class="serif text-3xl tabular text-obsidian-600 mt-1">2.1<span class="text-base">%</span></div><div class="w-full mt-2 h-1.5 rounded-full overflow-hidden" style="background:#e6d7ce"><div style="width:21%;height:100%;background:#042322"></div></div></div>
+    </div>
+    <div class="grid grid-cols-3 gap-5">
+      <div class="col-span-2 bg-paper-50 shadow-paper p-6" style="border:1px solid #e6d7ce">
+        <div class="tracker text-ink-400">Single-issuer concentration · top 10</div>
+        <table class="table-editorial mt-3">
+          <thead><tr><th>Issuer</th><th class="text-right">Weight</th><th class="text-right">Limit</th><th class="text-right">Headroom</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Naspers</td><td class="text-right tabular">9.1%</td><td class="text-right tabular">25%</td><td class="text-right tabular">15.9pp</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Comfortable</span></td></tr>
+            <tr><td>Prosus</td><td class="text-right tabular">8.4%</td><td class="text-right tabular">25%</td><td class="text-right tabular">16.6pp</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Comfortable</span></td></tr>
+            <tr><td>BHP Group</td><td class="text-right tabular">6.2%</td><td class="text-right tabular">25%</td><td class="text-right tabular">18.8pp</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Comfortable</span></td></tr>
+            <tr><td>FirstRand</td><td class="text-right tabular">6.0%</td><td class="text-right tabular">25%</td><td class="text-right tabular">19.0pp</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Comfortable</span></td></tr>
+            <tr><td>Standard Bank</td><td class="text-right tabular">4.8%</td><td class="text-right tabular">25%</td><td class="text-right tabular">20.2pp</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Comfortable</span></td></tr>
+            <tr><td>Anglo American</td><td class="text-right tabular">3.2%</td><td class="text-right tabular">25%</td><td class="text-right tabular">21.8pp</td><td><span class="pill" style="background:#d8edee;color:#052c2b">Comfortable</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="bg-paper-50 shadow-paper p-6" style="border:1px solid #e6d7ce">
+        <div class="tracker text-ink-400">Breach register · 12 months</div>
+        <div class="mt-3 space-y-3">
+          <div class="flex items-start gap-3"><span class="w-2 h-2 rounded-full mt-1.5" style="background:#059669"></span><div><div class="text-sm text-ink-800">No active breaches</div><div class="text-xs text-ink-500">Last closed: 14 Feb 2026 — Reg 28 foreign approaching limit, remediated by trim.</div></div></div>
+          <div class="rule"></div>
+          <div class="text-xs text-ink-500 serif italic">Every breach — active or remediated — is stamped on the hash chain. See <span class="cite">infrastructure/immutable-audit-log</span>.</div>
+        </div>
+        <button class="btn btn-primary w-full justify-center mt-4" onclick="show('audit')">Open audit trail →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- AUDIT -->
+  <section id="audit" data-screen hidden class="px-8 py-8 max-w-[1280px]">
+    <div class="mb-5"><div class="tracker text-vermilion-700">Oversight · Audit</div><h1 class="serif text-4xl text-obsidian-600 mt-1">Immutable audit trail</h1><div class="serif italic text-ink-500 mt-1">Hash-chained · SHA-256 · RFC 8785 JCS · 23,481 entries.</div></div>
+    <div class="rule-ink mb-5"></div>
+    <div class="flex gap-3 mb-4 text-xs">
+      <select class="field w-48"><option>All actors</option><option>T. Mbeki</option><option>K. Naidoo</option><option>Systems only</option></select>
+      <select class="field w-48"><option>All actions</option><option>trade.authorized</option><option>fund.created</option><option>audit.query_executed</option></select>
+      <input class="field w-48" value="2026-04-01 → 2026-04-20"/>
+      <button class="btn btn-ghost ml-auto">Verify chain integrity</button>
+    </div>
+    <div class="bg-paper-50 shadow-paper overflow-hidden" style="border:1px solid #e6d7ce">
+      <table class="table-editorial">
+        <thead><tr><th>Entry</th><th>Timestamp</th><th>Actor</th><th>Action</th><th>Entity</th><th>prev_hash</th><th>entry_hash</th></tr></thead>
+        <tbody class="font-mono text-xs">
+          <tr><td>AUD-3281</td><td>14:18:42</td><td>TM + KN</td><td><span class="pill" style="background:#fce798;color:#7a6200">trade.authorized</span></td><td>ORD-3281</td><td>7a9f…c042</td><td style="color:#042322">c0a8…9b0</td></tr>
+          <tr><td>AUD-3280</td><td>14:02:11</td><td>TM</td><td>instrument.updated</td><td>NPN</td><td>6e12…a831</td><td>7a9f…c042</td></tr>
+          <tr><td>AUD-3279</td><td>13:48:03</td><td>ai/research-agent</td><td>recommendation.emitted</td><td>NPN</td><td>3d81…ee40</td><td>6e12…a831</td></tr>
+          <tr><td>AUD-3278</td><td>13:20:55</td><td>system</td><td>marketdata.eod_loaded</td><td>JSE 17-Apr</td><td>1a22…f102</td><td>3d81…ee40</td></tr>
+          <tr><td>AUD-3277</td><td>12:44:19</td><td>JvdM</td><td>fund.created</td><td>FND-DIV-004</td><td>0fee…3311</td><td>1a22…f102</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- CLIENT -->
+  <section id="client" data-screen hidden class="px-8 py-10">
+    <div class="max-w-[880px] mx-auto">
+      <div class="text-center mb-8">
+        <div class="tracker text-vermilion-700">Ambrosia Equity · Client Statement</div>
+        <div class="serif italic text-3xl text-obsidian-600 mt-3">for the attention of</div>
+        <h1 class="serif text-5xl font-semibold text-obsidian-600 mt-1">Theuns Barnardt</h1>
+        <div class="serif italic text-ink-500 mt-2">Quarter ending 31 March 2026</div>
+        <div class="rule-ink mt-5 max-w-xs mx-auto"></div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-5 mb-6">
+        <div class="bg-paper-50 shadow-paper p-5 text-center" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Portfolio value</div><div class="serif text-3xl tabular text-obsidian-600 mt-2">R 14,280,460</div><div class="text-xs text-obsidian-600 mt-1">+R 412,108 · quarter</div></div>
+        <div class="bg-paper-50 shadow-paper p-5 text-center" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Quarter return</div><div class="serif text-3xl tabular text-obsidian-600 mt-2">+2.97%</div><div class="text-xs text-ink-500 mt-1">vs Growth 70/30 · +2.12%</div></div>
+        <div class="bg-paper-50 shadow-paper p-5 text-center" style="border:1px solid #e6d7ce"><div class="tracker text-ink-400">Income distributed</div><div class="serif text-3xl tabular text-obsidian-600 mt-2">R 42,108</div><div class="text-xs text-ink-500 mt-1">Paid 28 March</div></div>
+      </div>
+
+      <div class="bg-paper-50 shadow-paper p-8" style="border:1px solid #e6d7ce">
+        <p class="serif text-[16px] leading-[1.7] text-ink-700 dropcap">
+          <span class="serif italic text-ink-500">Dear Theuns,</span><br/>
+          I write with the quarterly accounting of your portfolio, which continues to compound on the mandate you entrusted to us — growth, with a tolerance for equity volatility no greater than that appropriate for a ten-year horizon. Our composite returned <span class="tabular serif font-semibold">+2.97%</span> against the Growth 70/30 benchmark's <span class="tabular serif font-semibold">+2.12%</span>, an active contribution earned predominantly through security selection rather than sector tilts.
+        </p>
+        <p class="serif text-[16px] leading-[1.7] text-ink-700 mt-4">
+          The <em>Naspers</em> position — which you will recall we began accumulating at the close of last year — has now re-rated in line with the Tencent discount narrowing, and we have tapered the overweight to a more typical stance. <em>Sasol</em> was reduced on ESG grounds, noted in our January correspondence.
+        </p>
+        <div class="rule my-6"></div>
+        <div class="flex items-center justify-between">
+          <div class="serif italic text-ink-500">With regards,</div>
+          <div class="text-right">
+            <div class="serif text-xl text-obsidian-600 italic">T. Mbeki, CFA</div>
+            <div class="tracker text-ink-400">Portfolio Manager · Ambrosia Equity</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-paper-50 shadow-paper mt-6 overflow-hidden" style="border:1px solid #e6d7ce">
+        <div class="px-6 py-4 border-b flex items-baseline justify-between" style="border-color:#e6d7ce">
+          <div class="serif text-xl text-obsidian-600">Schedule A · Holdings</div>
+          <div class="text-xs text-ink-400">Top 8 shown · full book available on request</div>
+        </div>
+        <table class="table-editorial">
+          <thead><tr><th>Instrument</th><th class="text-right">Shares</th><th class="text-right">Price</th><th class="text-right">Value</th><th class="text-right">Weight</th><th class="text-right">Q change</th></tr></thead>
+          <tbody>
+            <tr><td><div class="serif text-[15px]">Naspers</div><div class="text-xs text-ink-400 font-mono">NPN</div></td><td class="text-right tabular">462</td><td class="text-right tabular">R 2,812</td><td class="text-right tabular">R 1,299,144</td><td class="text-right tabular">9.1%</td><td class="text-right tabular text-obsidian-600">+18.4%</td></tr>
+            <tr><td><div class="serif text-[15px]">Prosus</div><div class="text-xs text-ink-400 font-mono">PRX</div></td><td class="text-right tabular">1,840</td><td class="text-right tabular">€ 36.82</td><td class="text-right tabular">R 1,198,240</td><td class="text-right tabular">8.4%</td><td class="text-right tabular text-obsidian-600">+14.2%</td></tr>
+            <tr><td><div class="serif text-[15px]">BHP Group</div><div class="text-xs text-ink-400 font-mono">BHG</div></td><td class="text-right tabular">1,240</td><td class="text-right tabular">R 712.40</td><td class="text-right tabular">R 883,376</td><td class="text-right tabular">6.2%</td><td class="text-right tabular text-obsidian-600">+6.1%</td></tr>
+            <tr><td><div class="serif text-[15px]">FirstRand</div><div class="text-xs text-ink-400 font-mono">FSR</div></td><td class="text-right tabular">9,680</td><td class="text-right tabular">R 88.42</td><td class="text-right tabular">R 855,905</td><td class="text-right tabular">6.0%</td><td class="text-right tabular text-obsidian-600">+4.8%</td></tr>
+            <tr><td><div class="serif text-[15px]">Standard Bank</div><div class="text-xs text-ink-400 font-mono">SBK</div></td><td class="text-right tabular">3,810</td><td class="text-right tabular">R 179.22</td><td class="text-right tabular">R 682,829</td><td class="text-right tabular">4.8%</td><td class="text-right tabular text-obsidian-600">+3.2%</td></tr>
+            <tr><td><div class="serif text-[15px]">Anglo American</div><div class="text-xs text-ink-400 font-mono">AGL</div></td><td class="text-right tabular">1,420</td><td class="text-right tabular">R 321.40</td><td class="text-right tabular">R 456,388</td><td class="text-right tabular">3.2%</td><td class="text-right tabular" style="color:#b83112">−2.1%</td></tr>
+            <tr><td><div class="serif text-[15px]">ALBI Government Bond</div><div class="text-xs text-ink-400 font-mono">ALBI</div></td><td class="text-right tabular">—</td><td class="text-right tabular">—</td><td class="text-right tabular">R 2,568,483</td><td class="text-right tabular">18.0%</td><td class="text-right tabular text-obsidian-600">+1.8%</td></tr>
+            <tr><td><div class="serif text-[15px]">Cash &amp; equivalents</div></td><td class="text-right tabular">—</td><td class="text-right tabular">—</td><td class="text-right tabular">R 371,292</td><td class="text-right tabular">2.6%</td><td class="text-right tabular">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-6 pt-5 border-t text-[11px] text-ink-400 serif italic leading-[1.6] columns-2 gap-6" style="border-color:#c8c0bd">
+        <p>Ambrosia Equity (Pty) Ltd is an authorised Financial Services Provider, FSP number 00000-00. Past performance is not a reliable indicator of future results. Returns are net of management fees and gross of individual tax. This statement is generated by the <span class="font-mono not-italic">fdl</span>/equity-portfolio-manager workbench and cryptographically signed — the hash below permits independent verification against our tamper-evident audit chain.</p>
+        <p>A copy of the fund's detailed fee disclosure, effective annual cost (EAC) and conflicts-of-interest register is available on request. Calculations conform with GIPS® 2020 and CFA Institute standards. Issued in Johannesburg, Republic of South Africa.</p>
+      </div>
+      <div class="mt-3 text-[11px] font-mono text-ink-400">statement_hash · c0a8f2d4e83d1b4a9f21b4c8…299b0 · infrastructure/immutable-audit-log</div>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<script>
+  const crumbs = {
+    research:'AI research desk', screener:'Screener', securities:'Securities master',
+    funds:'Fund register', models:'Model portfolios', onboard:'Client onboarding',
+    rebalance:'Rebalance', gate:'Authorization gate', oms:'Order management',
+    marketdata:'Market data', performance:'Performance & attribution',
+    trustee:'Regulation 28', audit:'Audit trail', client:'Client statement'
+  };
+  const defaultScreen = { cfa:'research', trustee:'trustee', client:'client' };
+
+  function show(id) {
+    document.querySelectorAll('[data-screen]').forEach(s => s.hidden = true);
+    const el = document.getElementById(id); if (el) el.hidden = false;
+    const crumb = document.getElementById('crumb');
+    if (crumb) crumb.textContent = crumbs[id] || id;
+    document.querySelectorAll('.navbtn').forEach(b => b.classList.toggle('active', b.dataset.screen === id));
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  function setRole(role) {
+    document.querySelectorAll('#roleSwitch button').forEach(b => {
+      const active = b.dataset.role === role;
+      b.classList.toggle('bg-obsidian-600', active);
+      b.classList.toggle('text-paper', active);
+    });
+    document.querySelectorAll('aside nav [data-role]').forEach(g => g.hidden = g.dataset.role !== role);
+    show(defaultScreen[role]);
+  }
+  function toggleTheme() {
+    document.body.classList.toggle('theme-dark');
+    const btn = document.getElementById('themeBtn');
+    if (btn) btn.textContent = document.body.classList.contains('theme-dark') ? '☀' : '◐';
+  }
+  function openModal(id) { const m = document.getElementById('modal-'+id); m.classList.remove('hidden'); m.classList.add('flex'); }
+  function closeModal(id) { const m = document.getElementById('modal-'+id); m.classList.add('hidden'); m.classList.remove('flex'); }
+
+  document.querySelectorAll('#roleSwitch button').forEach(b => b.addEventListener('click', () => setRole(b.dataset.role)));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('[id^=modal-]').forEach(m => { m.classList.add('hidden'); m.classList.remove('flex'); }); });
+</script>
+</body>
+</html>

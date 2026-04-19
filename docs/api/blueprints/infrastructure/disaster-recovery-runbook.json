@@ -1,0 +1,494 @@
+{
+  "feature": "disaster-recovery-runbook",
+  "version": "1.0.0",
+  "description": "Business continuity runbook with RPO 15min, RTO 4h, automated failover, quarterly drills, and encrypted offsite backups",
+  "category": "infrastructure",
+  "tags": [
+    "dr",
+    "business-continuity",
+    "failover",
+    "backup",
+    "rpo",
+    "rto",
+    "runbook"
+  ],
+  "aliases": [
+    "dr-runbook",
+    "disaster-recovery",
+    "business-continuity",
+    "failover-plan",
+    "bcp",
+    "dr-plan",
+    "backup-restore"
+  ],
+  "fields": [
+    {
+      "name": "drill_id",
+      "type": "text",
+      "required": true,
+      "label": "Drill Identifier"
+    },
+    {
+      "name": "scenario",
+      "type": "select",
+      "required": true,
+      "label": "DR Scenario",
+      "options": [
+        {
+          "value": "region_outage",
+          "label": "Primary region outage"
+        },
+        {
+          "value": "data_corruption",
+          "label": "Data corruption"
+        },
+        {
+          "value": "ransomware",
+          "label": "Ransomware"
+        },
+        {
+          "value": "network_partition",
+          "label": "Network partition"
+        }
+      ]
+    },
+    {
+      "name": "rpo_minutes",
+      "type": "number",
+      "required": true,
+      "label": "Recovery Point Objective (minutes)",
+      "default": 15
+    },
+    {
+      "name": "rto_minutes",
+      "type": "number",
+      "required": true,
+      "label": "Recovery Time Objective (minutes)",
+      "default": 240
+    },
+    {
+      "name": "last_backup_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Last Verified Backup"
+    },
+    {
+      "name": "backup_location",
+      "type": "text",
+      "required": true,
+      "label": "Offsite Backup Location"
+    },
+    {
+      "name": "backup_checksum",
+      "type": "text",
+      "required": true,
+      "label": "Backup SHA-256 Checksum"
+    },
+    {
+      "name": "drill_outcome",
+      "type": "select",
+      "required": false,
+      "label": "Drill Outcome",
+      "options": [
+        {
+          "value": "pass",
+          "label": "Pass"
+        },
+        {
+          "value": "partial",
+          "label": "Partial"
+        },
+        {
+          "value": "fail",
+          "label": "Fail"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "rpo_rto": {
+      "description": "MUST: RPO <= 15 minutes and RTO <= 4 hours for all production workloads",
+      "rpo_minutes_max": 15,
+      "rto_minutes_max": 240
+    },
+    "backups": {
+      "description": "MUST: Encrypted offsite backups (AES-256) at least every 15 minutes; immutable for 35 days",
+      "encryption": "AES-256",
+      "cadence_minutes": 15,
+      "immutability_days": 35,
+      "offsite_regions_min": 1
+    },
+    "failover": {
+      "description": "MUST: Automated failover to secondary region on health-probe failure sustained over 2 minutes",
+      "automated": true,
+      "trigger_window_seconds": 120,
+      "requires_approval": false
+    },
+    "drills": {
+      "description": "MUST: Full DR drill executed every quarter with documented outcome and corrective actions",
+      "cadence": "quarterly",
+      "evidence_retention_years": 7
+    },
+    "runbook": {
+      "description": "MUST: Runbook version-controlled in source, peer reviewed, and rehearsed before production use",
+      "storage": "git",
+      "review_required": true
+    },
+    "verification": {
+      "description": "MUST: Every backup verified by restore-to-sandbox weekly; checksum compared to source",
+      "cadence": "weekly"
+    }
+  },
+  "outcomes": {
+    "drill_completed_successfully": {
+      "priority": 10,
+      "description": "Quarterly DR drill executed end-to-end with RPO and RTO met",
+      "given": [
+        "scenario has been selected",
+        "failover completed within RTO",
+        "data loss is within RPO"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "dr.drill_completed",
+          "payload": [
+            "drill_id",
+            "scenario",
+            "rto_minutes",
+            "rpo_minutes",
+            "drill_outcome"
+          ]
+        },
+        {
+          "action": "create_record",
+          "type": "drill_report",
+          "target": "dr_reports"
+        }
+      ],
+      "result": "Drill report stored; evidence retained for regulators",
+      "transaction": true
+    },
+    "failover_initiated": {
+      "priority": 5,
+      "description": "Automated failover to secondary region triggered",
+      "given": [
+        "primary region health probe has failed for more than 120 seconds"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "traffic_manager",
+          "description": "Shift traffic to secondary region"
+        },
+        {
+          "action": "notify",
+          "channel": "on_call_pager",
+          "target": "on_call_engineer"
+        },
+        {
+          "action": "emit_event",
+          "event": "dr.failover_initiated",
+          "payload": [
+            "scenario",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Traffic shifted; incident opened",
+      "transaction": true
+    },
+    "backup_verified": {
+      "priority": 10,
+      "description": "Weekly backup restore-to-sandbox succeeds and checksum matches",
+      "given": [
+        {
+          "field": "backup_checksum",
+          "source": "input",
+          "operator": "exists"
+        },
+        "restored dataset hash matches source hash"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "dr.backup_verified",
+          "payload": [
+            "backup_location",
+            "last_backup_at",
+            "backup_checksum"
+          ]
+        }
+      ],
+      "result": "Backup marked verified"
+    },
+    "rpo_breach_detected": {
+      "priority": 2,
+      "description": "Latest backup is older than RPO allowance",
+      "error": "DR_RPO_BREACH",
+      "given": [
+        "now minus last_backup_at exceeds RPO minutes"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "on_call_pager",
+          "target": "on_call_engineer"
+        },
+        {
+          "action": "emit_event",
+          "event": "dr.rpo_breached",
+          "payload": [
+            "last_backup_at",
+            "rpo_minutes"
+          ]
+        }
+      ],
+      "result": "Page raised; SRE investigates backup pipeline"
+    },
+    "restore_failed": {
+      "priority": 1,
+      "description": "Restore attempt failed integrity or completeness checks",
+      "error": "DR_RESTORE_FAILED",
+      "given": [
+        "restore job returned non-zero exit or checksum mismatch"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "on_call_pager",
+          "target": "on_call_engineer"
+        },
+        {
+          "action": "emit_event",
+          "event": "dr.restore_failed",
+          "payload": [
+            "drill_id",
+            "scenario"
+          ]
+        }
+      ],
+      "result": "Incident opened; runbook corrective actions required"
+    }
+  },
+  "errors": [
+    {
+      "code": "DR_RPO_BREACH",
+      "status": 500,
+      "message": "Recovery point objective has been breached.",
+      "retry": false
+    },
+    {
+      "code": "DR_RESTORE_FAILED",
+      "status": 500,
+      "message": "Restore operation failed integrity verification.",
+      "retry": true
+    },
+    {
+      "code": "DR_FAILOVER_REJECTED",
+      "status": 409,
+      "message": "Failover cannot proceed; secondary region is unhealthy.",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "dr.drill_completed",
+      "description": "A DR drill completed",
+      "payload": [
+        "drill_id",
+        "scenario",
+        "rto_minutes",
+        "rpo_minutes",
+        "drill_outcome"
+      ]
+    },
+    {
+      "name": "dr.failover_initiated",
+      "description": "Automated failover to secondary region",
+      "payload": [
+        "scenario",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "dr.backup_verified",
+      "description": "Backup restore-to-sandbox succeeded",
+      "payload": [
+        "backup_location",
+        "last_backup_at",
+        "backup_checksum"
+      ]
+    },
+    {
+      "name": "dr.rpo_breached",
+      "description": "Backup age exceeds RPO",
+      "payload": [
+        "last_backup_at",
+        "rpo_minutes"
+      ]
+    },
+    {
+      "name": "dr.restore_failed",
+      "description": "A restore attempt failed",
+      "payload": [
+        "drill_id",
+        "scenario"
+      ]
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/dr/drills"
+    },
+    "request": {
+      "content_type": "application/json",
+      "schema": {
+        "drill_id": "string",
+        "scenario": "string",
+        "rpo_minutes": "number",
+        "rto_minutes": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "drill_id": "string",
+          "drill_outcome": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 500,
+          "error_code": "DR_RPO_BREACH"
+        },
+        {
+          "status": 500,
+          "error_code": "DR_RESTORE_FAILED"
+        },
+        {
+          "status": 409,
+          "error_code": "DR_FAILOVER_REJECTED"
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not rely on a single offsite backup location",
+      "why": "Regional failure affecting both primary and the single backup leaves no recovery path"
+    },
+    {
+      "rule": "Do not skip quarterly drills because production is stable",
+      "why": "Untested runbooks fail at the worst time; muscle memory matters"
+    },
+    {
+      "rule": "Do not store backup encryption keys in the same region as backups",
+      "why": "Key loss alongside data loss prevents recovery"
+    },
+    {
+      "rule": "Do not allow mutable backups",
+      "why": "Ransomware can encrypt or delete mutable backups, defeating DR"
+    },
+    {
+      "rule": "Do not hand-edit the runbook outside source control",
+      "why": "Divergent runbook versions cause confusion during real incidents"
+    },
+    {
+      "rule": "Do not couple failover to manual approval for RTO-critical workloads",
+      "why": "Human bottleneck blows the RTO; automate with safe guardrails"
+    }
+  ],
+  "related": [
+    {
+      "feature": "immutable-audit-log",
+      "type": "required",
+      "reason": "All DR actions must be audited for regulatory defensibility"
+    },
+    {
+      "feature": "observability-metrics",
+      "type": "required",
+      "reason": "Health probes and SLO burn feed failover triggers"
+    },
+    {
+      "feature": "popia-compliance",
+      "type": "required",
+      "reason": "Backups containing PII must satisfy POPIA obligations"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "continuity_of_service",
+        "description": "Keep critical services recoverable within RTO and data loss within RPO under any single-region failure",
+        "success_metrics": [
+          {
+            "metric": "drill_pass_rate",
+            "target": "= 100%",
+            "measurement": "Percentage of quarterly drills meeting RPO and RTO"
+          },
+          {
+            "metric": "backup_verification_success",
+            "target": ">= 99%",
+            "measurement": "Weekly restore-to-sandbox success rate"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "availability",
+            "description": "RTO <= 4h, RPO <= 15m for production",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Backups must be AES-256 encrypted and immutable",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before declaring a drill complete",
+        "before failing back to primary region"
+      ],
+      "escalation_triggers": [
+        "rpo_breach_detected",
+        "restore_failed"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "failover_initiated",
+          "permission": "autonomous"
+        },
+        {
+          "action": "backup_verified",
+          "permission": "autonomous"
+        },
+        {
+          "action": "restore_failed",
+          "permission": "human_required"
+        },
+        {
+          "action": "drill_completed_successfully",
+          "permission": "supervised"
+        }
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "last_backup_at is never older than 15 minutes in production",
+        "runbook version matches git HEAD",
+        "secondary region is warm and reachable"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated"
+    }
+  }
+}

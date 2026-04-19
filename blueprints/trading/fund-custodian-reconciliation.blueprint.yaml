@@ -1,0 +1,297 @@
+feature: fund-custodian-reconciliation
+version: "1.0.0"
+description: Daily reconciliation of positions, cash, and trades against custodian statements with break detection and escalation
+category: trading
+tags: [reconciliation, custodian, breaks, positions, cash, daily-recon]
+
+aliases:
+  - recon
+  - custodian-recon
+  - position-reconciliation
+  - daily-reconciliation
+  - trade-recon
+  - cash-recon
+  - nav-recon
+
+fields:
+  - name: recon_id
+    type: text
+    required: true
+    label: "Reconciliation Identifier"
+  - name: recon_date
+    type: date
+    required: true
+    label: "Reconciliation Date"
+  - name: fund_id
+    type: text
+    required: true
+    label: "Fund Identifier"
+  - name: our_positions
+    type: json
+    required: true
+    label: "Internal Positions"
+  - name: custodian_positions
+    type: json
+    required: true
+    label: "Custodian Positions"
+  - name: our_cash
+    type: number
+    required: true
+    label: "Internal Cash Balance"
+  - name: custodian_cash
+    type: number
+    required: true
+    label: "Custodian Cash Balance"
+  - name: breaks
+    type: json
+    required: false
+    label: "Break Details"
+  - name: nav_zar
+    type: number
+    required: true
+    label: "NAV (ZAR)"
+  - name: status
+    type: select
+    required: true
+    label: "Recon Status"
+    options:
+      - value: pending
+        label: "Pending"
+      - value: matched
+        label: "Matched"
+      - value: breaks_detected
+        label: "Breaks Detected"
+      - value: resolved
+        label: "Resolved"
+      - value: escalated
+        label: "Escalated"
+
+rules:
+  cadence:
+    description: "MUST: Reconciliation runs every business day by 10:00 SAST against prior day's custodian statement"
+    time_sast: "10:00"
+
+  matching:
+    description: "MUST: Three-way match: internal positions, internal cash, and trade register against custodian statement"
+    dimensions: [positions, cash, trades]
+
+  break_threshold:
+    description: "MUST: Any mismatch greater than 0.01% of NAV is a break; below threshold is rounding"
+    threshold_pct_of_nav: 0.01
+
+  auto_resolve:
+    description: "MAY: Apply rule-based auto-resolution for known patterns (FX rounding, corporate actions in flight)"
+    rules_versioned: true
+
+  escalation:
+    description: "MUST: Breaks unresolved after 24 hours escalate to head of operations; regulator thresholds in 48h"
+    ttl_hours: 24
+
+  statement_ingestion:
+    description: "MUST: Support SWIFT MT535/MT940 and CSV statements; checksum verified on ingest"
+    formats: [mt535, mt940, csv]
+
+  audit:
+    description: "MUST: Every break and its resolution captured with evidence; retained 7 years"
+
+outcomes:
+  reconciliation_completed_successfully:
+    priority: 10
+    description: "All positions, cash, and trades matched within threshold"
+    given:
+      - "position deltas within threshold"
+      - "cash deltas within threshold"
+      - "trade register matches statement"
+    then:
+      - action: transition_state
+        field: status
+        from: pending
+        to: matched
+      - action: emit_event
+        event: recon.completed
+        payload: [recon_id, fund_id, recon_date]
+    result: "Recon closed clean"
+    transaction: true
+
+  break_detected:
+    priority: 3
+    description: "One or more breaks exceed threshold"
+    given:
+      - "at least one delta exceeds break threshold"
+    then:
+      - action: transition_state
+        field: status
+        from: pending
+        to: breaks_detected
+      - action: emit_event
+        event: recon.break_detected
+        payload: [recon_id, fund_id, break_count]
+    result: "Breaks logged; resolution workflow begins"
+
+  break_auto_resolved:
+    priority: 5
+    description: "Known-pattern break matched an auto-resolution rule"
+    given:
+      - "break matches an auto-resolution rule"
+    then:
+      - action: emit_event
+        event: recon.break_auto_resolved
+        payload: [recon_id, break_id, rule_id]
+    result: "Break marked resolved with rule evidence"
+
+  break_escalated:
+    priority: 2
+    error: RECON_BREAK_ESCALATED
+    description: "Break unresolved beyond TTL; escalated"
+    given:
+      - "break age exceeds TTL"
+    then:
+      - action: notify
+        channel: ops_escalation
+        target: head_of_operations
+      - action: transition_state
+        field: status
+        from: breaks_detected
+        to: escalated
+      - action: emit_event
+        event: recon.break_escalated
+        payload: [recon_id, break_id]
+    result: "Escalation ticket opened"
+
+  statement_not_received:
+    priority: 1
+    error: RECON_STATEMENT_MISSING
+    description: "Custodian statement not received by cutoff"
+    given:
+      - "custodian statement not ingested by cutoff time"
+    then:
+      - action: notify
+        channel: ops_alerts
+        target: custodian_liaison
+      - action: emit_event
+        event: recon.statement_missing
+        payload: [recon_date, fund_id]
+    result: "Ops chases custodian; recon pending"
+
+errors:
+  - code: RECON_BREAK_ESCALATED
+    status: 409
+    message: "A reconciliation break required escalation."
+    retry: false
+  - code: RECON_STATEMENT_MISSING
+    status: 503
+    message: "Custodian statement not received."
+    retry: true
+  - code: RECON_STATEMENT_INVALID
+    status: 400
+    message: "Custodian statement failed validation."
+    retry: false
+
+events:
+  - name: recon.completed
+    description: "Recon matched clean"
+    payload: [recon_id, fund_id, recon_date]
+  - name: recon.break_detected
+    description: "Break detected"
+    payload: [recon_id, fund_id, break_count]
+  - name: recon.break_auto_resolved
+    description: "Break auto-resolved"
+    payload: [recon_id, break_id, rule_id]
+  - name: recon.break_escalated
+    description: "Break escalated"
+    payload: [recon_id, break_id]
+  - name: recon.statement_missing
+    description: "Statement not received by cutoff"
+    payload: [recon_date, fund_id]
+
+api:
+  http:
+    method: POST
+    path: /api/recon/run
+  request:
+    content_type: application/json
+    schema:
+      fund_id: string
+      recon_date: string
+  response:
+    success:
+      status: 200
+      schema:
+        recon_id: string
+        status: string
+        break_count: number
+    errors:
+      - status: 409
+        error_code: RECON_BREAK_ESCALATED
+      - status: 503
+        error_code: RECON_STATEMENT_MISSING
+      - status: 400
+        error_code: RECON_STATEMENT_INVALID
+
+anti_patterns:
+  - rule: "Do not rely only on end-of-month recon"
+    why: "Month-end breaks grow too large to unwind; daily recon catches them small"
+  - rule: "Do not auto-resolve material breaks silently"
+    why: "Auto-resolution must be rule-based and auditable; silent fixes hide fraud and errors"
+  - rule: "Do not ignore breaks below threshold"
+    why: "Many small breaks can indicate a systematic issue; trend them even when auto-cleared"
+  - rule: "Do not skip the three-way match"
+    why: "Two-way checks miss issues visible only in the trade register"
+  - rule: "Do not use our own database as the custodian proxy"
+    why: "Recon must compare to an independent source of truth"
+  - rule: "Do not let statements pile up without verification"
+    why: "Stale statement ingest hides data-quality problems"
+
+related:
+  - feature: order-management-execution
+    type: required
+    reason: "Trade register is sourced from OMS fills"
+  - feature: immutable-audit-log
+    type: required
+    reason: "Breaks and resolutions must be auditable"
+  - feature: observability-metrics
+    type: recommended
+    reason: "Break rate and age are operational SLIs"
+
+agi:
+  goals:
+    - id: accurate_books
+      description: "Keep internal books in agreement with custodian within 0.01% of NAV daily"
+      success_metrics:
+        - metric: clean_recon_rate
+          target: ">= 95%"
+          measurement: "Percentage of daily recons completing clean without manual intervention"
+        - metric: break_resolution_time_p90
+          target: "< 24h"
+          measurement: "90th percentile time from break detection to resolution"
+      constraints:
+        - type: regulatory
+          description: "Break evidence retained 7 years"
+          negotiable: false
+
+  autonomy:
+    level: semi_autonomous
+    human_checkpoints:
+      - before closing a break above NAV threshold
+      - before amending statement data
+    escalation_triggers:
+      - break_escalated
+      - statement_not_received
+
+  safety:
+    action_permissions:
+      - action: reconciliation_completed_successfully
+        permission: autonomous
+      - action: break_auto_resolved
+        permission: supervised
+      - action: break_escalated
+        permission: human_required
+
+  verification:
+    invariants:
+      - "net mismatch <= break threshold when status = matched"
+      - "every break has an owner and age"
+      - "statement checksum verified before ingestion"
+
+  coordination:
+    protocol: orchestrated

@@ -1,0 +1,587 @@
+{
+  "feature": "client-risk-profiling-ips",
+  "version": "1.0.0",
+  "description": "KYC-lite risk questionnaire, risk-score computation, and IPS draft tying client goals to mandate with FATCA/CRS checks",
+  "category": "workflow",
+  "tags": [
+    "kyc",
+    "risk-profiling",
+    "ips",
+    "suitability",
+    "fatca",
+    "crs",
+    "client-onboarding"
+  ],
+  "aliases": [
+    "risk-profiling",
+    "risk-questionnaire",
+    "ips-draft",
+    "suitability-assessment",
+    "client-ips",
+    "client-investment-policy",
+    "risk-tolerance"
+  ],
+  "fields": [
+    {
+      "name": "client_id",
+      "type": "text",
+      "required": true,
+      "label": "Client Identifier"
+    },
+    {
+      "name": "questionnaire_responses",
+      "type": "json",
+      "required": true,
+      "label": "Risk Questionnaire Responses"
+    },
+    {
+      "name": "risk_score",
+      "type": "number",
+      "required": false,
+      "label": "Computed Risk Score (0-100)"
+    },
+    {
+      "name": "risk_profile",
+      "type": "select",
+      "required": false,
+      "label": "Risk Profile",
+      "options": [
+        {
+          "value": "conservative",
+          "label": "Conservative"
+        },
+        {
+          "value": "moderate",
+          "label": "Moderate"
+        },
+        {
+          "value": "balanced",
+          "label": "Balanced"
+        },
+        {
+          "value": "growth",
+          "label": "Growth"
+        },
+        {
+          "value": "aggressive",
+          "label": "Aggressive"
+        }
+      ]
+    },
+    {
+      "name": "investment_horizon_years",
+      "type": "number",
+      "required": true,
+      "label": "Investment Horizon (years)"
+    },
+    {
+      "name": "liquidity_needs",
+      "type": "text",
+      "required": false,
+      "label": "Liquidity Needs"
+    },
+    {
+      "name": "goals",
+      "type": "rich_text",
+      "required": true,
+      "label": "Client Goals"
+    },
+    {
+      "name": "fatca_crs_declared",
+      "type": "boolean",
+      "required": true,
+      "label": "FATCA/CRS Declaration Complete",
+      "default": false
+    },
+    {
+      "name": "ips_status",
+      "type": "select",
+      "required": true,
+      "label": "IPS Status",
+      "options": [
+        {
+          "value": "intake",
+          "label": "Intake"
+        },
+        {
+          "value": "questionnaire_complete",
+          "label": "Questionnaire Complete"
+        },
+        {
+          "value": "profiled",
+          "label": "Profiled"
+        },
+        {
+          "value": "ips_drafted",
+          "label": "IPS Drafted"
+        },
+        {
+          "value": "ips_signed",
+          "label": "IPS Signed"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "questionnaire": {
+      "description": "MUST: All mandatory questions answered; questionnaire version captured; retained 7 years",
+      "retention_years": 7
+    },
+    "scoring": {
+      "description": "MUST: Deterministic scoring function versioned; score recomputed on any response change",
+      "versioned": true
+    },
+    "profile_mapping": {
+      "description": "MUST: Risk score maps to profile bands. 0-20 conservative, 21-40 moderate, 41-60 balanced, 61-80 growth, 81-100 aggressive"
+    },
+    "ips_required_sections": {
+      "description": "MUST: IPS includes goals, horizon, risk profile, liquidity, constraints, benchmark, rebalancing policy",
+      "required_sections": [
+        "goals",
+        "horizon",
+        "risk_profile",
+        "liquidity",
+        "constraints",
+        "benchmark",
+        "rebalancing"
+      ]
+    },
+    "fatca_crs": {
+      "description": "MUST: FATCA/CRS declaration collected before IPS can be signed; flags escalate to compliance",
+      "blocks_signing_when_missing": true
+    },
+    "signing": {
+      "description": "MUST: Client signs IPS electronically with audit trail; CFA countersigns",
+      "dual_signature": true
+    }
+  },
+  "actors": [
+    {
+      "id": "client",
+      "name": "Client",
+      "type": "external",
+      "description": "Completes questionnaire and signs IPS"
+    },
+    {
+      "id": "cfa",
+      "name": "Chartered Financial Analyst",
+      "type": "human",
+      "role": "investment_management",
+      "description": "Reviews profile, drafts and countersigns IPS"
+    },
+    {
+      "id": "compliance_officer",
+      "name": "Compliance Officer",
+      "type": "human",
+      "role": "compliance",
+      "description": "Reviews FATCA/CRS flags and high-risk profiles"
+    }
+  ],
+  "states": {
+    "field": "ips_status",
+    "values": [
+      {
+        "value": "intake",
+        "initial": true
+      },
+      {
+        "value": "questionnaire_complete"
+      },
+      {
+        "value": "profiled"
+      },
+      {
+        "value": "ips_drafted"
+      },
+      {
+        "value": "ips_signed",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "intake",
+        "to": "questionnaire_complete",
+        "actor": "client",
+        "description": "Client submits all responses"
+      },
+      {
+        "from": "questionnaire_complete",
+        "to": "profiled",
+        "actor": "cfa",
+        "description": "System computes score; CFA confirms"
+      },
+      {
+        "from": "profiled",
+        "to": "ips_drafted",
+        "actor": "cfa",
+        "description": "CFA drafts IPS"
+      },
+      {
+        "from": "ips_drafted",
+        "to": "ips_signed",
+        "actor": "client",
+        "description": "Client and CFA sign IPS"
+      }
+    ]
+  },
+  "outcomes": {
+    "questionnaire_submitted_successfully": {
+      "priority": 10,
+      "description": "All mandatory questionnaire fields captured",
+      "given": [
+        {
+          "field": "questionnaire_responses",
+          "source": "input",
+          "operator": "exists"
+        },
+        "every mandatory question has a response"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "ips_status",
+          "from": "intake",
+          "to": "questionnaire_complete"
+        },
+        {
+          "action": "emit_event",
+          "event": "profiling.questionnaire_submitted",
+          "payload": [
+            "client_id"
+          ]
+        }
+      ],
+      "result": "Questionnaire persisted",
+      "transaction": true
+    },
+    "risk_profile_computed": {
+      "priority": 10,
+      "description": "Risk score computed and mapped to profile band",
+      "given": [
+        {
+          "field": "questionnaire_responses",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "risk_score",
+          "value": "computed"
+        },
+        {
+          "action": "set_field",
+          "target": "risk_profile",
+          "value": "mapped_band"
+        },
+        {
+          "action": "emit_event",
+          "event": "profiling.profile_computed",
+          "payload": [
+            "client_id",
+            "risk_score",
+            "risk_profile"
+          ]
+        }
+      ],
+      "result": "Profile assigned"
+    },
+    "ips_generated": {
+      "priority": 10,
+      "description": "IPS draft produced from questionnaire and profile",
+      "given": [
+        "risk_profile is set",
+        "goals and horizon are captured"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "ips_status",
+          "from": "profiled",
+          "to": "ips_drafted"
+        },
+        {
+          "action": "emit_event",
+          "event": "profiling.ips_drafted",
+          "payload": [
+            "client_id"
+          ]
+        }
+      ],
+      "result": "IPS draft ready for review"
+    },
+    "ips_signed": {
+      "priority": 10,
+      "description": "Client and CFA have electronically signed the IPS",
+      "given": [
+        "client signature captured",
+        "cfa countersignature captured",
+        {
+          "field": "fatca_crs_declared",
+          "source": "input",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "ips_status",
+          "from": "ips_drafted",
+          "to": "ips_signed"
+        },
+        {
+          "action": "emit_event",
+          "event": "profiling.ips_signed",
+          "payload": [
+            "client_id"
+          ]
+        }
+      ],
+      "result": "IPS active; trading may begin",
+      "transaction": true
+    },
+    "questionnaire_incomplete": {
+      "priority": 2,
+      "error": "PROFILING_QUESTIONNAIRE_INCOMPLETE",
+      "description": "One or more mandatory questions unanswered",
+      "given": [
+        "any mandatory question lacks a response"
+      ],
+      "then": [],
+      "result": "Client prompted to complete missing fields"
+    },
+    "fatca_crs_flagged": {
+      "priority": 3,
+      "error": "PROFILING_FATCA_CRS_FLAGGED",
+      "description": "FATCA/CRS declaration reveals cross-border tax status needing review",
+      "given": [
+        "fatca_crs declaration indicates foreign tax residency or US person"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "compliance_queue",
+          "target": "compliance_officer"
+        },
+        {
+          "action": "emit_event",
+          "event": "profiling.fatca_crs_flagged",
+          "payload": [
+            "client_id"
+          ]
+        }
+      ],
+      "result": "Case routed to compliance"
+    }
+  },
+  "errors": [
+    {
+      "code": "PROFILING_QUESTIONNAIRE_INCOMPLETE",
+      "status": 422,
+      "message": "Please complete all required questions.",
+      "retry": true
+    },
+    {
+      "code": "PROFILING_FATCA_CRS_FLAGGED",
+      "status": 409,
+      "message": "Your declaration requires compliance review.",
+      "retry": false
+    },
+    {
+      "code": "PROFILING_NOT_FOUND",
+      "status": 404,
+      "message": "Client profile not found.",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "profiling.questionnaire_submitted",
+      "description": "Client finished the questionnaire",
+      "payload": [
+        "client_id"
+      ]
+    },
+    {
+      "name": "profiling.profile_computed",
+      "description": "Risk profile assigned",
+      "payload": [
+        "client_id",
+        "risk_score",
+        "risk_profile"
+      ]
+    },
+    {
+      "name": "profiling.ips_drafted",
+      "description": "IPS draft generated",
+      "payload": [
+        "client_id"
+      ]
+    },
+    {
+      "name": "profiling.ips_signed",
+      "description": "IPS fully signed",
+      "payload": [
+        "client_id"
+      ]
+    },
+    {
+      "name": "profiling.fatca_crs_flagged",
+      "description": "Cross-border tax flag raised",
+      "payload": [
+        "client_id"
+      ]
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/clients/profiling"
+    },
+    "request": {
+      "content_type": "application/json",
+      "schema": {
+        "client_id": "string",
+        "questionnaire_responses": "object",
+        "investment_horizon_years": "number",
+        "goals": "string",
+        "fatca_crs_declared": "boolean"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "risk_score": "number",
+          "risk_profile": "string",
+          "ips_status": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 422,
+          "error_code": "PROFILING_QUESTIONNAIRE_INCOMPLETE"
+        },
+        {
+          "status": 409,
+          "error_code": "PROFILING_FATCA_CRS_FLAGGED"
+        },
+        {
+          "status": 404,
+          "error_code": "PROFILING_NOT_FOUND"
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not let clients self-select risk profile without questionnaire scoring",
+      "why": "Self-selection defeats suitability; regulators require evidence-based profiling"
+    },
+    {
+      "rule": "Do not sign an IPS before FATCA/CRS is captured",
+      "why": "Tax reporting obligations require the declaration up front"
+    },
+    {
+      "rule": "Do not mutate a signed IPS",
+      "why": "Superseded IPS documents must be retained; create a new version on change"
+    },
+    {
+      "rule": "Do not apply yesterday's scoring algorithm to today's responses",
+      "why": "Algorithm version must be captured per submission for auditability"
+    },
+    {
+      "rule": "Do not skip compliance review on flagged declarations",
+      "why": "FATCA exposure is personal and regulatory; automation cannot triage it"
+    }
+  ],
+  "related": [
+    {
+      "feature": "fund-creation-lifecycle",
+      "type": "recommended",
+      "reason": "Client IPS guides fund mandate selection"
+    },
+    {
+      "feature": "pre-trade-compliance-checks",
+      "type": "required",
+      "reason": "IPS constraints feed pre-trade compliance"
+    },
+    {
+      "feature": "immutable-audit-log",
+      "type": "required",
+      "reason": "All questionnaire and signing events must be audited"
+    },
+    {
+      "feature": "popia-compliance",
+      "type": "required",
+      "reason": "Client personal information handling must satisfy POPIA"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "suitable_advice",
+        "description": "Ensure every client has a current, signed IPS aligned to their risk profile and goals before any trade",
+        "success_metrics": [
+          {
+            "metric": "ips_coverage",
+            "target": "= 100%",
+            "measurement": "Percentage of active clients with signed IPS within 30 days of onboarding"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "regulatory",
+            "description": "FATCA/CRS declaration is mandatory",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "human_in_loop",
+      "human_checkpoints": [
+        "CFA confirms computed profile",
+        "client signs IPS",
+        "compliance reviews FATCA/CRS flags"
+      ],
+      "escalation_triggers": [
+        "fatca_crs_flagged",
+        "risk_score >= 81 and investment_horizon_years < 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "questionnaire_submitted_successfully",
+          "permission": "autonomous"
+        },
+        {
+          "action": "risk_profile_computed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "ips_generated",
+          "permission": "supervised"
+        },
+        {
+          "action": "ips_signed",
+          "permission": "human_required"
+        }
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "no signed IPS without FATCA/CRS declaration",
+        "risk_profile matches band for computed risk_score",
+        "all IPS versions are preserved"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated"
+    }
+  }
+}

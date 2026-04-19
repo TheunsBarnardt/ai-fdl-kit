@@ -1,0 +1,169 @@
+{
+  "manifest_version": "1.0",
+  "plan": "equity-portfolio-manager",
+  "generated_at": "2026-04-19T00:00:00Z",
+  "global_nav": [
+    { "group": "Research", "role": "cfa", "screens": ["research-dashboard", "research-detail", "screener"] },
+    { "group": "Portfolio", "role": "cfa", "screens": ["funds", "fund-create", "models", "rebalance"] },
+    { "group": "Execution", "role": "cfa", "screens": ["pre-trade-gate", "oms-blotter", "market-data"] },
+    { "group": "Performance", "role": "cfa", "screens": ["performance"] },
+    { "group": "Onboarding", "role": "cfa", "screens": ["client-create"] },
+    { "group": "Oversight", "role": "trustee", "screens": ["reg28-dashboard", "audit-trail"] },
+    { "group": "My Portfolio", "role": "client", "screens": ["client-statement"] }
+  ],
+  "screens": [
+    {
+      "id": "research-dashboard",
+      "archetype": "dashboard",
+      "title": "Research Desk",
+      "source_blueprint": "ai/ai-stock-research-assistant",
+      "kpis": [
+        { "label": "Notes drafted (today)", "source_outcome": "research_note_drafted_successfully" },
+        { "label": "Valuations computed", "source_outcome": "valuation_computed" },
+        { "label": "Open screens", "source_blueprint": "ai/ai-stock-screener", "source_outcome": "screen_executed_successfully" },
+        { "label": "Portfolios under research", "source_blueprint": "data/portfolio-management" }
+      ],
+      "queue_outcome": "research_note_drafted_successfully",
+      "fields": ["ticker", "framework", "summary", "recommendation", "status"],
+      "actions": ["research_note_drafted_successfully", "note_rejected"],
+      "citations": ["ai/ai-stock-research-assistant", "ai/ai-stock-screener", "data/portfolio-management"]
+    },
+    {
+      "id": "research-detail",
+      "archetype": "detail",
+      "title": "Research Note",
+      "source_blueprint": "ai/ai-stock-research-assistant",
+      "fields": ["ticker", "note_id", "source_documents", "framework", "summary", "valuation_result", "recommendation", "human_signoff_by", "status"],
+      "actions": ["valuation_computed", "source_cited", "research_note_drafted_successfully", "note_rejected"],
+      "citations": ["ai/ai-stock-research-assistant", "trading/equity-valuation-ddm", "trading/equity-valuation-multiples", "trading/equity-return-roe"]
+    },
+    {
+      "id": "screener",
+      "archetype": "list",
+      "title": "AI Screener",
+      "source_blueprint": "ai/ai-stock-screener",
+      "fields": ["query_text", "parsed_filters", "universe", "ranking_metric", "results", "data_sources"],
+      "actions": ["screen_executed_successfully", "results_ranked", "query_ambiguous", "no_results"],
+      "citations": ["ai/ai-stock-screener", "trading/market-indexes-construction"]
+    },
+    {
+      "id": "funds",
+      "archetype": "list",
+      "title": "Funds",
+      "source_blueprint": "workflow/fund-creation-lifecycle",
+      "fields": ["fund_id", "fund_name", "mandate", "benchmark", "reg28_flag", "custodian_id", "seed_capital", "status"],
+      "actions": ["fund_created_successfully", "mandate_approved", "ips_approved", "fund_launched", "mandate_rejected"],
+      "states": ["draft", "mandate_review", "ips_review", "seeded", "live", "closed"],
+      "citations": ["workflow/fund-creation-lifecycle", "trading/regulation-28-compliance"]
+    },
+    {
+      "id": "fund-create",
+      "archetype": "create",
+      "title": "Create Fund",
+      "source_blueprint": "workflow/fund-creation-lifecycle",
+      "fields": ["fund_name", "mandate", "ips_document", "benchmark", "reg28_flag", "custodian_id", "seed_capital"],
+      "actions": ["fund_created_successfully"],
+      "citations": ["workflow/fund-creation-lifecycle", "trading/regulation-28-compliance", "trading/strategic-asset-allocation"]
+    },
+    {
+      "id": "models",
+      "archetype": "list",
+      "title": "Model Portfolios",
+      "source_blueprint": "data/model-portfolio",
+      "fields": ["model_id", "name", "risk_level", "target_weights", "tolerance_bands", "rebalance_trigger", "benchmark", "published"],
+      "actions": ["model_created_successfully", "weights_validated", "drift_calculated", "model_published"],
+      "citations": ["data/model-portfolio", "trading/strategic-asset-allocation", "trading/risk-budgeting-tolerance"]
+    },
+    {
+      "id": "rebalance",
+      "archetype": "authorize",
+      "title": "Rebalance Authorization",
+      "source_blueprint": "trading/portfolio-rebalancing-engine",
+      "fields": ["proposal_id", "portfolio_id", "model_id", "drift_snapshot", "proposed_trades", "estimated_turnover", "estimated_cgt", "status"],
+      "actions": ["rebalance_proposal_generated", "proposal_authorized", "proposal_rejected", "rebalance_executed_successfully"],
+      "states": ["proposed", "awaiting_authorization", "authorized", "executed", "rejected"],
+      "citations": ["trading/portfolio-rebalancing-engine", "trading/pre-trade-compliance-checks", "trading/behavioral-biases-emotional"]
+    },
+    {
+      "id": "pre-trade-gate",
+      "archetype": "authorize",
+      "title": "Pre-Trade Compliance Gate",
+      "source_blueprint": "trading/pre-trade-compliance-checks",
+      "fields": ["order_id", "fund_id", "symbol", "side", "quantity", "notional_zar", "available_cash", "check_result", "failed_checks"],
+      "actions": ["checks_passed_successfully", "ips_breach", "insufficient_cash", "restricted_security", "concentration_breach"],
+      "citations": ["trading/pre-trade-compliance-checks", "trading/regulation-28-compliance", "infrastructure/immutable-audit-log"]
+    },
+    {
+      "id": "oms-blotter",
+      "archetype": "list",
+      "title": "OMS Blotter",
+      "source_blueprint": "trading/order-management-execution",
+      "fields": ["order_id", "portfolio_id", "symbol", "side", "order_type", "quantity", "limit_price", "broker_id", "filled_qty", "avg_fill_price", "status"],
+      "actions": ["order_staged", "order_authorized", "order_sent_successfully", "fill_received", "order_fully_filled", "order_cancelled", "broker_rejected"],
+      "states": ["staged", "authorized", "sent", "partial", "filled", "cancelled", "rejected"],
+      "citations": ["trading/order-management-execution", "trading/broker-deal-management"]
+    },
+    {
+      "id": "market-data",
+      "archetype": "list",
+      "title": "Market Data Ingest",
+      "source_blueprint": "integration/market-data-ingestion",
+      "fields": ["vendor", "symbol", "ccy", "bid", "ask", "last", "vol", "ts_utc", "feed_protocol", "snapshot_type"],
+      "actions": [],
+      "citations": ["integration/market-data-ingestion", "trading/equities-eod-data-delivery"]
+    },
+    {
+      "id": "performance",
+      "archetype": "detail",
+      "title": "Performance & Attribution",
+      "source_blueprint": "trading/performance-attribution",
+      "fields": ["portfolio_id", "benchmark", "period_start", "period_end", "twr", "benchmark_return", "allocation_effect", "selection_effect", "interaction_effect", "cash_flows", "data_gaps"],
+      "actions": ["returns_calculated_successfully", "attribution_computed", "benchmark_mismatch", "data_gap_detected"],
+      "citations": ["trading/performance-attribution", "trading/time-weighted-return", "trading/gips-standards-l3"]
+    },
+    {
+      "id": "client-create",
+      "archetype": "create",
+      "title": "Onboard Client",
+      "source_blueprint": "workflow/account-opening",
+      "fields": ["client_id", "account_type", "selected_products", "risk_profile", "risk_score", "investment_objective", "investment_horizon", "initial_investment_amount", "currency", "source_of_funds", "source_of_funds_detail", "terms_accepted", "funding_method"],
+      "actions": ["create_account", "compliance_approve", "compliance_reject", "cancel_application"],
+      "citations": ["workflow/account-opening", "workflow/client-risk-profiling-ips", "data/popia-compliance"]
+    },
+    {
+      "id": "reg28-dashboard",
+      "archetype": "dashboard",
+      "title": "Reg 28 Oversight",
+      "source_blueprint": "trading/regulation-28-compliance",
+      "kpis": [
+        { "label": "Funds compliant", "source_outcome": "compliant_snapshot" },
+        { "label": "Active breaches", "source_outcome": "active_breach_detected" },
+        { "label": "Passive breaches", "source_outcome": "passive_breach_detected" },
+        { "label": "Issuer-concentration breaches", "source_outcome": "issuer_concentration_breach" }
+      ],
+      "queue_outcome": "active_breach_detected",
+      "fields": ["fund_id", "reporting_date", "total_fund_value", "holdings", "breach_type"],
+      "actions": ["quarterly_report_filed", "remediation_plan_approved"],
+      "states": ["compliant", "active_breach", "passive_breach", "remediation"],
+      "citations": ["trading/regulation-28-compliance", "trading/fund-custodian-reconciliation"]
+    },
+    {
+      "id": "audit-trail",
+      "archetype": "audit",
+      "title": "Audit Trail",
+      "source_blueprint": "infrastructure/immutable-audit-log",
+      "fields": ["occurred_at", "actor_id", "actor_type", "action", "entity_type", "entity_id", "prev_hash", "entry_hash"],
+      "actions": ["query_served"],
+      "citations": ["infrastructure/immutable-audit-log", "data/popia-compliance"]
+    },
+    {
+      "id": "client-statement",
+      "archetype": "detail",
+      "title": "Client Statement",
+      "source_blueprint": "data/portfolio-management",
+      "fields": ["account_number", "valuation_date", "market_value", "previous_market_value", "portfolio_movement", "total_cash", "reporting_currency", "instrument_name", "quantity", "instrument_price", "position_market_value", "position_weighting", "unrealised_pnl", "asset_class", "sector"],
+      "actions": [],
+      "citations": ["data/portfolio-management", "trading/time-weighted-return", "trading/broker-reports"]
+    }
+  ]
+}

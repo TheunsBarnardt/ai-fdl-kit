@@ -1,0 +1,514 @@
+{
+  "feature": "immutable-audit-log",
+  "version": "1.0.0",
+  "description": "Append-only, hash-chained audit log capturing every state-changing action for regulatory defensibility and forensic investigation",
+  "category": "infrastructure",
+  "tags": [
+    "audit",
+    "compliance",
+    "hash-chain",
+    "tamper-evident",
+    "regulatory",
+    "immutable"
+  ],
+  "aliases": [
+    "immutable-audit-trail",
+    "hash-chained-audit-log",
+    "tamper-evident-log",
+    "regulatory-audit-log",
+    "compliance-ledger",
+    "forensic-log"
+  ],
+  "fields": [
+    {
+      "name": "entry_id",
+      "type": "text",
+      "required": true,
+      "label": "Entry ID"
+    },
+    {
+      "name": "actor_id",
+      "type": "text",
+      "required": true,
+      "label": "Actor Identifier",
+      "sensitive": true
+    },
+    {
+      "name": "actor_type",
+      "type": "select",
+      "required": true,
+      "label": "Actor Type",
+      "options": [
+        {
+          "value": "human",
+          "label": "Human user"
+        },
+        {
+          "value": "system",
+          "label": "System/service"
+        },
+        {
+          "value": "external",
+          "label": "External integration"
+        }
+      ]
+    },
+    {
+      "name": "action",
+      "type": "text",
+      "required": true,
+      "label": "Action Name"
+    },
+    {
+      "name": "entity_type",
+      "type": "text",
+      "required": true,
+      "label": "Entity Type"
+    },
+    {
+      "name": "entity_id",
+      "type": "text",
+      "required": true,
+      "label": "Entity ID"
+    },
+    {
+      "name": "before_state",
+      "type": "json",
+      "required": false,
+      "label": "Before State",
+      "sensitive": true
+    },
+    {
+      "name": "after_state",
+      "type": "json",
+      "required": false,
+      "label": "After State",
+      "sensitive": true
+    },
+    {
+      "name": "metadata",
+      "type": "json",
+      "required": false,
+      "label": "Metadata"
+    },
+    {
+      "name": "ip_address",
+      "type": "text",
+      "required": false,
+      "label": "IP Address",
+      "sensitive": true
+    },
+    {
+      "name": "occurred_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Occurred At"
+    },
+    {
+      "name": "prev_hash",
+      "type": "text",
+      "required": true,
+      "label": "Previous Entry Hash"
+    },
+    {
+      "name": "entry_hash",
+      "type": "text",
+      "required": true,
+      "label": "Entry Hash"
+    }
+  ],
+  "rules": {
+    "append_only": {
+      "description": "MUST: No UPDATE or DELETE permitted on audit entries via any code path. Enforced at DB permission level (REVOKE UPDATE, DELETE from application role).",
+      "enforcement": "database_grant",
+      "exception_policy": "none"
+    },
+    "hash_chain": {
+      "algorithm": "sha256",
+      "chain_formula": "entry_hash = sha256(entry_id || actor_id || action || entity_type || entity_id || occurred_at || prev_hash || canonical_json(before_state) || canonical_json(after_state))",
+      "genesis_hash_description": "First entry in chain uses a genesis hash of 64 zero hex characters as prev_hash",
+      "json_canonicalization": "rfc8785"
+    },
+    "retention": {
+      "minimum_years": 5,
+      "deletion_policy": "never_before_retention",
+      "archive_after_years": 2
+    },
+    "integrity_verification": {
+      "scan_cadence": "daily",
+      "alert_channel": "security_ops",
+      "block_reads_on_failure": false
+    },
+    "privacy": {
+      "pii_handling": "MUST: Before/after payloads containing PII are encrypted with envelope encryption; the hash is computed over plaintext then payload is sealed at rest",
+      "right_to_erasure": "MUST: POPIA right-to-erasure against a data subject erases only the PII envelope contents (cryptographic shredding of per-record key); the hash chain remains intact to preserve audit integrity",
+      "access_logging": "SHOULD: Every read of the audit log is itself logged"
+    },
+    "access_control": {
+      "write": "service_accounts_only",
+      "read": "auditor_role_required"
+    }
+  },
+  "outcomes": {
+    "successful_append": {
+      "description": "Happy-path append: caller is authorized, chain tip is fresh, entry hashes and persists atomically",
+      "priority": 10,
+      "given": [
+        "actor is authenticated",
+        {
+          "field": "action",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "entity_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        "prev_hash matches the most recent entry_hash (or genesis_hash if chain is empty)"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "audit_entry",
+          "target": "audit_log",
+          "description": "Append the entry with computed entry_hash"
+        },
+        {
+          "action": "emit_event",
+          "event": "audit.entry_appended",
+          "payload": [
+            "entry_id",
+            "actor_id",
+            "action",
+            "entity_type",
+            "entity_id",
+            "entry_hash"
+          ]
+        }
+      ],
+      "result": "Entry persisted; chain extended by one link",
+      "transaction": true
+    },
+    "chain_mismatch": {
+      "description": "Concurrent-append race or tamper attempt — provided prev_hash doesn't match the current chain tip",
+      "priority": 1,
+      "error": "AUDIT_CHAIN_BROKEN",
+      "given": [
+        "prev_hash does not match current chain tip (concurrent append race or tamper attempt)"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "audit.chain_mismatch",
+          "payload": [
+            "expected_prev_hash",
+            "provided_prev_hash",
+            "entry_id"
+          ]
+        }
+      ],
+      "result": "Append rejected; caller must retry with current chain tip. If mismatch persists outside of normal concurrency, triggers security alert."
+    },
+    "integrity_scan_failed": {
+      "description": "Daily verification recomputed an entry hash and it no longer matches — evidence of tampering or storage corruption",
+      "priority": 1,
+      "error": "AUDIT_INTEGRITY_VIOLATION",
+      "given": [
+        "daily integrity scan detected an entry whose stored entry_hash does not match a recomputed hash"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "security_ops",
+          "target": "security_ops",
+          "description": "Security alert with affected entry_id range"
+        },
+        {
+          "action": "emit_event",
+          "event": "audit.integrity_violation_detected",
+          "payload": [
+            "first_bad_entry_id",
+            "scan_timestamp"
+          ]
+        }
+      ],
+      "result": "Alert raised; forensic investigation initiated. Audit log remains readable but chain is flagged."
+    },
+    "query_served": {
+      "description": "Authorized auditor runs a filtered read; the read itself is logged for meta-audit",
+      "priority": 10,
+      "given": [
+        "caller has auditor role or equivalent compliance permission",
+        {
+          "field": "filter",
+          "source": "input",
+          "operator": "exists",
+          "description": "Filter by actor_id, entity_id, entity_type, action, or date range"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "audit.query_executed",
+          "payload": [
+            "caller_id",
+            "filter",
+            "result_count"
+          ]
+        }
+      ],
+      "result": "Filtered, paginated audit entries returned with their entry_hash values for independent verification"
+    },
+    "unauthorized_read": {
+      "description": "Caller lacks auditor/compliance role — deny and log the denied attempt",
+      "priority": 2,
+      "error": "AUDIT_READ_FORBIDDEN",
+      "given": [
+        "caller lacks auditor or compliance role"
+      ],
+      "then": [],
+      "result": "403 returned; read attempt itself is audited"
+    },
+    "unauthorized_write": {
+      "description": "Caller is not a whitelisted service account — only backend services may append entries",
+      "priority": 2,
+      "error": "AUDIT_WRITE_FORBIDDEN",
+      "given": [
+        "caller is not a whitelisted service account"
+      ],
+      "then": [],
+      "result": "403 returned; write attempt itself is audited"
+    }
+  },
+  "errors": [
+    {
+      "code": "AUDIT_CHAIN_BROKEN",
+      "status": 409,
+      "message": "Audit log chain tip has advanced. Please retry.",
+      "retry": true
+    },
+    {
+      "code": "AUDIT_INTEGRITY_VIOLATION",
+      "status": 500,
+      "message": "Audit log integrity check failed. Security team has been notified.",
+      "retry": false
+    },
+    {
+      "code": "AUDIT_READ_FORBIDDEN",
+      "status": 403,
+      "message": "You do not have permission to read the audit log.",
+      "retry": false
+    },
+    {
+      "code": "AUDIT_WRITE_FORBIDDEN",
+      "status": 403,
+      "message": "Only authorized services may write to the audit log.",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "audit.entry_appended",
+      "description": "A new audit entry was appended to the hash-chained log",
+      "payload": [
+        "entry_id",
+        "actor_id",
+        "action",
+        "entity_type",
+        "entity_id",
+        "entry_hash"
+      ]
+    },
+    {
+      "name": "audit.chain_mismatch",
+      "description": "A write attempt referenced a stale chain tip",
+      "payload": [
+        "expected_prev_hash",
+        "provided_prev_hash",
+        "entry_id"
+      ]
+    },
+    {
+      "name": "audit.integrity_violation_detected",
+      "description": "Integrity scan found an entry whose hash does not match",
+      "payload": [
+        "first_bad_entry_id",
+        "scan_timestamp"
+      ]
+    },
+    {
+      "name": "audit.query_executed",
+      "description": "An auditor queried the log",
+      "payload": [
+        "caller_id",
+        "filter",
+        "result_count"
+      ]
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/audit/entries"
+    },
+    "request": {
+      "schema": {
+        "actor_id": "string",
+        "actor_type": "string",
+        "action": "string",
+        "entity_type": "string",
+        "entity_id": "string",
+        "before_state": "object",
+        "after_state": "object",
+        "metadata": "object",
+        "occurred_at": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "entry_id": "string",
+          "entry_hash": "string",
+          "prev_hash": "string",
+          "occurred_at": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 409,
+          "error_code": "AUDIT_CHAIN_BROKEN"
+        },
+        {
+          "status": 403,
+          "error_code": "AUDIT_WRITE_FORBIDDEN"
+        },
+        {
+          "status": 500,
+          "error_code": "AUDIT_INTEGRITY_VIOLATION"
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not allow UPDATE or DELETE at the application layer even for administrators",
+      "why": "An audit log that can be edited by the people it audits is not an audit log. Enforcement must be at DB grant level."
+    },
+    {
+      "rule": "Do not skip hash computation on bulk imports or migrations",
+      "why": "Unhashed entries break chain verification and create plausible-deniability gaps an attacker can exploit."
+    },
+    {
+      "rule": "Do not store PII in plaintext in before/after payloads",
+      "why": "Audit logs accumulate indefinitely and are often exported to auditors; plaintext PII violates POPIA data minimization and transborder rules."
+    },
+    {
+      "rule": "Do not hash over non-canonical JSON",
+      "why": "Key order and whitespace differences will produce different hashes for equivalent payloads, breaking verification. Use RFC 8785 JCS."
+    },
+    {
+      "rule": "Do not use a truncated or non-cryptographic hash (CRC32, MD5, SHA-1)",
+      "why": "Collision resistance is required to make tampering infeasible. SHA-256 minimum."
+    },
+    {
+      "rule": "Do not couple audit writes to the same transaction as business writes without careful ordering",
+      "why": "If the audit write fails silently after the business write commits, the log has a gap. Use outbox pattern or two-phase commit."
+    },
+    {
+      "rule": "Do not expose raw database access to auditors",
+      "why": "Direct DB access bypasses read-audit logging. Auditors read through an API that itself emits audit.query_executed events."
+    }
+  ],
+  "related": [
+    {
+      "feature": "popia-compliance",
+      "type": "required",
+      "reason": "Audit entries containing PII must satisfy POPIA minimization, retention, and right-to-erasure obligations"
+    },
+    {
+      "feature": "database-persistence",
+      "type": "required",
+      "reason": "Append-only storage and DB-level REVOKE grants are implemented in the persistence layer"
+    },
+    {
+      "feature": "rate-limiting-abuse-prevention",
+      "type": "recommended",
+      "reason": "Audit log query endpoints should be rate-limited to prevent auditor-credential abuse"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "tamper_evident_audit_trail",
+        "description": "Maintain a cryptographically verifiable record of every state change for regulatory defensibility and forensic investigation",
+        "success_metrics": [
+          {
+            "metric": "integrity_scan_pass_rate",
+            "target": "= 100%",
+            "measurement": "Percentage of daily integrity scans that verify the entire chain without mismatch"
+          },
+          {
+            "metric": "append_latency_p99",
+            "target": "< 50ms",
+            "measurement": "99th percentile time from action to durable audit entry"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "security",
+            "description": "No code path may UPDATE or DELETE audit entries",
+            "negotiable": false
+          },
+          {
+            "type": "regulatory",
+            "description": "PII in payloads must be encrypted; right-to-erasure applied via cryptographic shredding only",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "semi_autonomous",
+      "human_checkpoints": [
+        "on integrity violation detection — requires human forensic review before declaring benign"
+      ],
+      "escalation_triggers": [
+        "chain_mismatch_rate_per_minute > 0.1",
+        "integrity_scan_failed == true"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "successful_append",
+          "permission": "autonomous"
+        },
+        {
+          "action": "query_served",
+          "permission": "autonomous"
+        },
+        {
+          "action": "integrity_scan_failed",
+          "permission": "human_required"
+        },
+        {
+          "action": "chain_mismatch",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "for every entry e_n where n > 0: sha256(canonical(e_n)) == e_n.entry_hash",
+        "for every entry e_n where n > 0: e_n.prev_hash == e_{n-1}.entry_hash",
+        "audit entries are never modified after creation",
+        "PII fields are never logged in plaintext outside the encrypted payload"
+      ]
+    },
+    "coordination": {
+      "protocol": "pub_sub"
+    }
+  }
+}

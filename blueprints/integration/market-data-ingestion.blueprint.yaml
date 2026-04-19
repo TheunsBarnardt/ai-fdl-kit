@@ -1,0 +1,304 @@
+feature: market-data-ingestion
+version: "1.0.0"
+description: In-house market data store ingesting from multiple vendor feeds via FIX/FAST, REST, and webhooks with normalized schema and dedupe
+category: integration
+tags: [market-data, fix, fast, vendor-feed, quotes, snapshots, ingestion]
+
+aliases:
+  - market-data
+  - quote-ingestion
+  - price-feed
+  - vendor-feed
+  - tick-data
+  - market-data-store
+  - price-ingestion
+
+fields:
+  - name: vendor
+    type: text
+    required: true
+    label: "Vendor Identifier"
+  - name: symbol
+    type: text
+    required: true
+    label: "Instrument Symbol"
+  - name: ccy
+    type: text
+    required: true
+    label: "Currency"
+  - name: bid
+    type: number
+    required: false
+    label: "Bid Price"
+  - name: ask
+    type: number
+    required: false
+    label: "Ask Price"
+  - name: last
+    type: number
+    required: false
+    label: "Last Trade Price"
+  - name: vol
+    type: number
+    required: false
+    label: "Volume"
+  - name: ts_utc
+    type: datetime
+    required: true
+    label: "Vendor Timestamp (UTC)"
+  - name: feed_protocol
+    type: select
+    required: true
+    label: "Feed Protocol"
+    options:
+      - value: fix
+        label: "FIX 4.4"
+      - value: fast
+        label: "FAST"
+      - value: rest
+        label: "REST"
+      - value: webhook
+        label: "Webhook"
+  - name: snapshot_type
+    type: select
+    required: false
+    label: "Snapshot Type"
+    options:
+      - value: intraday
+        label: "Intraday"
+      - value: eod
+        label: "End of Day"
+
+rules:
+  adapter_pattern:
+    description: "MUST: Vendor-agnostic adapter layer normalizes every incoming quote to internal schema (vendor, symbol, ccy, bid, ask, last, vol, ts_utc)"
+    adapter_interface: QuoteAdapter
+    vendors_pluggable: true
+
+  deduplication:
+    description: "MUST: Dedupe by composite key (vendor + symbol + ts_utc). Idempotent writes."
+    key_fields: [vendor, symbol, ts_utc]
+
+  staleness:
+    description: "MUST: Alert if feed lag exceeds 5 seconds on any active subscription"
+    max_lag_seconds: 5
+
+  persistence:
+    description: "MUST: Persist intraday ticks for 30 days and EOD snapshots for 10 years"
+    intraday_retention_days: 30
+    eod_retention_years: 10
+
+  auth:
+    description: "MUST: Vendor credentials stored in secrets manager, rotated quarterly. Never hardcoded."
+    rotation_cadence: quarterly
+
+  schema_validation:
+    description: "MUST: Reject malformed quotes with missing required fields; log to dead-letter queue"
+    dlq_enabled: true
+
+outcomes:
+  quote_ingested_successfully:
+    priority: 10
+    description: "A well-formed quote was normalized and persisted"
+    given:
+      - field: symbol
+        source: input
+        operator: exists
+      - field: vendor
+        source: input
+        operator: exists
+      - field: ts_utc
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: market_quote
+        target: quote_store
+      - action: emit_event
+        event: marketdata.quote_ingested
+        payload: [vendor, symbol, ts_utc]
+    result: "Quote persisted and available to subscribers"
+    transaction: true
+
+  snapshot_stored:
+    priority: 10
+    description: "Intraday or EOD snapshot written successfully"
+    given:
+      - field: snapshot_type
+        source: input
+        operator: in
+        value: [intraday, eod]
+    then:
+      - action: emit_event
+        event: marketdata.snapshot_stored
+        payload: [vendor, symbol, snapshot_type, ts_utc]
+    result: "Snapshot persisted"
+
+  feed_stale:
+    priority: 2
+    error: MARKETDATA_FEED_STALE
+    description: "Vendor feed lag exceeded staleness threshold"
+    given:
+      - "now minus ts_utc exceeds 5 seconds"
+    then:
+      - action: notify
+        channel: ops_alerts
+        target: market_data_team
+      - action: emit_event
+        event: marketdata.feed_stale
+        payload: [vendor, symbol, lag_seconds]
+    result: "Subscribers notified; trading may switch to fallback vendor"
+
+  duplicate_detected:
+    priority: 3
+    description: "Incoming quote matches an existing (vendor, symbol, ts_utc) tuple"
+    given:
+      - "quote with same vendor, symbol, and ts_utc already exists"
+    then:
+      - action: emit_event
+        event: marketdata.duplicate_discarded
+        payload: [vendor, symbol, ts_utc]
+    result: "Duplicate ignored; idempotent ingestion preserved"
+
+  vendor_auth_failed:
+    priority: 1
+    error: MARKETDATA_VENDOR_AUTH_FAILED
+    description: "Authentication to vendor feed failed"
+    given:
+      - "vendor returned 401 or FIX logon reject"
+    then:
+      - action: notify
+        channel: ops_alerts
+        target: market_data_team
+      - action: emit_event
+        event: marketdata.auth_failed
+        payload: [vendor]
+    result: "Feed subscription disabled until credentials refreshed"
+
+errors:
+  - code: MARKETDATA_FEED_STALE
+    status: 503
+    message: "Market data feed is stale."
+    retry: true
+  - code: MARKETDATA_VENDOR_AUTH_FAILED
+    status: 401
+    message: "Vendor authentication failed."
+    retry: false
+  - code: MARKETDATA_SCHEMA_INVALID
+    status: 400
+    message: "Incoming quote failed schema validation."
+    retry: false
+
+events:
+  - name: marketdata.quote_ingested
+    description: "Quote normalized and stored"
+    payload: [vendor, symbol, ts_utc]
+  - name: marketdata.snapshot_stored
+    description: "Intraday or EOD snapshot persisted"
+    payload: [vendor, symbol, snapshot_type, ts_utc]
+  - name: marketdata.feed_stale
+    description: "Vendor feed exceeded staleness threshold"
+    payload: [vendor, symbol, lag_seconds]
+  - name: marketdata.duplicate_discarded
+    description: "Duplicate quote ignored"
+    payload: [vendor, symbol, ts_utc]
+  - name: marketdata.auth_failed
+    description: "Vendor authentication failed"
+    payload: [vendor]
+
+api:
+  http:
+    method: POST
+    path: /api/marketdata/quotes
+  request:
+    content_type: application/json
+    schema:
+      vendor: string
+      symbol: string
+      ccy: string
+      bid: number
+      ask: number
+      last: number
+      vol: number
+      ts_utc: string
+  response:
+    success:
+      status: 202
+      schema:
+        accepted: boolean
+    errors:
+      - status: 503
+        error_code: MARKETDATA_FEED_STALE
+      - status: 401
+        error_code: MARKETDATA_VENDOR_AUTH_FAILED
+      - status: 400
+        error_code: MARKETDATA_SCHEMA_INVALID
+
+anti_patterns:
+  - rule: "Do not hard-code vendor-specific field names in downstream consumers"
+    why: "Vendor swap becomes a rewrite; the adapter layer exists to prevent this"
+  - rule: "Do not use client-supplied timestamps as the canonical sort key without sanity checks"
+    why: "Clock skew or malicious vendors can corrupt the series"
+  - rule: "Do not persist quotes without dedupe"
+    why: "Replay, reconnects, and multi-path delivery create duplicates that corrupt TWAP/VWAP calculations"
+  - rule: "Do not silently drop malformed quotes"
+    why: "Silent loss hides feed degradation; route to DLQ and alert"
+  - rule: "Do not couple ingestion to synchronous downstream consumers"
+    why: "A slow subscriber stalls the whole feed; use fan-out buffer"
+  - rule: "Do not store vendor credentials in environment files or code"
+    why: "Rotation becomes impossible; use secrets manager"
+
+related:
+  - feature: immutable-audit-log
+    type: recommended
+    reason: "Vendor auth failures and schema violations should be audited"
+  - feature: observability-metrics
+    type: required
+    reason: "Feed lag and ingest rate must feed SLO dashboards"
+
+agi:
+  goals:
+    - id: reliable_market_data
+      description: "Provide fresh, deduplicated, vendor-agnostic quotes to downstream trading and pricing systems"
+      success_metrics:
+        - metric: feed_freshness_p99
+          target: "< 5s"
+          measurement: "99th percentile lag from vendor timestamp to availability"
+        - metric: duplicate_rate
+          target: "< 0.01%"
+          measurement: "Fraction of incoming quotes detected as duplicates but still stored"
+      constraints:
+        - type: availability
+          description: "Feed uptime >= 99.9% during market hours"
+          negotiable: false
+        - type: cost
+          description: "Prefer multi-vendor failover to single-vendor premium tier"
+          negotiable: true
+
+  autonomy:
+    level: semi_autonomous
+    human_checkpoints:
+      - before disabling a vendor feed permanently
+    escalation_triggers:
+      - vendor_auth_failed
+      - feed_stale
+
+  safety:
+    action_permissions:
+      - action: quote_ingested_successfully
+        permission: autonomous
+      - action: snapshot_stored
+        permission: autonomous
+      - action: feed_stale
+        permission: autonomous
+      - action: vendor_auth_failed
+        permission: supervised
+
+  verification:
+    invariants:
+      - "every stored quote has (vendor, symbol, ts_utc) unique"
+      - "no quote is older than retention window"
+      - "vendor credentials never appear in logs"
+
+  coordination:
+    protocol: pub_sub

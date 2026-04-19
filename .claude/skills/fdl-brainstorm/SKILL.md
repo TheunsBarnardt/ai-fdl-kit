@@ -317,26 +317,24 @@ Walk through each section. **Do not dump the whole design at once.** After each 
 4. **Security** — auth, rate limits, input validation rules
 5. **Related features** — blueprints this depends on or extends
 
-### Step 6b — Ask about plan and prototype outputs
+### Step 6b — Plan and design-grade prototype outputs are mandatory
 
-After presenting the design sections, and before the user gives final approval, ask **one bundled question** via `AskUserQuestion`:
+**Both the plan (Step 9) and the design-grade clickable HTML prototype (Step 9c) are always produced. Do NOT ask the user whether they want them, and do NOT skip either one.**
 
-> "Before I finalise, two optional outputs:
->
-> 1. **Plan document** — a detailed `docs/plans/{feature}.md` business proposal with architecture diagrams, user journeys, risk assessment, production readiness audit, and build commands. This is the kind of document you'd hand to a client, stakeholder, or architect. (Recommended for non-trivial features.)
->
-> 2. **Clickable HTML prototype** — a self-contained `.prototype.html` file showing the key screens derived from this brainstorm. Opens in any browser, zero dependencies, uses your DESIGN.md tokens if one exists. Shows the terminal/app/admin screens side-by-side so stakeholders can click through the feature before a line of production code is written.
->
-> Which do you want? (both · plan only · prototype only · neither)"
+Rationale: the plan is the client-facing proposal and audit trail; the prototype is the stakeholder-grade showcase — polished enough to demo to clients, regulators, or investors without apology. Both are low-cost to generate once the Socratic flow has run, and users consistently find value in having both artifacts saved alongside each other. Asking every time adds friction and invites the user to skip an output they didn't realise they'd want later.
 
-Record the answer. The plan is written at Step 9. The prototype is written at Step 9c. Both are saved alongside each other in the same folder (either `projects/{project}/brainstorms/` or `docs/plans/` depending on Step 10).
+"Design-grade" is the default output mode (Tailwind + Inter + real chart primitives + polished component patterns). The legacy vanilla-HTML variant is a fallback for offline-only review or CI snapshot tests — see Step 9c for the mode switch.
 
-- **both** → write plan + prototype (prototype consumes the plan's user journeys for screen derivation)
-- **plan only** → write plan, skip Step 9c
-- **prototype only** → skip the full business proposal (Step 9), write a minimal summary header, then generate the prototype at Step 9c
-- **neither** → skip both; proceed directly to blueprint creation via Step 11
+Both artifacts are saved in the same folder (either `projects/{project}/brainstorms/` or `docs/brainstorms/` depending on Step 10):
 
-This question is asked once and not repeated. For trivial features (single CRUD operation, no state machine, no actors), you may suggest "neither" as the default — the brainstorm doc overhead isn't worth it. For anything with a state machine, multiple actors, or hardware integration, lean toward "both".
+- `{feature}.brainstorm.md` — the business proposal (Step 9)
+- `{feature}.prototype.html` — the clickable HTML prototype (Step 9c)
+
+The prototype always consumes the plan's user journeys for screen derivation, so Step 9 runs first and Step 9c runs immediately after.
+
+If — and only if — the user **explicitly and unprompted** asks to skip the prototype (e.g. *"don't bother with the prototype"*, *"I only want the plan"*), honour that request and note it in Appendix C of the plan. Do not volunteer the option.
+
+**One permitted question:** Before generating the prototype, Step 9c.0 asks the user (once) whether it should be modelled on an existing reference system (live site, Claude Design export, Figma link, screenshots). This is the ONLY question Step 9c permits — the prototype itself is still always produced. See Step 9c.0 for details.
 
 ### Step 7 — Hard gate: user must approve the full design
 
@@ -803,91 +801,236 @@ The brainstorm skill does NOT terminate until:
 
 **Why this matters for `/fdl-generate`:** The proposal is ultimately a plan for code generation. `/fdl-generate` works from blueprints. If a gap blueprint doesn't exist, `/fdl-generate` cannot generate that capability, and the system ships with a hole. Every "Pending" in the proposal is a production defect waiting to happen.
 
-### Step 9c — Flat prototype (clickable HTML showcase)
+### Step 9b.5 — App Manifest (deterministic functional skeleton) — MANDATORY
 
-After the gap analysis, offer the user a self-contained, clickable HTML prototype of the feature. The prototype is a **showcase and adjustment tool** — it lets stakeholders see and click through the feature before a single line of production code is written. Think Figma mockup, but in a plain HTML file that needs no design tool, no build step, and no internet connection.
+**Before any prototype HTML is written, emit the app manifest.** The manifest is the single source of truth for the prototype's functional surface — which screens exist, which fields each screen shows, which actions each screen supports, which states appear as badges, and which blueprints each screen cites. Two runs of `/fdl-brainstorm` against the same plan + blueprints MUST produce byte-identical manifests, even if the visual skins differ. Drift in the skin is allowed; drift in the skeleton is a bug.
 
-**This step is offered, not forced.** Ask once via `AskUserQuestion`:
+**Why:** Without this step, Step 9c lets the model invent screens, fields, and actions on the fly. Two models — or two runs of the same model — then produce different apps over identical blueprints, which breaks the premise that blueprints are the source of truth. Fixing this at the skill level (not per-project) ensures every future brainstorm converges on the same backend contract.
 
-> "Want me to generate a clickable HTML prototype of this feature?
->
-> It will show the main screens (happy path + key error states) using the design tokens from `DESIGN.md` if one exists. You can open it in a browser, adjust the HTML directly, or share it with stakeholders for feedback.
->
-> (yes · no)"
+#### Generation procedure
 
-If the user says **no**, skip this step entirely. Do not re-ask.
-If the user says **yes**, proceed with the generation rules below.
+1. **Enumerate blueprints in scope** — every blueprint referenced by the plan's Steps 3–6 plus every `related[]` target they pull in.
+2. **For each in-scope blueprint, derive one or more screen entries** by archetype:
+
+   | Blueprint signal | Screen archetype | Source of the manifest slots |
+   |---|---|---|
+   | Has `fields[]` and a list-style outcome (`query_*`, `list_*`) | `list` | columns = `fields[] where !sensitive`, actions = outcome names that mutate, states = `states.values[]` |
+   | Has `fields[]` and a read outcome (`query_served`, `get_*`) | `detail` | fields = all `fields[]`, actions = non-list outcomes, states = `states.values[]` |
+   | Has a create/append outcome (`successful_*`, `create_*`, `entry_appended`, `successful_append`) | `create` | form fields = `fields[] where !system-generated`, submit action = that outcome name |
+   | Has a workflow with `actors[]` containing approver/counter-signer | `authorize` | fields = authorization-relevant fields, actions = approve/reject outcome names, states = `states.values[]` |
+   | Category `infrastructure` + append-only + hash-chained | `audit` | columns = `[occurred_at, actor_id, action, entity_type, entity_id, entry_hash]`, filters = `query_served.given` fields |
+   | Plan Step 3 happy path aggregating multiple blueprints | `dashboard` | KPI tiles = one per blueprint's primary success metric, queue = one per blueprint's primary pending-state outcome |
+
+3. **Write the manifest** as a fenced JSON block inside the plan (new section: `## Appendix D — App Manifest`) AND as a sidecar file `{feature}.manifest.json` next to the prototype. Shape:
+
+   ```json
+   {
+     "manifest_version": "1.0",
+     "plan": "{plan-title}",
+     "generated_at": "2026-04-19T00:00:00Z",
+     "screens": [
+       {
+         "id": "funds-list",
+         "archetype": "list",
+         "title": "Funds",
+         "source_blueprint": "trading/fund-register",
+         "fields": ["name","mandate","benchmark","ccy","aum","ytd_return"],
+         "actions": ["successful_fund_created","rebalance_triggered"],
+         "states": ["draft","active","closed"],
+         "citations": ["trading/fund-register","trading/regulation-28-compliance"]
+       }
+     ],
+     "global_nav": [
+       { "group": "Research", "role": "cfa", "screens": ["research","screener","securities-master"] }
+     ]
+   }
+   ```
+
+4. **Hard gate** — if a blueprint in scope can't be mapped to at least one archetype, stop and ask the user whether to (a) add a missing outcome to the blueprint, (b) exclude it from the prototype, or (c) create a `ui` category companion blueprint. Do NOT paper over the gap by guessing.
+
+5. **Hash the manifest** (SHA-256 over canonical-JSON of the `screens` array, RFC 8785 JCS) and record the hash in the plan's Appendix D header. Re-runs that produce the same hash prove determinism; divergent hashes are a regression.
+
+#### Invariants (the validator of last resort — you)
+
+- Every `screens[].source_blueprint` MUST exist in `blueprints/`.
+- Every `screens[].fields[]` entry MUST be a `name` in that blueprint's `fields[]`.
+- Every `screens[].actions[]` entry MUST be an outcome name in that blueprint's `outcomes[]`.
+- Every `screens[].states[]` entry MUST be a value in that blueprint's `states.values[].id` (if `states` is present).
+- Every `screens[].citations[]` MUST list at least the `source_blueprint`.
+
+Fail loudly (stop and explain) rather than generate a skewed manifest.
+
+### Step 9c — Design-grade clickable prototype (HTML showcase) — MANDATORY
+
+After the gap analysis, **always generate** a self-contained, clickable HTML prototype of the feature. The prototype is a **stakeholder-grade showcase** — polished enough to demo to clients, regulators, or investors, not a wireframe. Think "Claude Design export", not "Figma sketch".
+
+**Do NOT ask whether to generate it.** Step 6b established that both plan and prototype are produced every time. The only exception is if the user has already explicitly refused the prototype in this session — in which case skip and note the refusal in Appendix C.
+
+#### Step 9c.0 — Optional visual reference (ASK, one question, before generating)
+
+Before generating, ask the user **once** whether the prototype should be modelled on an existing reference system. This is the only question Step 9c permits — the generation itself is still non-optional.
+
+> "Would you like this prototype designed against an existing reference system (a live site, a Claude Design export, a Figma link, a screenshot set)? If so, share the URL or attach the file and I'll absorb its visual language — palette, typography, spacing scale, component patterns, layout archetype — while keeping the FDL structural rules intact. Otherwise I'll use the default design system."
+
+Accepted reference types and how to treat each:
+
+| Reference type | How to consume it | What to extract |
+|---|---|---|
+| Live website URL | `WebFetch` (for rendered HTML/CSS). If JS-heavy, use Chrome MCP (`navigate`, `get_page_text`, `read_page`, screenshot). | Palette (including neutrals + accents), typography stack, heading scale, grid/spacing rhythm, nav archetype, hero pattern, card/table styling, micro-interactions |
+| Claude Design / Figma export URL | `WebFetch` on the export URL + any `README` it exposes | Design tokens, component inventory, typographic contract, layout primitives |
+| Screenshots / images | Read directly | Palette via eyedropper, spacing rhythm, component shapes, mood |
+| Internal `DESIGN.md` | Parse tokens block | Authoritative — overrides everything else |
+
+What to carry over from the reference:
+- **Identity-defining** aspects: palette, typography pairing, border-radius scale, shadow style, button & input treatment, chart styling, data-density level, information hierarchy, navigation pattern, empty-state voice.
+- **Tone** of micro-copy if the reference has a distinct register.
+
+What to NOT carry over (FDL rules win):
+- Mandatory prototype badge, blueprint citations, tabular numerals, screen-switching JS signature, annotation comments linking screens back to brainstorm steps — these stay exactly as specified below regardless of reference.
+- Anything proprietary: company names, logos, real data, client names.
+
+Record the outcome in Appendix C of the plan:
+
+> **Visual reference:** `https://example.com` — absorbed palette (warm paper + ink), Söhne/Inter typography pairing, oversized rules, editorial column rhythm. Structural rules from SKILL.md Step 9c retained in full.
+
+If the user declines or doesn't answer within one exchange, proceed with the default design system — do not block on this.
+
+Then announce and proceed:
+
+> "Generating the design-grade clickable prototype now — key screens derived from the user journeys above, applying {reference-name | default design system | `DESIGN.md` tokens}."
 
 #### What the prototype covers
 
-Derive the screen list directly from the brainstorm (Steps 3–6). Do not invent screens the brainstorm did not establish.
+**The App Manifest from Step 9b.5 is authoritative.** Render exactly the screens it lists — no more, no less. Use each screen's `fields[]`, `actions[]`, `states[]`, and `citations[]` verbatim. The archetype-to-visual mapping below is the *only* freedom the prototype layer has: how to style each archetype. Not which archetypes to include, not what data they show, not what buttons they offer.
 
-| Brainstorm source | Screen to generate |
+| Manifest archetype | Visual realisation |
 |---|---|
-| Step 3 happy path | Primary success view (confirmation, list, dashboard panel) |
-| Step 6 "Data" section fields | Form screen with all collected fields + a submit button |
-| Step 4 failure modes | One error-state screen per major failure (form validation, auth, service-down) |
-| Step 6 user journey — multi-step | Wizard/step sequence (one HTML panel per step, Next/Back nav) |
-| Step 6 "states" (state machine) | A status timeline or badge showing the lifecycle |
-| Actor: admin / manager | Admin view screen (approve/reject actions, list of items) |
+| `dashboard` | KPI strip + attention queue + sector/factor heatmap; one tile per manifest-declared KPI |
+| `list` | Data table with tabular numerals, manifest `fields[]` as columns, manifest `actions[]` as row/header buttons, manifest `states[]` as coloured badges |
+| `detail` | Two-column detail with manifest `fields[]` grouped by section, manifest `actions[]` as header buttons |
+| `create` | Form wizard with visible stepper (one step per field group), submit bound to the manifest's create action |
+| `authorize` | Authorization panel — signer, counter-signer slot, hash-chain hint; approve/reject buttons match manifest action names |
+| `audit` | Append-only table with manifest columns; read-only; no edit/delete affordances |
 
-Keep to the screens you can justify from the brainstorm. Three well-derived screens beat eight invented ones.
+**Forbidden drift — these are regressions, not creative choices:**
+- Adding a screen not in the manifest.
+- Dropping a screen that is in the manifest.
+- Showing a column/field not listed in that screen's `fields[]`.
+- Adding a button whose label implies an action not in that screen's `actions[]`.
+- Omitting a state that appears in that screen's `states[]`.
+- Omitting the `citations[]` chips on any screen.
 
-#### Generation rules
+If the manifest feels wrong during rendering, fix it in Step 9b.5 and re-derive — never bend the render to compensate.
 
-**Self-contained single file** — one `.html` file, inline `<style>` and `<script>`, zero external dependencies. Must open correctly with `file://` in any modern browser.
+#### Generation rules (design-grade mode — DEFAULT)
 
-**Navigation** — clicking a button or action transitions to the relevant screen. Implement with vanilla JS that shows/hides named `<section id="screen-*">` panels:
+**Self-contained single file** — one `.html` file that opens correctly with `file://`. The only permitted external dependencies are **Tailwind CDN** (`https://cdn.tailwindcss.com`) and **Google Fonts** (Inter + JetBrains Mono). Everything else is inline. No build step, no bundler, no framework runtime.
+
+**Mandatory head block** — every prototype starts with this exact block (swap feature name):
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{feature} · Prototype</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      fontFamily: { sans:['Inter','system-ui','sans-serif'], mono:['JetBrains Mono','monospace'] },
+      colors: {
+        ink: { 50:'#F7F8FA',100:'#EEF0F4',200:'#DADEE6',300:'#B4BCCB',400:'#7C8699',500:'#5A6478',600:'#3E4656',700:'#2A3040',800:'#1A1E2A',900:'#0E1017' },
+        brand: { 50:'#EEF2FF',100:'#DCE4FF',500:'#3D5AFE',600:'#2A43E8',700:'#1F34C4' },
+        success: { 50:'#E8F6EE',500:'#10B981',600:'#059669' },
+        warn:    { 50:'#FEF6E4',500:'#F59E0B',600:'#D97706' },
+        danger:  { 50:'#FEECEC',500:'#EF4444',600:'#DC2626' },
+      },
+      boxShadow: {
+        'soft':'0 1px 2px 0 rgb(14 16 23/0.04), 0 1px 3px 0 rgb(14 16 23/0.06)',
+        'card':'0 1px 2px 0 rgb(14 16 23/0.04), 0 4px 12px -2px rgb(14 16 23/0.05)',
+        'pop':'0 12px 28px -6px rgb(14 16 23/0.15)',
+      },
+      borderRadius: { 'xl2': '0.875rem' },
+    }}
+  }
+</script>
+<style>
+  body { font-feature-settings: "ss01","cv11"; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .grad-brand { background: linear-gradient(135deg, #3D5AFE 0%, #7B5AFF 100%); }
+  .grad-surface { background: radial-gradient(1200px 400px at 10% -10%, rgba(61,90,254,0.08), transparent 60%), linear-gradient(180deg,#FFFFFF 0%, #F7F8FA 100%); }
+  .ring-soft { box-shadow: inset 0 0 0 1px rgb(218 222 230 / 1); }
+  .dot { width:6px; height:6px; border-radius:999px; display:inline-block; }
+  .spark path { fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .navbtn { display:flex; align-items:center; gap:.5rem; width:100%; padding:.5rem .625rem; border-radius:.5rem; color:#3E4656; text-align:left; }
+  .navbtn:hover { background:#F7F8FA; color:#1A1E2A; }
+</style>
+</head>
+```
+
+**Shell layout** — left sidebar (64×full-height, grouped nav with uppercase tracker headers) + main column (topbar with breadcrumb and user chip + content area). Cap content at `max-w-7xl` (dashboards / execution screens) or `max-w-5xl` (document-style screens like factsheets or statements).
+
+**Design tokens override** — if `DESIGN.md` exists at project root or target path, parse its `## tokens` YAML block and OVERRIDE the `tailwind.config.theme.extend.colors` entries for `brand` (and others it defines) before emitting the file. The rest of the scale (ink/success/warn/danger) stays on defaults unless the file explicitly overrides them. If no `DESIGN.md`, use the defaults above as-is.
+
+**Navigation** — vanilla JS for screen switching, same signature as before. Breadcrumb updates from a small map:
 
 ```js
 function show(id) {
   document.querySelectorAll('[data-screen]').forEach(s => s.hidden = true);
-  document.getElementById(id).hidden = false;
+  const el = document.getElementById(id); if (el) el.hidden = false;
+  const map = { /* screen-id -> breadcrumb label */ };
+  const crumb = document.getElementById('crumb'); if (crumb) crumb.textContent = map[id] || id;
+  window.scrollTo({ top: 0, behavior: 'instant' });
 }
 ```
 
-**Design tokens** — check whether `DESIGN.md` exists at project root or the target path:
-- If it exists, parse the `## tokens` YAML block and apply colors, typography, radius, shadows as inline CSS custom properties on `:root`. Use the exact hex values from the file.
-- If it doesn't exist, apply a clean neutral default palette (white bg, #0F172A text, #6366F1 primary, 6px radius, Inter/system font). This default is intentionally conservative — it showcases the layout, not a brand.
-
-**Layout** — use a simple centered-content shell. On desktop, cap width at 860px. No grid frameworks.
-
-**Prototype badge** — every screen must show a fixed top-right badge:
+**Prototype badge** — fixed top-right, pill-shaped, dark ink background:
 
 ```html
-<div style="position:fixed;top:12px;right:12px;background:#FEF3C7;color:#92400E;
-            padding:4px 10px;border-radius:4px;font-size:12px;font-weight:600;
-            border:1px solid #FCD34D;z-index:9999">
-  FDL Prototype · Not for production
+<div class="fixed top-3 right-3 z-50 px-3 py-1.5 rounded-full bg-ink-900 text-white text-xs font-medium shadow-pop flex items-center gap-2">
+  <span class="dot bg-brand-500"></span>
+  Prototype · Not for production
 </div>
 ```
 
-**Screen nav bar** — a fixed bottom or sidebar panel listing all screen names so reviewers can jump around without following the happy path:
+**Required component patterns** — use these whenever the data calls for them. They are what makes the output design-grade, not wireframe-grade.
+
+- **KPI card** — `rounded-xl2 p-5 shadow-card ring-soft` container with 11px uppercase label, 2xl tabular value, optional delta chip, inline SVG sparkline (100×30 viewBox).
+- **Attention queue** — card with icon-lozenge (10×10 rounded-lg bg-{severity}-50 text-{severity}-600), title + severity chip, 2-line description, metadata row, chevron right. Each item is clickable via `onclick="show(...)"`.
+- **Data table** — `text-sm` with `text-[11px] text-ink-400 uppercase tracking-wider` headers, `divide-y divide-ink-100` body, tabular numerals on all numeric columns, BUY/SELL style pills as `px-1.5 rounded bg-{color}-50 text-{color}-600 text-[11px] font-medium`.
+- **Status pill** — `px-2 py-1 rounded bg-white/15` on coloured bands, `px-1.5 py-0.5 bg-{c}-50 text-{c}-600 rounded text-[10px] font-medium` on plain surfaces. Severity map: success = compliant / passed / published / live; warn = review / pending / approaching limit; danger = breach / rejected / failed; brand = informational / AI-assisted; ink = muted / superseded.
+- **Chart primitives** — all charts are hand-written inline SVG. Area chart with gradient fill + `stroke-dasharray="4 3"` benchmark overlay, donut using multiple `<circle>` with `stroke-dasharray`, horizontal bar with gradient fill, heatmap grid (6-col / 5-col) using `bg-{c}-50 text-{c}-600 p-2 rounded`. Never import charting libs.
+- **Document header** — for factsheet / statement / receipt screens: gradient `grad-brand` band with uppercase micro-label, large title, subtitle, right-side metadata (hash, publish date, status chips).
+- **Authorization panel** — vertical stack: gradient header with role label, primary-signer card (avatar + name + role + signature input + CTA), counter-signer waiting card, dark `bg-ink-900 text-ink-100` audit-chain preview with `font-mono text-[11px]` hash fields.
+- **Wizard stepper** — horizontal sequence of pill-labeled steps, active step in `bg-brand-500 text-white`, done steps in `bg-success-50 text-success-600` with checkmark, pending in `bg-ink-50 text-ink-500`.
+- **State flow** — for state-machine screens, `flex items-center gap-2` row of `state-pill`s with `→` chevrons between, active state highlighted.
+
+**Typography and numerics** — Inter 400/500/600/700. All money, percentages, ratios, quantities, and timestamps use `class="tabular"` for `font-variant-numeric: tabular-nums`. Monospace (`font-mono`) reserved for hashes, IDs, code, and blueprint citations.
+
+**Blueprint citations** — where the prototype surfaces AI or rules-driven output, cite the originating blueprint inline as `<span class="px-1.5 py-0.5 bg-ink-50 text-ink-600 rounded font-mono text-[11px]">category/feature</span>`. This makes the FDL trail visible during stakeholder demos.
+
+**Interactivity** — still minimal, but realistic: real input elements, faked submission with a 1.2s processing state, state badges reflecting the lifecycle, at least one happy-path click-through from the dashboard to a downstream screen (e.g. dashboard attention-queue item → detail or authorization panel).
+
+**Annotation comments** — each screen section starts with an HTML comment linking it back to the brainstorm:
 
 ```html
-<nav style="position:fixed;bottom:0;left:0;right:0;background:#F8FAFC;
-            border-top:1px solid #E2E8F0;display:flex;gap:8px;padding:8px 16px;
-            overflow-x:auto;z-index:9998">
-  <button onclick="show('screen-form')">Form</button>
-  <button onclick="show('screen-success')">Success</button>
-  <button onclick="show('screen-error')">Error</button>
-  <!-- one button per screen -->
-</nav>
+<!-- Screen: authorize
+     Source: Step 3 happy path — Authorization gate for rebalance
+     Blueprint outcome: trading/portfolio-rebalancing-engine :: proposal_authorized -->
 ```
 
-**Interactivity** — keep it minimal but convincing:
-- Form fields are real `<input>` / `<select>` / `<textarea>` elements (they hold values, but submission is faked).
-- Submit button runs a brief "processing" state (1.2s spinner) then shows the success screen.
-- Error state is reachable via a nav-bar button OR a "simulate error" toggle.
-- State badges reflect the lifecycle from the brainstorm's `states` section.
+#### Legacy vanilla-HTML mode (fallback only)
 
-**Annotation comments** — each screen section starts with an HTML comment that links it back to the brainstorm:
+The pre-0.3.3 vanilla prototype (inline CSS, single-column 860px shell, plain buttons) is retained ONLY as a fallback for:
+- offline-only review environments that cannot reach the Tailwind CDN or Google Fonts, and
+- CI snapshot tests that must not depend on external network.
 
-```html
-<!-- Screen: form
-     Source: Step 6 "Data" section — fields: {field list}
-     Blueprint outcome: {outcome name} -->
-```
+Default is always design-grade. Emit the vanilla variant only if the user explicitly says *"offline prototype"*, *"no CDN"*, *"vanilla only"*, or the target project has `DESIGN.md` with `mode: offline`. Note the fallback in Appendix C.
 
 #### File naming and location
 
@@ -908,8 +1051,9 @@ Print the final path after writing:
 ```
 ✓ Prototype written: projects/{project}/brainstorms/{feature}.prototype.html
   Open in browser → file://{absolute-path}
+  Mode:    {design-grade (Tailwind + Inter) | vanilla (legacy / offline)}
   Screens: {N} ({comma-separated screen names})
-  Tokens: {DESIGN.md found and applied | default palette used}
+  Tokens:  {DESIGN.md found and applied | default brand palette used}
 ```
 
 #### What this prototype is NOT
@@ -1002,7 +1146,7 @@ After gap resolution, re-run the production readiness checklist from Step 9b aga
 **Outputs of this skill (all produced automatically):**
 1. A **client-facing business proposal** at `projects/{project}/brainstorms/{feature}.brainstorm.md` (or `docs/brainstorms/` if no project) — comprehensive enough to present to stakeholders without editing.
 2. A **production readiness gap analysis** embedded in the proposal (Section 12) — identifies every missing capability, maps existing blueprints, and recommends extractions.
-3. **Clickable HTML prototype** at `projects/{project}/brainstorms/{feature}.prototype.html` (optional, Step 9c) — self-contained flat mockup of all key screens, zero dependencies, opens in any browser. Uses design tokens from `DESIGN.md` if present.
+3. **Design-grade clickable prototype** at `projects/{project}/brainstorms/{feature}.prototype.html` (mandatory, Step 9c) — stakeholder-grade single-file HTML showcase using Tailwind + Inter, polished component patterns (KPI cards, data tables with tabular numerals, inline SVG charts, authorization panels, document headers), and blueprint citations on AI-driven output. Consumes `DESIGN.md` tokens when present and overrides the default brand palette. Always produced unless the user explicitly refuses, with a legacy vanilla-HTML fallback mode for offline / CI contexts.
 4. **Primary blueprints** created via `/fdl-create` — the core features designed during the brainstorm.
 5. **Gap-filling blueprints** created via `/fdl-create` or `/fdl-extract-code-feature` — addressing every gap the analysis identified.
 6. **Cross-references updated** — `related` arrays linked between all new and existing blueprints.

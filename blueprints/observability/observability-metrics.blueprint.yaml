@@ -1,0 +1,277 @@
+# ============================================================
+# OBSERVABILITY METRICS — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Standard metrics, logs, and traces emitted by every service
+# in the platform. Defines the golden-signal SLIs, alert rules,
+# and dashboard contract so operators can see system health.
+# ============================================================
+
+feature: observability-metrics
+version: "1.0.0"
+description: Golden-signal metrics, structured logs, and distributed traces emitted by every service, with SLOs, alerts, and dashboards
+category: observability
+tags: [metrics, logs, traces, slo, alerting, prometheus, opentelemetry]
+
+aliases:
+  - observability
+  - telemetry
+  - monitoring
+  - metrics
+  - slo-sli
+  - golden-signals
+
+fields:
+  - name: service_name
+    type: text
+    required: true
+    label: "Service Name"
+
+  - name: environment
+    type: select
+    required: true
+    label: "Environment"
+    options:
+      - value: production
+        label: "Production"
+      - value: staging
+        label: "Staging"
+      - value: development
+        label: "Development"
+
+  - name: metric_name
+    type: text
+    required: true
+    label: "Metric Name"
+
+  - name: metric_type
+    type: select
+    required: true
+    label: "Metric Type"
+    options:
+      - value: counter
+        label: "Counter"
+      - value: gauge
+        label: "Gauge"
+      - value: histogram
+        label: "Histogram"
+      - value: summary
+        label: "Summary"
+
+  - name: labels
+    type: json
+    required: false
+    label: "Dimensional Labels"
+
+  - name: value
+    type: number
+    required: true
+    label: "Metric Value"
+
+  - name: trace_id
+    type: text
+    required: false
+    label: "Trace ID"
+
+  - name: span_id
+    type: text
+    required: false
+    label: "Span ID"
+
+rules:
+  golden_signals:
+    description: "MUST: Every service exposes the four golden signals: latency, traffic, errors, saturation"
+    latency: "histogram in ms, with p50/p95/p99 buckets"
+    traffic: "counter of requests per second"
+    errors: "counter partitioned by error code"
+    saturation: "gauge for cpu, memory, queue depth, connection-pool utilization"
+
+  instrumentation:
+    library: opentelemetry
+    # MUST: OpenTelemetry SDK for vendor-neutral traces, metrics, and logs
+    exporter: otlp
+    sampling_rate_production: 0.1
+    sampling_rate_errors: 1.0
+    # MUST: 100% sampling on error paths for debugging
+
+  structured_logging:
+    format: json
+    required_fields: [timestamp, level, service, trace_id, message]
+    pii_redaction: true
+    # MUST: PII fields are redacted at the log-emission layer, never shipped to log stores in plaintext
+
+  slo_definitions:
+    availability: "99.9% of requests return non-5xx in any rolling 30-day window"
+    latency: "p99 < 500ms for read paths, p99 < 2s for write paths"
+    trading_critical_paths: "p99 < 100ms for pre-trade compliance and order routing"
+    # MUST: Critical trading paths have stricter SLOs than general read/write
+
+  alert_rules:
+    burn_rate_fast: "error budget consumed at >14x rate for 5 minutes triggers page"
+    burn_rate_slow: "error budget consumed at >1x rate for 1 hour triggers ticket"
+    saturation_warning: "resource utilization > 70% for 15 minutes triggers warning"
+    saturation_critical: "resource utilization > 90% for 5 minutes triggers page"
+
+  retention:
+    raw_metrics_days: 15
+    aggregated_metrics_days: 400
+    logs_days: 30
+    logs_compliance_days: 1825
+    # MUST: Compliance-relevant logs (audit, authentication) retained 5 years per FSCA/POPIA
+    traces_days: 7
+
+outcomes:
+  metric_recorded_successfully:
+    priority: 10
+    given:
+      - field: metric_name
+        source: input
+        operator: exists
+      - field: value
+        source: input
+        operator: exists
+    then:
+      - action: emit_event
+        event: metric.recorded
+        payload: [service_name, metric_name, value, labels]
+    result: "Metric point recorded to the time-series store"
+
+  slo_burn_alert_raised:
+    priority: 5
+    given:
+      - "error budget consumption rate exceeds the fast-burn threshold (14x) for 5 consecutive minutes"
+    then:
+      - action: notify
+        channel: on_call_pager
+        target: on_call_engineer
+        description: "Page on-call engineer with service name, SLO, and current burn rate"
+      - action: emit_event
+        event: slo.burn_rate_exceeded
+        payload: [service_name, slo_name, burn_rate, window_minutes]
+    result: "Page dispatched and incident opened"
+
+  slo_satisfied:
+    priority: 10
+    given:
+      - "rolling error budget consumption is below alert thresholds across all windows"
+    then: []
+    result: "No action; service healthy"
+
+  trace_dropped_due_to_sampling:
+    priority: 10
+    given:
+      - "request is sampled out based on production sampling rate"
+      - "request is not an error"
+    then: []
+    result: "Trace span is not exported; metrics are still recorded"
+
+  invalid_metric_name:
+    priority: 2
+    error: METRIC_NAME_INVALID
+    given:
+      - field: metric_name
+        source: input
+        operator: not_exists
+    then: []
+    result: "Metric rejected; caller must supply a valid metric name"
+
+  log_pii_redaction_failed:
+    priority: 1
+    error: LOG_PII_REDACTION_FAILURE
+    given:
+      - "PII redaction filter fails to sanitize a log entry before ship"
+    then:
+      - action: notify
+        channel: security_ops
+        target: security_ops
+        description: "Security alert: PII potentially leaked to log pipeline"
+      - action: emit_event
+        event: logs.pii_redaction_failed
+        payload: [service_name, filter_name]
+    result: "Log entry is dropped; security team alerted for manual review"
+
+errors:
+  - code: METRIC_NAME_INVALID
+    status: 400
+    message: "Metric name is missing or malformed."
+    retry: false
+
+  - code: LOG_PII_REDACTION_FAILURE
+    status: 500
+    message: "Log entry rejected due to redaction filter failure."
+    retry: false
+
+events:
+  - name: metric.recorded
+    description: "A metric point was recorded to the time-series store"
+    payload: [service_name, metric_name, value, labels]
+
+  - name: slo.burn_rate_exceeded
+    description: "An SLO burn rate threshold was exceeded"
+    payload: [service_name, slo_name, burn_rate, window_minutes]
+
+  - name: logs.pii_redaction_failed
+    description: "A log entry failed PII redaction and was dropped"
+    payload: [service_name, filter_name]
+
+anti_patterns:
+  - rule: "Do not log raw request bodies containing PII"
+    why: "Logs persist indefinitely, are often shipped to third-party services, and violate POPIA minimization"
+  - rule: "Do not use unbounded label cardinality (user_id, trace_id) on Prometheus counters"
+    why: "Cardinality explosion destroys time-series database performance and costs"
+  - rule: "Do not alert on raw thresholds without burn-rate windows"
+    why: "Single-point threshold alerts are noisy; SLO burn-rate alerting reflects user impact"
+  - rule: "Do not skip instrumentation for background jobs"
+    why: "Silent failures in async workers are a common outage source"
+  - rule: "Do not trust client-supplied timestamps on metrics"
+    why: "Clock skew and malicious clients can corrupt the time series"
+
+related:
+  - feature: immutable-audit-log
+    type: recommended
+    reason: "Audit entries and observability events are complementary; the audit log is tamper-evident while metrics are high-cardinality"
+  - feature: popia-compliance
+    type: required
+    reason: "PII redaction in logs and metrics is a POPIA obligation"
+
+agi:
+  goals:
+    - id: platform_observability
+      description: "Provide operators with a real-time, low-noise view of system health sufficient to detect, diagnose, and remediate incidents within SLO budgets"
+      success_metrics:
+        - metric: mttr_p90
+          target: "< 30 minutes"
+          measurement: "90th percentile time from alert to resolution"
+        - metric: alert_precision
+          target: ">= 90%"
+          measurement: "Fraction of pages that correspond to real user impact"
+      constraints:
+        - type: regulatory
+          description: "PII in logs and metrics must be redacted at source"
+          negotiable: false
+
+  autonomy:
+    level: semi_autonomous
+    human_checkpoints:
+      - before acknowledging a critical page
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+
+  safety:
+    action_permissions:
+      - action: metric_recorded_successfully
+        permission: autonomous
+      - action: slo_burn_alert_raised
+        permission: autonomous
+      - action: log_pii_redaction_failed
+        permission: human_required
+
+  verification:
+    invariants:
+      - "all services emit the four golden signals"
+      - "no PII appears in log stores in plaintext"
+      - "compliance logs are retained for at least 1825 days"
+
+  coordination:
+    protocol: pub_sub
