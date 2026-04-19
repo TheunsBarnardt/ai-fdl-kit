@@ -1,0 +1,167 @@
+# ============================================================
+# hedge-fund-strategies-l3 — Feature Blueprint
+# Source: CFA LV3 2024 Vol 4 — Portfolio Management Module 1
+# Hedge Fund Strategies
+# ============================================================
+
+feature: hedge-fund-strategies-l3
+version: "1.0.0"
+description: Hedge fund strategy classification and analysis — long/short equity, event-driven, relative value, global macro, managed futures, and multi-manager structures with conditional factor risk models
+category: trading
+tags: [portfolio-management, hedge-funds, long-short-equity, merger-arbitrage, convertible-bond-arb, global-macro, managed-futures, multi-manager, cfa-level-3]
+aliases:
+  - hedge-fund-classification-l3
+  - long-short-equity-hf-l3
+  - merger-arbitrage-hf-l3
+  - distressed-securities-hf-l3
+  - fi-arbitrage-hf-l3
+  - convertible-bond-arbitrage-l3
+  - global-macro-hf-l3
+  - managed-futures-hf-l3
+  - conditional-factor-risk-model-l3
+
+actors:
+  - id: portfolio_manager
+    name: Portfolio Manager
+    type: human
+
+fields:
+  - name: strategy_id
+    type: text
+    required: true
+    label: Strategy identifier
+  - name: hedge_fund_type
+    type: select
+    required: true
+    label: long_short_equity | dedicated_short | equity_market_neutral | merger_arb | distressed | fi_arb | convertible_arb | global_macro | managed_futures | multi_manager
+
+rules:
+  strategy_classification:
+    equity: "Long/short equity, dedicated short, equity market neutral"
+    event_driven: "Merger arbitrage, distressed securities"
+    relative_value: "Fixed-income arbitrage, convertible bond arbitrage"
+    opportunistic: "Global macro, managed futures"
+    specialist: "Volatility trading, reinsurance/life settlements"
+    multi_manager: "Fund-of-funds, multi-strategy"
+  long_short_equity:
+    approach: "Long undervalued + short overvalued; net long bias typical; 130/30 to 0/100"
+    alpha_sources: "Stock selection, factor tilts, sector rotation"
+    risk: "Factor exposure, short squeeze, crowding"
+  dedicated_short:
+    approach: "Primarily short equities; profits in bear markets; rare strategy"
+    characteristics: "High correlation with bear markets; natural hedge for long-only portfolios"
+    challenges: "Unlimited loss potential; borrowing costs; hostile market sentiment long-term"
+  equity_market_neutral:
+    approach: "Equal long and short; near-zero beta; isolates stock selection alpha"
+    implementation: "Pairs trading; statistical arbitrage; factor-neutral"
+    risk: "Model risk; crowding; sudden correlation breaks"
+  merger_arbitrage:
+    approach: "Long target, short acquirer (stock deals); earn spread = deal premium × completion prob"
+    risk: "Deal break risk; regulatory rejection; market move risk on reopened bids"
+    return_distribution: "Positive skew most deals; occasional catastrophic loss on deal break"
+  distressed_securities:
+    approach: "Buy debt or equity of firms in distress or bankruptcy at steep discount"
+    alpha_source: "Price dislocation; complexity premium; active engagement in restructuring"
+    risk: "Illiquidity; legal complexity; extended workout period; uncertain recovery"
+  fi_arbitrage:
+    approach: "Exploit small yield/price discrepancies between related fixed-income instruments"
+    types: "On/off-the-run treasuries; swap spread arbitrage; yield curve arbitrage"
+    risk: "High leverage required; liquidity risk; funding risk; convergence may not occur"
+  convertible_bond_arb:
+    approach: "Long convertible, short underlying equity; exploit mispricing of embedded option"
+    delta_hedging: "Maintain delta-neutral position; earn gamma; rebalance frequently"
+    risk: "Credit spread widening; liquidity risk in convertibles; crowding; short borrow cost"
+  global_macro:
+    approach: "Top-down macro views across FX, rates, equities, commodities; highly directional"
+    implementation: "Liquid futures, forwards, options; high leverage; low correlation to equities"
+    risk: "Timing risk; extreme drawdowns; model uncertainty; regime change"
+  managed_futures:
+    approach: "Trend-following (CTA) across commodity, financial futures; rules-based"
+    characteristics: "Positive skew; negative correlation to equities in crises; long volatility"
+    risk: "Whipsaw in ranging markets; data mining risk in backtests; crowding in major trends"
+  conditional_factor_risk_model:
+    purpose: "Assess factor exposures of hedge fund strategies; vary across market regimes"
+    factors: "Equity market, credit spread, volatility, liquidity, momentum, value"
+    conditional_nature: "Factor loadings change in bull vs bear markets; must model regime dependency"
+    application: "Identify hidden market exposures; assess portfolio contribution of HF allocation"
+  portfolio_contribution:
+    diversification: "HFs add diversification if low correlation to equity/bond portfolio"
+    performance: "Contribution to 60/40 portfolio: absolute return + risk reduction"
+    risk_metrics: "Sharpe ratio, max drawdown, correlation, VaR, CVaR, Omega ratio"
+  validation:
+    strategy_required: "strategy_id present"
+    valid_type: "hedge_fund_type in [long_short_equity, dedicated_short, equity_market_neutral, merger_arb, distressed, fi_arb, convertible_arb, global_macro, managed_futures, multi_manager]"
+
+outcomes:
+  analyze_hedge_fund_strategy:
+    priority: 1
+    description: Analyze hedge fund strategy for portfolio construction
+    given:
+      - field: strategy_id
+        source: input
+        operator: exists
+      - field: hedge_fund_type
+        source: input
+        operator: in
+        value: [long_short_equity, dedicated_short, equity_market_neutral, merger_arb, distressed, fi_arb, convertible_arb, global_macro, managed_futures, multi_manager]
+    then:
+      - action: call_service
+        target: portfolio_manager
+      - action: emit_event
+        event: hedge_fund.strategy.analyzed
+  invalid_type:
+    priority: 10
+    description: Unsupported hedge fund type
+    given:
+      - field: hedge_fund_type
+        source: input
+        operator: not_in
+        value: [long_short_equity, dedicated_short, equity_market_neutral, merger_arb, distressed, fi_arb, convertible_arb, global_macro, managed_futures, multi_manager]
+    then:
+      - action: emit_event
+        event: hedge_fund.strategy.rejected
+    error: HF_INVALID_TYPE
+
+errors:
+  - code: HF_INVALID_TYPE
+    status: 400
+    message: hedge_fund_type must be one of the supported hedge fund strategies
+
+events:
+  - name: hedge_fund.strategy.analyzed
+    payload: [strategy_id, hedge_fund_type, factor_exposures, sharpe_ratio, max_drawdown, correlation_to_equity]
+  - name: hedge_fund.strategy.rejected
+    payload: [strategy_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use unconditional factor models to assess hedge fund risk
+    why: "Hedge fund factor loadings are regime-dependent; a merger arbitrage fund looks market-neutral in bull markets but becomes highly correlated to credit and equity in bear markets — conditional models reveal true crisis risk"
+  - rule: Do not allocate to managed futures based solely on historical equity crisis performance
+    why: "Managed futures trend-following requires sustained directional moves to generate returns; whipsaw or ranging markets produce losses; the diversification benefit is real but timing-dependent and not guaranteed"
+  - rule: Do not rely on reported HF returns without accounting for reporting bias and stale pricing
+    why: "Voluntary reporting to databases creates survivorship and backfill bias; illiquid hedge fund assets use stale prices that smooth and understate true volatility; raw Sharpe ratios are significantly overstated"
+
+api:
+  http:
+    method: POST
+    path: /pm/alternatives/hedge-funds
+  request:
+    schema:
+      strategy_id: string
+      hedge_fund_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        strategy_id: string
+        factor_exposures: object
+        sharpe_ratio: number
+        max_drawdown: number
+        correlation_to_equity: number
+    errors:
+      - status: 400
+        error_code: HF_INVALID_TYPE
+
+related:
+  - feature: asset-allocation-alternatives-l3
+    type: recommended

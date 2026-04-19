@@ -1,0 +1,167 @@
+# ============================================================
+# principles-asset-allocation-l3 — Feature Blueprint
+# Source: CFA LV3 2024 Vol 1 — Portfolio Management Module 4
+# Principles of Asset Allocation
+# ============================================================
+
+feature: principles-asset-allocation-l3
+version: "1.0.0"
+description: Asset allocation methods — MVO, Monte Carlo, Black-Litterman, liability-relative, goals-based sub-portfolios, risk parity, factor-based, rebalancing heuristics
+category: trading
+tags: [portfolio-management, asset-allocation, mean-variance-optimization, black-litterman, liability-relative, goals-based, risk-parity, cfa-level-3]
+aliases:
+  - mean-variance-optimization-l3
+  - mvo-asset-allocation-l3
+  - black-litterman-allocation-l3
+  - liability-relative-asset-allocation-l3
+  - goals-based-sub-portfolios-l3
+  - risk-parity-allocation-l3
+  - factor-based-asset-allocation-l3
+  - monte-carlo-asset-allocation-l3
+
+actors:
+  - id: portfolio_manager
+    name: Portfolio Manager
+    type: human
+  - id: investment_committee
+    name: Investment Committee
+    type: human
+
+fields:
+  - name: allocation_id
+    type: text
+    required: true
+    label: Allocation identifier
+  - name: method
+    type: select
+    required: true
+    label: mvo | black_litterman | liability_relative | goals_based | risk_parity | factor_based
+
+rules:
+  mvo_overview:
+    definition: "Select portfolio with highest expected return for given risk (or lowest risk for given return)"
+    efficient_frontier: "Set of portfolios not dominated on both risk and return dimensions"
+    inputs: "Expected returns, standard deviations, correlations for all asset classes"
+    corner_solutions: "Unconstrained MVO tends to produce extreme/concentrated portfolios"
+  mvo_criticisms:
+    input_sensitivity: "Small changes in expected returns → large weight changes; garbage-in garbage-out"
+    estimation_error: "Expected return estimates are noisy; error-maximization problem"
+    non_normality: "Fat tails and skew not captured by mean and variance alone"
+    single_period: "Ignores multi-period rebalancing and changing opportunity set"
+  mvo_improvements:
+    reverse_optimization: "Back-solve for expected returns implied by market cap weights; more stable starting point"
+    black_litterman: "Blend reverse-optimized equilibrium returns with analyst views weighted by confidence"
+    resampled_mvo: "Average optimal weights over many draws of inputs; reduces sensitivity"
+    constraints: "Add asset class bounds, factor constraints, turnover limits to stabilize"
+  monte_carlo:
+    purpose: "Simulate multi-period wealth paths; assess probability of meeting goals under uncertainty"
+    advantages: "Captures path dependency, rebalancing effects, changing liabilities, non-normal returns"
+    use_case: "Complement MVO; especially useful for goals-based and glide-path analysis"
+  liability_relative:
+    surplus_optimization: "Treat surplus (assets − liabilities) as the objective; minimize surplus volatility for given expected surplus return"
+    hedging_portfolio: "Replicates liability cash flows; typically long-duration bonds; zero surplus risk"
+    return_seeking_portfolio: "Growth allocation above hedging portfolio; earns excess return"
+    integrated_approach: "Jointly optimize assets and liabilities in single framework; most theoretically correct"
+    comparing_approaches: "Surplus optimization simplest; hedging/return-seeking clearest; integrated most complete"
+    factor_modeling: "Model liabilities as function of interest rate, inflation, credit factors; hedge with matching factors"
+  goals_based:
+    sub_portfolios: "Each goal gets dedicated sub-portfolio sized by PV of goal and success probability"
+    goal_hierarchy: "Survival goals (highest priority) → maintenance → aspirational (lowest)"
+    module_process: "Identify goals → set horizons and success probabilities → select sub-portfolio → aggregate"
+    overall_portfolio: "Combine sub-portfolios; aggregate weights determine total asset allocation"
+    issues: "Sub-portfolios may overlap; correlation benefits partially lost; monitoring complex"
+  heuristics:
+    rule_120: "Equity allocation = 120 minus age; rough lifecycle glide path"
+    sixty_forty: "60% equity / 40% bonds; classic balanced; simple but ignores liabilities and goals"
+    endowment_model: "Heavy alternatives allocation; requires long horizon and illiquidity tolerance"
+    risk_parity: "Equal risk contribution from each asset class; typically bonds-heavy; lever up for return"
+    one_over_n: "Equal-weight all asset classes; naive but robust to estimation error"
+  factor_based:
+    premise: "Asset class returns driven by underlying factors (economic growth, inflation, rates, credit)"
+    advantage: "Avoids artificial asset class boundaries; captures true risk sources"
+    implementation: "Allocate to factor exposures; manage factor risk budget"
+  rebalancing_practice:
+    calendar: "Rebalance on fixed schedule regardless of drift"
+    threshold: "Rebalance when any weight exceeds corridor; more responsive"
+    trade_off: "Frequent rebalancing → lower drift risk but higher costs; optimize corridor width"
+    tax_considerations: "Harvest losses; defer gains; use cash flows to rebalance before trading"
+  validation:
+    allocation_required: "allocation_id present"
+    valid_method: "method in [mvo, black_litterman, liability_relative, goals_based, risk_parity, factor_based]"
+
+outcomes:
+  develop_allocation:
+    priority: 1
+    description: Develop asset allocation using specified method
+    given:
+      - field: allocation_id
+        source: input
+        operator: exists
+      - field: method
+        source: input
+        operator: in
+        value: [mvo, black_litterman, liability_relative, goals_based, risk_parity, factor_based]
+    then:
+      - action: call_service
+        target: portfolio_manager
+      - action: emit_event
+        event: allocation.developed
+  invalid_method:
+    priority: 10
+    description: Unsupported allocation method
+    given:
+      - field: method
+        source: input
+        operator: not_in
+        value: [mvo, black_litterman, liability_relative, goals_based, risk_parity, factor_based]
+    then:
+      - action: emit_event
+        event: allocation.rejected
+    error: ALLOCATION_INVALID_METHOD
+
+errors:
+  - code: ALLOCATION_INVALID_METHOD
+    status: 400
+    message: method must be one of the supported allocation methods
+
+events:
+  - name: allocation.developed
+    payload: [allocation_id, method, asset_class_weights, surplus_return, surplus_risk]
+  - name: allocation.rejected
+    payload: [allocation_id, reason_code]
+
+anti_patterns:
+  - rule: Do not run unconstrained MVO without reverse optimization or Black-Litterman as a starting point
+    why: "Unconstrained MVO is an error-maximizer — small input errors produce extreme, unintuitive corner portfolios; reverse optimization or Black-Litterman produces more stable, diversified outputs"
+  - rule: Do not use risk parity without leverage to achieve target return
+    why: "Unleveraged risk parity is heavily bond-weighted; expected return may be insufficient for many investors; leverage introduces financing cost and forced-selling risk in stress periods"
+  - rule: Do not treat goals-based sub-portfolios as fully independent in risk modelling
+    why: "Correlations between sub-portfolios reduce total portfolio risk below sum of parts; ignoring this over-hedges goals and under-exploits diversification, raising total cost of meeting goals"
+
+api:
+  http:
+    method: POST
+    path: /pm/saa/principles
+  request:
+    schema:
+      allocation_id: string
+      method: string
+  response:
+    success:
+      status: 200
+      schema:
+        allocation_id: string
+        asset_class_weights: object
+        expected_return: number
+        expected_risk: number
+    errors:
+      - status: 400
+        error_code: ALLOCATION_INVALID_METHOD
+
+related:
+  - feature: overview-asset-allocation-l3
+    type: required
+  - feature: capital-market-expectations-asset-class-l3
+    type: required
+  - feature: asset-allocation-constraints-l3
+    type: recommended

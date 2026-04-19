@@ -1,0 +1,165 @@
+# ============================================================
+# trade-strategy-execution-l3 — Feature Blueprint
+# Source: CFA LV3 2024 Vol 5 — Portfolio Management Module 2
+# Trade Strategy and Execution
+# ============================================================
+
+feature: trade-strategy-execution-l3
+version: "1.0.0"
+description: Trade strategy and execution — motivations to trade, trade strategy selection, reference prices, algorithmic trading, implementation shortfall, trade cost measurement, and governance
+category: trading
+tags: [portfolio-management, trade-execution, implementation-shortfall, algorithmic-trading, best-execution, market-impact, vwap, twap, cfa-level-3]
+aliases:
+  - trade-execution-l3
+  - implementation-shortfall-l3
+  - algorithmic-trading-strategy-l3
+  - best-execution-governance-l3
+  - trade-cost-measurement-l3
+  - market-impact-cost-l3
+  - trade-benchmarks-l3
+
+actors:
+  - id: portfolio_manager
+    name: Portfolio Manager
+    type: human
+  - id: trader
+    name: Trader
+    type: human
+
+fields:
+  - name: trade_id
+    type: text
+    required: true
+    label: Trade identifier
+  - name: trade_type
+    type: select
+    required: true
+    label: short_term_alpha | long_term_alpha | risk_rebalance | client_redemption | new_mandate
+
+rules:
+  motivations_to_trade:
+    profit_seeking: "Alpha idea; buy undervalued, sell overvalued; urgency depends on alpha decay speed"
+    risk_management: "Rebalance to target; hedge; reduce concentration; less urgency"
+    cash_flow: "Client redemption; contribution; coupon/dividend reinvestment; often known in advance"
+    corporate_actions: "Index reconstitution; mandatory tender; margin call; often urgent"
+  trade_strategy_inputs:
+    security_characteristics: "Liquidity, volatility, market cap; determines execution complexity"
+    order_size: "As % of ADV; large orders require more time; higher market impact"
+    urgency: "Urgency of trade depends on alpha decay rate and risk exposure"
+    risk_aversion: "Higher risk aversion → more aggressive execution; accept more market impact"
+  reference_prices:
+    pretrade: "Decision price; arrival price; reflects value at trade initiation"
+    intraday: "VWAP (volume-weighted average); TWAP (time-weighted average)"
+    posttrade: "Closing price; market on close (MOC); settle at EOD"
+    price_target: "Analyst-derived fair value; relevant for long-term alpha trades"
+  trading_strategies:
+    short_term_alpha: "Execute quickly; minimize market impact accepts timing risk; arrival price benchmark"
+    long_term_alpha: "Slower execution; minimize market impact; VWAP benchmark typical"
+    risk_rebalance: "Moderate urgency; risk of continued mis-hedge more important than IS cost"
+    client_redemption: "Must complete by deadline; MOC or aggressive algo; full execution guaranteed"
+    new_mandate: "Transition trade; multiple assets simultaneously; minimize tracking error vs target"
+  algorithmic_trading:
+    vwap_algo: "Slice order in proportion to expected volume profile; tracks VWAP; medium urgency"
+    twap_algo: "Slice order evenly over time; simple; good for illiquid or volatile stocks"
+    pov: "Participate at fixed % of market volume; good for large orders; avoids front-running"
+    is_algo: "Implementation shortfall algo; balance urgency vs market impact; optimal for alpha trades"
+    iceberg: "Hide large order; show only small visible quantity; reduce signaling risk"
+  market_comparison:
+    equities: "Transparent; lit exchanges and dark pools; algo execution dominant; high liquidity"
+    fixed_income: "OTC; dealer-to-client; electronic platforms (MarketAxess, Bloomberg); less liquid"
+    derivatives: "Exchange (futures) or OTC (swaps, options); clearing reduces counterparty risk"
+    fx: "OTC; 24-hour; electronic platforms; tight spreads for majors"
+  implementation_shortfall:
+    definition: "IS = paper portfolio return − actual portfolio return; true cost of execution"
+    components: "Delay cost + realized market impact + missed trade opportunity cost + commissions"
+    arrival_price: "Midpoint at time of decision; baseline for measuring IS"
+    realized_impact: "Price movement during execution; driven by order size and urgency"
+    opportunity_cost: "Alpha lost on shares not executed; especially relevant for partial fills"
+  trade_cost_benchmarks:
+    arrival_price_benchmark: "Midpoint at time of trade decision; measures IS"
+    vwap: "Volume-weighted average price over day; measures execution quality for passive strategies"
+    twap: "Time-weighted average price; simpler; less sensitive to volume distribution"
+    moc: "Market on close; benchmarks to closing auction; eliminates intraday timing risk"
+    market_adjusted_cost: "Adjusts benchmark for general market move during execution; isolates stock-specific impact"
+    added_value: "Compare actual IS to estimated optimal IS from pre-trade model"
+  trade_governance:
+    best_execution: "Execute client orders in their best interests considering all relevant factors"
+    factors: "Price, speed, cost, likelihood of execution, size, nature, other relevant factors"
+    broker_list: "Maintain list of eligible brokers; review periodically for quality and conflicts"
+    monitoring: "Post-trade analysis of execution quality; TCA (transaction cost analysis)"
+  validation:
+    trade_required: "trade_id present"
+    valid_type: "trade_type in [short_term_alpha, long_term_alpha, risk_rebalance, client_redemption, new_mandate]"
+
+outcomes:
+  execute_trade_strategy:
+    priority: 1
+    description: Select and implement trade strategy for specified trade type
+    given:
+      - field: trade_id
+        source: input
+        operator: exists
+      - field: trade_type
+        source: input
+        operator: in
+        value: [short_term_alpha, long_term_alpha, risk_rebalance, client_redemption, new_mandate]
+    then:
+      - action: call_service
+        target: trader
+      - action: emit_event
+        event: trade.strategy.executed
+  invalid_type:
+    priority: 10
+    description: Unsupported trade type
+    given:
+      - field: trade_type
+        source: input
+        operator: not_in
+        value: [short_term_alpha, long_term_alpha, risk_rebalance, client_redemption, new_mandate]
+    then:
+      - action: emit_event
+        event: trade.strategy.rejected
+    error: TRADE_INVALID_TYPE
+
+errors:
+  - code: TRADE_INVALID_TYPE
+    status: 400
+    message: trade_type must be one of short_term_alpha, long_term_alpha, risk_rebalance, client_redemption, new_mandate
+
+events:
+  - name: trade.strategy.executed
+    payload: [trade_id, trade_type, implementation_shortfall, market_impact, commission]
+  - name: trade.strategy.rejected
+    payload: [trade_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use VWAP as the sole execution benchmark for short-term alpha trades
+    why: "VWAP measures average execution quality vs the day's volume profile; for alpha trades, the relevant cost is delay relative to arrival price (IS) — alpha decays during execution so IS minimization, not VWAP tracking, is the correct objective"
+  - rule: Do not ignore opportunity cost in implementation shortfall calculations
+    why: "IS framework counts missed trade opportunity cost as a real cost; for trades with fast-decaying alpha (short-term momentum), partial fills result in opportunity costs that dwarf realized market impact — the full IS must be tracked"
+  - rule: Do not treat best execution as synonymous with lowest commission
+    why: "Best execution is a multi-dimensional obligation covering price, likelihood, speed, and size; trading at lowest commission via poor-quality brokers can still breach best execution; TCA must measure all cost components"
+
+api:
+  http:
+    method: POST
+    path: /pm/trade/execution
+  request:
+    schema:
+      trade_id: string
+      trade_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        trade_id: string
+        implementation_shortfall: number
+        market_impact: number
+        commission: number
+    errors:
+      - status: 400
+        error_code: TRADE_INVALID_TYPE
+
+related:
+  - feature: portfolio-performance-evaluation-l3
+    type: recommended

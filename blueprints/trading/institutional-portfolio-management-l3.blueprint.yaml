@@ -1,0 +1,169 @@
+# ============================================================
+# institutional-portfolio-management-l3 — Feature Blueprint
+# Source: CFA LV3 2024 Vol 5 — Portfolio Management Module 1
+# Portfolio Management for Institutional Investors
+# ============================================================
+
+feature: institutional-portfolio-management-l3
+version: "1.0.0"
+description: Institutional investor portfolio management — pension funds, SWFs, endowments, foundations, banks, and insurers — objectives, constraints, liabilities, risk, and asset allocation
+category: trading
+tags: [portfolio-management, institutional-investors, pension-fund, sovereign-wealth-fund, endowment, insurance, asset-liability-management, cfa-level-3]
+aliases:
+  - pension-fund-management-l3
+  - sovereign-wealth-fund-management-l3
+  - endowment-foundation-management-l3
+  - insurance-portfolio-management-l3
+  - bank-portfolio-management-l3
+  - institutional-alm-l3
+  - institutional-ips-l3
+
+actors:
+  - id: portfolio_manager
+    name: Portfolio Manager
+    type: human
+  - id: investment_committee
+    name: Investment Committee
+    type: human
+
+fields:
+  - name: institution_id
+    type: text
+    required: true
+    label: Institution identifier
+  - name: institution_type
+    type: select
+    required: true
+    label: defined_benefit_pension | defined_contribution_pension | sovereign_wealth_fund | endowment | foundation | bank | insurer
+
+rules:
+  common_characteristics:
+    fiduciary: "All institutional investors have fiduciary duty to beneficiaries"
+    return_objective: "Must achieve return sufficient to meet obligations and spending"
+    risk_tolerance: "Constrained by liabilities, regulatory capital, stakeholder expectations"
+    long_horizon: "Most institutional investors have long (10+ year) investment horizons"
+    governance: "Investment committee, IPS, annual review; clear delegation of authority"
+  defined_benefit_pension:
+    liabilities: "PV of promised pension payments; driven by discount rate and actuarial assumptions"
+    stakeholders: "Plan sponsor, active members, retirees, regulator, PBGC/guarantor"
+    investment_horizon: "Long; some obligations decades away; must consider mortality improvements"
+    liquidity: "Ongoing benefit payments; contributions reduce need; net CF may be positive or negative"
+    regulatory: "Funding ratio requirements; minimum contribution rules; investment restrictions"
+    risk: "Funded status risk; interest rate risk (liability duration > asset duration typical)"
+    objective: "Match liability duration; earn excess return above liability discount rate"
+    asset_allocation: "LDI core (bonds) + return-seeking (equities, alternatives)"
+  defined_contribution_pension:
+    liabilities: "No defined liability; member bears investment risk"
+    objective: "Maximize long-term risk-adjusted return; appropriate glide path"
+    governance: "Offer menu of appropriate funds; default option should be diversified and age-appropriate"
+  sovereign_wealth_fund:
+    types: "Stabilization, savings, reserve investment, development, pension reserve"
+    stakeholders: "Government, citizens, future generations"
+    horizon: "Very long (perpetual); intergenerational equity"
+    liquidity: "Stabilization funds: high liquidity; savings funds: low liquidity"
+    regulatory: "Often exempt from domestic regulation; political governance oversight"
+    objective: "Preserve real value of national wealth; generate returns for government spending"
+    asset_allocation: "Diversified; significant alternatives; long-horizon illiquidity premium"
+  university_endowment:
+    liabilities: "Perpetual institution; spending rule (typically 5% annually)"
+    horizon: "Perpetual; support institution in perpetuity"
+    liquidity: "Annual spending needs; capital campaigns; building projects"
+    regulatory: "Tax-exempt; payout requirements vary by jurisdiction"
+    objective: "Real return > spending rate + inflation; preserve purchasing power"
+    asset_allocation: "Endowment model: heavy alternatives (PE, real assets, HF); low bonds"
+  private_foundation:
+    liabilities: "Mandatory distribution (5% of assets/yr in US); grant-making obligations"
+    horizon: "Perpetual; some spend-down foundations have finite horizon"
+    liquidity: "Annual grant payments; must maintain liquidity for distributions"
+    regulatory: "IRS rules (US); payout floors; prohibited transactions"
+    objective: "Cover distributions + real return; maintain mission indefinitely"
+  bank:
+    liabilities: "Deposits (short duration); wholesale funding; primarily floating rate"
+    objective: "ALM: manage net interest margin; earn spread between assets and funding cost"
+    regulatory: "Basel capital requirements; liquidity coverage ratio (LCR); net stable funding ratio"
+    portfolio_role: "Investment portfolio supplements loan book; liquidity buffer (HQLA)"
+    risk: "Interest rate risk; credit risk; funding/liquidity risk"
+  insurer:
+    liabilities: "P&C: short duration, uncertain amounts; Life: long duration, more predictable"
+    objective: "Match liability duration and cash flows; maintain regulatory surplus"
+    regulatory: "Solvency II (EU); RBC capital requirements (US); investment grade requirements"
+    pc_insurer: "Short-duration liabilities; shorter asset duration; more equity possible if surplus large"
+    life_insurer: "Long-duration liabilities; must match duration precisely; bonds dominant"
+  validation:
+    institution_required: "institution_id present"
+    valid_type: "institution_type in [defined_benefit_pension, defined_contribution_pension, sovereign_wealth_fund, endowment, foundation, bank, insurer]"
+
+outcomes:
+  manage_institutional_portfolio:
+    priority: 1
+    description: Develop portfolio management framework for specified institution type
+    given:
+      - field: institution_id
+        source: input
+        operator: exists
+      - field: institution_type
+        source: input
+        operator: in
+        value: [defined_benefit_pension, defined_contribution_pension, sovereign_wealth_fund, endowment, foundation, bank, insurer]
+    then:
+      - action: call_service
+        target: portfolio_manager
+      - action: emit_event
+        event: institutional.portfolio.managed
+  invalid_type:
+    priority: 10
+    description: Unsupported institution type
+    given:
+      - field: institution_type
+        source: input
+        operator: not_in
+        value: [defined_benefit_pension, defined_contribution_pension, sovereign_wealth_fund, endowment, foundation, bank, insurer]
+    then:
+      - action: emit_event
+        event: institutional.portfolio.rejected
+    error: INSTITUTIONAL_INVALID_TYPE
+
+errors:
+  - code: INSTITUTIONAL_INVALID_TYPE
+    status: 400
+    message: institution_type must be one of the supported institutional investor types
+
+events:
+  - name: institutional.portfolio.managed
+    payload: [institution_id, institution_type, asset_allocation, funded_ratio, expected_return]
+  - name: institutional.portfolio.rejected
+    payload: [institution_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use the same asset allocation framework for different institution types without liability adjustment
+    why: "A DB pension's liabilities have long duration and discount at a credit rate — requiring bond-heavy LDI; an endowment's perpetual horizon and spending rule favor equities and alternatives — same MVO inputs produce very different optimal allocations"
+  - rule: Do not ignore regulatory capital constraints when optimizing institutional portfolios
+    why: "For banks (Basel) and insurers (Solvency II), risk weights on equities and alternatives are substantially higher than bonds; ignoring capital requirements causes portfolios that are optimal on a return basis but breach regulatory minimums"
+  - rule: Do not assume endowment model is universally superior for all long-horizon institutions
+    why: "Endowment model requires manager selection skill, governance capability, liquidity tolerance, and long lock-up periods; smaller endowments and less sophisticated institutions may be better served by simple low-cost diversified portfolios"
+
+api:
+  http:
+    method: POST
+    path: /pm/institutional/portfolio
+  request:
+    schema:
+      institution_id: string
+      institution_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        institution_id: string
+        asset_allocation: object
+        funded_ratio: number
+        expected_return: number
+    errors:
+      - status: 400
+        error_code: INSTITUTIONAL_INVALID_TYPE
+
+related:
+  - feature: overview-asset-allocation-l3
+    type: required
+  - feature: asset-allocation-alternatives-l3
+    type: recommended

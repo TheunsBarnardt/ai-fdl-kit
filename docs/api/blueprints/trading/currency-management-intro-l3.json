@@ -1,0 +1,220 @@
+{
+  "feature": "currency-management-intro-l3",
+  "version": "1.0.0",
+  "description": "Currency risk management fundamentals — FX market structure, return decomposition, passive/discretionary/active hedging spectrum, and IPS currency policy",
+  "category": "trading",
+  "tags": [
+    "portfolio-management",
+    "currency-management",
+    "fx-hedging",
+    "currency-risk",
+    "return-decomposition",
+    "cfa-level-3"
+  ],
+  "aliases": [
+    "fx-risk-management-intro-l3",
+    "currency-hedging-spectrum-l3",
+    "fx-return-decomposition-l3",
+    "passive-currency-hedging-l3",
+    "discretionary-currency-hedging-l3",
+    "currency-overlay-intro-l3"
+  ],
+  "actors": [
+    {
+      "id": "portfolio_manager",
+      "name": "Portfolio Manager",
+      "type": "human"
+    }
+  ],
+  "fields": [
+    {
+      "name": "mandate_id",
+      "type": "text",
+      "required": true,
+      "label": "Currency mandate identifier"
+    },
+    {
+      "name": "hedge_approach",
+      "type": "select",
+      "required": true,
+      "label": "passive | discretionary | active | overlay"
+    }
+  ],
+  "rules": {
+    "fx_market_structure": {
+      "spot_market": "Immediate delivery (T+2); most liquid; driven by supply and demand",
+      "forward_market": "Agreement to exchange currencies at future date at today's forward rate",
+      "fx_swap": "Simultaneous spot sale and forward purchase; used to roll hedges; not a currency swap",
+      "currency_options": "Right to buy/sell currency; provides asymmetric protection; costs premium"
+    },
+    "return_decomposition": {
+      "total_return": "R_total = R_local + R_FX (in portfolio currency)",
+      "r_fx": "Percentage change in value of foreign currency vs domestic currency",
+      "volatility_decomp": "σ²_total ≈ σ²_local + σ²_FX + 2·ρ·σ_local·σ_FX",
+      "correlation_effect": "When ρ(local, FX) > 0: FX amplifies volatility; when ρ < 0: FX dampens volatility"
+    },
+    "portfolio_optimization": {
+      "strategic_currency": "Optimal currency exposure depends on return, risk, and correlation of FX with asset",
+      "hedging_decision": "Hedge if FX risk adds more volatility than return; consider carry cost",
+      "carry": "Interest rate differential = forward premium/discount; cost/benefit of hedging"
+    },
+    "hedging_spectrum": {
+      "passive": "Fully hedge all FX exposure back to domestic currency; no active currency bets",
+      "discretionary": "Partial hedge with manager discretion to vary hedge ratio within policy bands",
+      "active": "Currency managed as separate alpha source; may take positions beyond underlying exposure",
+      "overlay": "Specialist currency manager overlaid on physical portfolio; manages FX separately"
+    },
+    "ips_currency_policy": {
+      "strategic_benchmark": "Define benchmark hedge ratio (0%, 50%, 100%) in IPS",
+      "hedge_ratio_tolerance": "Allowable deviation bands around benchmark hedge ratio",
+      "currency_rebalancing": "When to rebalance hedge as underlying FX exposure changes",
+      "permissible_instruments": "Define which FX instruments (forwards, options, NDFs) are permitted"
+    },
+    "factors_affecting_hedge_decision": {
+      "transaction_costs": "Bid-ask spread on forward contracts; higher for exotic currencies",
+      "correlation_with_portfolio": "Negative correlation → natural hedge; reduces need for explicit hedging",
+      "investor_horizon": "Short-horizon investors more concerned with FX volatility than long-horizon",
+      "carry_cost": "High interest rate differentials increase cost of hedging high-yielding currencies",
+      "currency_alpha": "Active currency managers may add alpha; assess manager skill vs hedging cost"
+    },
+    "validation": {
+      "mandate_required": "mandate_id present",
+      "valid_approach": "hedge_approach in [passive, discretionary, active, overlay]"
+    }
+  },
+  "outcomes": {
+    "establish_currency_mandate": {
+      "priority": 1,
+      "description": "Establish currency management approach for international portfolio",
+      "given": [
+        {
+          "field": "mandate_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "hedge_approach",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "passive",
+            "discretionary",
+            "active",
+            "overlay"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "portfolio_manager"
+        },
+        {
+          "action": "emit_event",
+          "event": "currency.mandate.established"
+        }
+      ]
+    },
+    "invalid_approach": {
+      "priority": 10,
+      "description": "Unsupported hedge approach",
+      "given": [
+        {
+          "field": "hedge_approach",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "passive",
+            "discretionary",
+            "active",
+            "overlay"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "currency.mandate.rejected"
+        }
+      ],
+      "error": "CURRENCY_INVALID_APPROACH"
+    }
+  },
+  "errors": [
+    {
+      "code": "CURRENCY_INVALID_APPROACH",
+      "status": 400,
+      "message": "hedge_approach must be one of passive, discretionary, active, overlay"
+    }
+  ],
+  "events": [
+    {
+      "name": "currency.mandate.established",
+      "payload": [
+        "mandate_id",
+        "hedge_approach",
+        "benchmark_hedge_ratio",
+        "permitted_instruments"
+      ]
+    },
+    {
+      "name": "currency.mandate.rejected",
+      "payload": [
+        "mandate_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not assume 100% hedging is always optimal for international portfolios",
+      "why": "When FX is negatively correlated with local asset returns (e.g., safe-haven USD during equity drawdowns), FX exposure provides natural hedging — full hedging eliminates this benefit and increases portfolio risk"
+    },
+    {
+      "rule": "Do not ignore carry costs when evaluating the net benefit of currency hedging",
+      "why": "Hedging a high-yield currency (e.g., EM currency) into a low-yield base costs the full interest rate differential; over time this cost can match or exceed the volatility reduction benefit"
+    },
+    {
+      "rule": "Do not treat FX alpha and currency hedging as a single decision",
+      "why": "The decision to hedge currency risk is separate from the decision to take active currency positions; conflating them leads to unintended net exposures and unclear attribution of returns"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/pm/currency/intro"
+    },
+    "request": {
+      "schema": {
+        "mandate_id": "string",
+        "hedge_approach": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "mandate_id": "string",
+          "benchmark_hedge_ratio": "number",
+          "permitted_instruments": "object"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "CURRENCY_INVALID_APPROACH"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "currency-management-program-l3",
+      "type": "recommended"
+    },
+    {
+      "feature": "swaps-forwards-futures-strategies-l3",
+      "type": "recommended"
+    }
+  ]
+}

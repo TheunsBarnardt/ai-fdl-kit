@@ -1,0 +1,240 @@
+{
+  "feature": "overview-asset-allocation-l3",
+  "version": "1.0.0",
+  "description": "Asset allocation framework — governance, economic balance sheet, SAA approaches (asset-only, liability-relative, goals-based), implementation and rebalancing",
+  "category": "trading",
+  "tags": [
+    "portfolio-management",
+    "asset-allocation",
+    "strategic-asset-allocation",
+    "liability-relative",
+    "goals-based",
+    "rebalancing",
+    "cfa-level-3"
+  ],
+  "aliases": [
+    "asset-allocation-overview-l3",
+    "strategic-asset-allocation-l3",
+    "liability-relative-allocation-l3",
+    "goals-based-allocation-overview-l3",
+    "investment-governance-l3",
+    "economic-balance-sheet-l3",
+    "asset-allocation-rebalancing-l3"
+  ],
+  "actors": [
+    {
+      "id": "portfolio_manager",
+      "name": "Portfolio Manager",
+      "type": "human"
+    },
+    {
+      "id": "investment_committee",
+      "name": "Investment Committee",
+      "type": "human"
+    }
+  ],
+  "fields": [
+    {
+      "name": "allocation_id",
+      "type": "text",
+      "required": true,
+      "label": "Allocation identifier"
+    },
+    {
+      "name": "approach",
+      "type": "select",
+      "required": true,
+      "label": "asset_only | liability_relative | goals_based"
+    }
+  ],
+  "rules": {
+    "governance": {
+      "definition": "Governance = framework for rights, responsibilities, and accountability in portfolio management",
+      "ips": "Investment Policy Statement documents objectives, constraints, and asset allocation policy",
+      "governance_audit": "Periodic review of governance structure for effectiveness and alignment with objectives",
+      "rights_responsibilities": "Allocate decision rights to those with expertise and accountability"
+    },
+    "economic_balance_sheet": {
+      "assets": "Financial assets + human capital (PV of future labor income) + PV of pension promises",
+      "liabilities": "Financial liabilities + PV of consumption goals + PV of pension obligations",
+      "extended_portfolio": "Asset allocation should reflect all economic assets and liabilities, not just financial",
+      "human_capital": "Young investors: large human capital → lower equity allocation in financial portfolio needed"
+    },
+    "asset_class_criteria": {
+      "homogeneous": "Assets within class behave similarly",
+      "diversifying": "Low correlation with other asset classes",
+      "investable": "Accessible in sufficiently large amounts",
+      "exhaustive": "Cover most of investable opportunity set",
+      "exclusive": "Minimal overlap between classes"
+    },
+    "saa_approaches": {
+      "asset_only": "Maximize risk-adjusted return without explicit liability reference; mean-variance optimization",
+      "liability_relative": "Maximize surplus (assets minus liabilities); match liability duration and cash flows",
+      "goals_based": "Allocate to sub-portfolios matched to individual life goals with specific time horizons and probabilities"
+    },
+    "relevant_risk_concepts": {
+      "asset_only_risk": "Volatility of portfolio returns (standard deviation)",
+      "liability_relative_risk": "Volatility of surplus or funding ratio",
+      "goals_based_risk": "Probability of failing to achieve a specific goal"
+    },
+    "asset_class_risk_modeling": {
+      "normal": "Mean-variance sufficient if returns approximately normal",
+      "fat_tails": "Use scenario analysis or simulation when returns are non-normal or crisis regimes matter",
+      "illiquid": "Adjust VCV for smoothing bias; use factor models"
+    },
+    "implementation": {
+      "passive_active_weights": "Decide whether to deviate from SAA weights (tactical) and by how much",
+      "passive_active_classes": "Decide whether to implement each class via passive or active management",
+      "risk_budgeting": "Allocate active risk budget across asset classes; balance information ratio vs tracking error"
+    },
+    "rebalancing": {
+      "strategic": "Maintain SAA weights; restore after market drift",
+      "corridor_width": "Wider corridors for low-vol, low-corr, high-tax-cost assets; narrower for high-vol, high-momentum",
+      "calendar_vs_trigger": "Calendar = periodic rebalance; trigger = rebalance when weights breach corridor",
+      "transaction_costs": "Wider corridors justified when trading costs are high relative to diversification benefit lost"
+    },
+    "validation": {
+      "allocation_required": "allocation_id present",
+      "valid_approach": "approach in [asset_only, liability_relative, goals_based]"
+    }
+  },
+  "outcomes": {
+    "develop_saa": {
+      "priority": 1,
+      "description": "Develop strategic asset allocation using specified approach",
+      "given": [
+        {
+          "field": "allocation_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "approach",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "asset_only",
+            "liability_relative",
+            "goals_based"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "portfolio_manager"
+        },
+        {
+          "action": "emit_event",
+          "event": "saa.developed"
+        }
+      ]
+    },
+    "invalid_approach": {
+      "priority": 10,
+      "description": "Unsupported allocation approach",
+      "given": [
+        {
+          "field": "approach",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "asset_only",
+            "liability_relative",
+            "goals_based"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "saa.rejected"
+        }
+      ],
+      "error": "SAA_INVALID_APPROACH"
+    }
+  },
+  "errors": [
+    {
+      "code": "SAA_INVALID_APPROACH",
+      "status": 400,
+      "message": "approach must be one of asset_only, liability_relative, goals_based"
+    }
+  ],
+  "events": [
+    {
+      "name": "saa.developed",
+      "payload": [
+        "allocation_id",
+        "approach",
+        "asset_class_weights",
+        "expected_return",
+        "expected_risk"
+      ]
+    },
+    {
+      "name": "saa.rejected",
+      "payload": [
+        "allocation_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use asset-only optimization for liability-driven investors (pension funds, insurers)",
+      "why": "Ignoring liabilities can produce portfolios that are volatile in surplus terms even if low in asset-only terms; a bond-heavy portfolio may have near-zero surplus volatility while an equity-heavy one has high surplus risk"
+    },
+    {
+      "rule": "Do not ignore human capital when allocating financial assets for individual investors",
+      "why": "A young professional with bond-like human capital (stable salary) can hold more equity in financial assets; ignoring economic balance sheet leads to systematic mis-allocation"
+    },
+    {
+      "rule": "Do not set rebalancing corridors symmetrically without considering asset volatility and costs",
+      "why": "High-volatility assets drift faster and need narrower corridors; illiquid assets with high transaction costs need wider corridors — one-size-fits-all corridors destroy value"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/pm/saa/overview"
+    },
+    "request": {
+      "schema": {
+        "allocation_id": "string",
+        "approach": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "allocation_id": "string",
+          "asset_class_weights": "object",
+          "expected_return": "number",
+          "expected_risk": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "SAA_INVALID_APPROACH"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "capital-market-expectations-macro-l3",
+      "type": "required"
+    },
+    {
+      "feature": "capital-market-expectations-asset-class-l3",
+      "type": "required"
+    },
+    {
+      "feature": "principles-asset-allocation-l3",
+      "type": "recommended"
+    }
+  ]
+}

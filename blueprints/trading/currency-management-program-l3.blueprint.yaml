@@ -1,0 +1,153 @@
+# ============================================================
+# currency-management-program-l3 — Feature Blueprint
+# Source: CFA LV3 2024 Vol 2 — Portfolio Management Module 4
+# Formulating a Currency Management Program
+# ============================================================
+
+feature: currency-management-program-l3
+version: "1.0.0"
+description: Active currency management strategies — fundamentals, technical, carry trade, volatility trading, forward/option instruments, exotic options, and EM currency management
+category: trading
+tags: [portfolio-management, currency-management, carry-trade, currency-overlay, fx-options, emerging-market-currency, cross-hedge, cfa-level-3]
+aliases:
+  - active-currency-management-l3
+  - carry-trade-strategy-l3
+  - fx-option-strategies-l3
+  - currency-overlay-program-l3
+  - em-currency-management-l3
+  - cross-hedge-fx-l3
+  - minimum-variance-hedge-l3
+  - non-deliverable-forward-l3
+
+actors:
+  - id: portfolio_manager
+    name: Portfolio Manager
+    type: human
+  - id: currency_overlay_manager
+    name: Currency Overlay Manager
+    type: system
+
+fields:
+  - name: program_id
+    type: text
+    required: true
+    label: Currency program identifier
+  - name: strategy_type
+    type: select
+    required: true
+    label: fundamentals | technical | carry_trade | volatility | options_based | em_currency
+
+rules:
+  fundamental_currency:
+    ppp: "Long-run FX determined by relative inflation; short-run deviations exploitable"
+    current_account: "CA surplus → currency appreciates; deficit → depreciates"
+    real_rates: "Higher real interest rates attract capital → currency appreciation"
+    valuation_models: "BEER, FEER, PEER; identify under/over-valued currencies vs fundamentals"
+  technical_currency:
+    trend_following: "Momentum strategies; buy recent winners, sell losers; exploits FX trends"
+    mean_reversion: "Buy extreme oversold; sell extreme overbought; shorter-term"
+    support_resistance: "Key price levels; chart patterns; filter for entries and exits"
+  carry_trade:
+    definition: "Borrow low-yield currency, invest in high-yield currency; profit = interest differential"
+    uip_violation: "UIP predicts carry trade earns zero; empirically carry earns positive return on average"
+    crash_risk: "Carry unwinds rapidly during risk-off; skewness of return distribution is negative"
+    diversified_carry: "Diversify across many currency pairs; reduces crash risk; smoother returns"
+  volatility_trading:
+    long_vol: "Buy straddles/strangles; profit from large FX moves"
+    short_vol: "Sell options; earn premium in range-bound markets"
+    vol_surface: "Exploit mispricings on volatility surface (skew, term structure)"
+  options_based_strategies:
+    over_under_hedge: "Use OTM options to hedge beyond/below forward rate; pay for asymmetry"
+    protective_put: "Buy OTM put to hedge FX downside; retain upside; costs premium"
+    risk_reversal: "Buy OTM put, sell OTM call; limits both; can be zero cost"
+    put_spread: "Buy ATM put, sell OTM put; cheaper downside hedge; limited protection below lower strike"
+    seagull_spread: "Buy put spread + sell call; zero or low cost; common for exporters"
+    exotic_options: "Barrier, average rate, basket options; cheaper but complex payoffs"
+  multiple_currency_hedging:
+    cross_hedge: "Hedge one currency using correlated but more liquid proxy currency"
+    macro_hedge: "Single instrument to hedge aggregate FX exposure of diversified portfolio"
+    minimum_variance_hedge: "Minimize portfolio variance; hedge ratio = ρ(portfolio, FX) × σ_portfolio / σ_FX"
+    basis_risk: "Residual risk when hedged and proxy currency are imperfectly correlated"
+  em_currency:
+    special_risks: "Higher volatility; capital controls; convertibility risk; thinner markets"
+    ndf: "Non-deliverable forward; settled in hard currency; used when local FX market is restricted"
+    liquidity: "EM FX markets less liquid; larger bid-ask; concentration of activity near month-end"
+    political_risk: "Sudden devaluations, capital controls, forced conversion at off-market rates"
+  validation:
+    program_required: "program_id present"
+    valid_strategy: "strategy_type in [fundamentals, technical, carry_trade, volatility, options_based, em_currency]"
+
+outcomes:
+  implement_currency_program:
+    priority: 1
+    description: Implement active currency management strategy
+    given:
+      - field: program_id
+        source: input
+        operator: exists
+      - field: strategy_type
+        source: input
+        operator: in
+        value: [fundamentals, technical, carry_trade, volatility, options_based, em_currency]
+    then:
+      - action: call_service
+        target: currency_overlay_manager
+      - action: emit_event
+        event: currency.program.implemented
+  invalid_strategy:
+    priority: 10
+    description: Unsupported currency strategy type
+    given:
+      - field: strategy_type
+        source: input
+        operator: not_in
+        value: [fundamentals, technical, carry_trade, volatility, options_based, em_currency]
+    then:
+      - action: emit_event
+        event: currency.program.rejected
+    error: CURRENCY_PROGRAM_INVALID_STRATEGY
+
+errors:
+  - code: CURRENCY_PROGRAM_INVALID_STRATEGY
+    status: 400
+    message: strategy_type must be one of the supported currency management strategies
+
+events:
+  - name: currency.program.implemented
+    payload: [program_id, strategy_type, hedge_ratio, expected_carry, options_premium]
+  - name: currency.program.rejected
+    payload: [program_id, reason_code]
+
+anti_patterns:
+  - rule: Do not treat carry trade returns as risk-free or stable income
+    why: "Carry trades exhibit significant negative skewness and kurtosis — they 'go up by the stairs and down by the elevator'; drawdowns during risk-off events can exceed years of accumulated carry income"
+  - rule: Do not use cross-hedges without quantifying basis risk
+    why: "When proxy currency correlation breaks down (typically in stress periods), cross-hedge effectiveness collapses precisely when hedging is most needed; minimum-variance hedge ratio should be stress-tested"
+  - rule: Do not apply developed-market option strategies to EM currencies without checking NDF availability
+    why: "Many EM currencies lack deliverable forward markets; only NDFs are available and settled in hard currency; vanilla option strategies may not be executable or may be prohibitively expensive"
+
+api:
+  http:
+    method: POST
+    path: /pm/currency/program
+  request:
+    schema:
+      program_id: string
+      strategy_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        program_id: string
+        hedge_ratio: number
+        expected_carry: number
+        options_premium: number
+    errors:
+      - status: 400
+        error_code: CURRENCY_PROGRAM_INVALID_STRATEGY
+
+related:
+  - feature: currency-management-intro-l3
+    type: required
+  - feature: swaps-forwards-futures-strategies-l3
+    type: recommended

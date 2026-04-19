@@ -1,0 +1,257 @@
+{
+  "feature": "portfolio-performance-evaluation-l3",
+  "version": "1.0.0",
+  "description": "Portfolio performance evaluation — return attribution (BHB, Brinson-Fachler), FI attribution, risk attribution, benchmark quality, appraisal measures, capture ratios, and skill evaluation",
+  "category": "trading",
+  "tags": [
+    "portfolio-management",
+    "performance-attribution",
+    "brinson-hood-beebower",
+    "information-ratio",
+    "sharpe-ratio",
+    "benchmark-quality",
+    "capture-ratio",
+    "drawdown",
+    "cfa-level-3"
+  ],
+  "aliases": [
+    "performance-attribution-l3",
+    "brinson-hood-beebower-l3",
+    "fi-return-attribution-l3",
+    "risk-attribution-l3",
+    "benchmark-selection-l3",
+    "appraisal-measures-l3",
+    "capture-ratio-l3",
+    "manager-skill-evaluation-l3"
+  ],
+  "actors": [
+    {
+      "id": "portfolio_manager",
+      "name": "Portfolio Manager",
+      "type": "human"
+    },
+    {
+      "id": "performance_analyst",
+      "name": "Performance Analyst",
+      "type": "human"
+    }
+  ],
+  "fields": [
+    {
+      "name": "portfolio_id",
+      "type": "text",
+      "required": true,
+      "label": "Portfolio identifier"
+    },
+    {
+      "name": "evaluation_type",
+      "type": "select",
+      "required": true,
+      "label": "return_attribution | risk_attribution | benchmark_evaluation | appraisal | skill_evaluation"
+    }
+  ],
+  "rules": {
+    "equity_return_attribution": {
+      "bhb_model": "Brinson-Hood-Beebower: decomposes active return into allocation effect + selection effect + interaction",
+      "allocation_effect": "(W_p − W_b) × (R_b_sector − R_b_total); value added from over/underweighting sectors",
+      "selection_effect": "W_b × (R_p_sector − R_b_sector); value added from security selection within sector",
+      "interaction": "(W_p − W_b) × (R_p_sector − R_b_sector); often combined with selection",
+      "brinson_fachler": "Allocation effect = (W_p − W_b) × (R_b_sector − R_b_total); cleaner attribution for non-zero benchmark weights"
+    },
+    "fi_return_attribution": {
+      "decomposition": "Income effect + duration/yield curve effect + spread effect + currency effect",
+      "income": "Coupon income as fraction of portfolio value",
+      "duration_effect": "Duration × rate change attribution",
+      "spread_effect": "Spread duration × spread change; sector-specific",
+      "currency": "FX return contribution for non-domestic bonds",
+      "residual": "Unexplained component; security selection residual"
+    },
+    "risk_attribution": {
+      "factor_attribution": "Decompose active risk into factor-based and residual (security-specific) components",
+      "marginal_contribution": "Each position's marginal contribution to total active risk",
+      "risk_budget_efficiency": "Compare risk consumed vs expected alpha per unit of risk"
+    },
+    "macro_micro_attribution": {
+      "macro": "Asset allocation decisions: contribution of SAA and TAA vs policy benchmark",
+      "micro": "Manager decisions within asset class: contribution of selection vs asset class benchmark",
+      "layering": "Multi-level: total fund → asset class → manager → security"
+    },
+    "benchmark_selection": {
+      "asset_based": "Index matching investable universe; rules-based; transparent; measurable",
+      "liability_based": "PV of liabilities as benchmark; relevant for LDI mandates",
+      "benchmark_quality": "Unambiguous, investable, measurable, appropriate, reflective of manager opportunity set, agreed upon in advance",
+      "decomposition_check": "Verify benchmark has similar factor exposures to manager's stated style"
+    },
+    "benchmarking_alternatives": {
+      "hedge_funds": "Absolute return; peer group; factor model; each has limitations",
+      "real_estate": "NCREIF; appraisal-based; illiquidity premium benchmark",
+      "private_equity": "PME (public market equivalent); IRR vs benchmark; TVPI vs peer quartile",
+      "commodities": "Bloomberg Commodity Index; S&P GSCI; differ by sector weights and roll methodology"
+    },
+    "appraisal_measures": {
+      "sharpe_ratio": "Excess return / total volatility; absolute risk measure; penalizes all volatility",
+      "information_ratio": "Active return / tracking error; relative risk measure; key for benchmark-relative managers",
+      "treynor_ratio": "Excess return / beta; appropriate if portfolio is part of larger well-diversified fund",
+      "m_squared": "Return earned if volatility matched benchmark; comparable across managers",
+      "appraisal_ratio": "Alpha / specific risk; measures manager's stock selection skill; Jensen's alpha / TE residual",
+      "skill_vs_luck": "Skill requires statistical significance; t-stat of IR; need 3+ years; or 36+ months"
+    },
+    "capture_ratios": {
+      "up_capture": "Manager return in up markets / benchmark return in up markets; want > 100%",
+      "down_capture": "Manager return in down markets / benchmark return in down markets; want < 100%",
+      "capture_ratio_quality": "Asymmetric: high up-capture + low down-capture = excellent; reverse = poor"
+    },
+    "drawdown_analysis": {
+      "max_drawdown": "Peak-to-trough decline; measures worst historical loss experience",
+      "drawdown_duration": "Time from peak to recovery of peak; long duration indicates slow recovery",
+      "drawdown_frequency": "How often drawdowns occur; indicates tail risk frequency"
+    },
+    "validation": {
+      "portfolio_required": "portfolio_id present",
+      "valid_evaluation": "evaluation_type in [return_attribution, risk_attribution, benchmark_evaluation, appraisal, skill_evaluation]"
+    }
+  },
+  "outcomes": {
+    "evaluate_performance": {
+      "priority": 1,
+      "description": "Evaluate portfolio performance using specified evaluation type",
+      "given": [
+        {
+          "field": "portfolio_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "evaluation_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "return_attribution",
+            "risk_attribution",
+            "benchmark_evaluation",
+            "appraisal",
+            "skill_evaluation"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "performance_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "performance.evaluated"
+        }
+      ]
+    },
+    "invalid_evaluation": {
+      "priority": 10,
+      "description": "Unsupported evaluation type",
+      "given": [
+        {
+          "field": "evaluation_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "return_attribution",
+            "risk_attribution",
+            "benchmark_evaluation",
+            "appraisal",
+            "skill_evaluation"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "performance.rejected"
+        }
+      ],
+      "error": "PERF_INVALID_EVALUATION"
+    }
+  },
+  "errors": [
+    {
+      "code": "PERF_INVALID_EVALUATION",
+      "status": 400,
+      "message": "evaluation_type must be one of return_attribution, risk_attribution, benchmark_evaluation, appraisal, skill_evaluation"
+    }
+  ],
+  "events": [
+    {
+      "name": "performance.evaluated",
+      "payload": [
+        "portfolio_id",
+        "evaluation_type",
+        "information_ratio",
+        "sharpe_ratio",
+        "up_capture",
+        "down_capture",
+        "max_drawdown"
+      ]
+    },
+    {
+      "name": "performance.rejected",
+      "payload": [
+        "portfolio_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not rely on short-period information ratio to assess manager skill",
+      "why": "An IR of 0.5 requires ~16 years to achieve statistical significance at 95% confidence; 3-5 year track records have high probability of being luck — require longer track records or supplement with qualitative process assessment"
+    },
+    {
+      "rule": "Do not use the same benchmark for different institutional mandates without verifying appropriateness",
+      "why": "A DB pension with LDI mandate should benchmark against liability returns, not a total return index; benchmarking an equity market neutral fund against S&P 500 is meaningless — benchmark must match the manager's actual opportunity set and objective"
+    },
+    {
+      "rule": "Do not evaluate alternative investment managers using Sharpe ratio or IR without adjusting for return smoothing",
+      "why": "Smoothed appraisal-based returns artificially reduce estimated volatility, inflating Sharpe and IR; unsmoothed returns may reveal a Sharpe ratio 30-50% lower than the reported value — always unsmooth before comparing to public market managers"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/pm/performance/evaluation"
+    },
+    "request": {
+      "schema": {
+        "portfolio_id": "string",
+        "evaluation_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "portfolio_id": "string",
+          "information_ratio": "number",
+          "sharpe_ratio": "number",
+          "up_capture": "number",
+          "down_capture": "number",
+          "max_drawdown": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "PERF_INVALID_EVALUATION"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "investment-manager-selection-l3",
+      "type": "recommended"
+    },
+    {
+      "feature": "trade-strategy-execution-l3",
+      "type": "recommended"
+    }
+  ]
+}

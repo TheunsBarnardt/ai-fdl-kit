@@ -1,0 +1,238 @@
+{
+  "feature": "yield-curve-strategies-l3",
+  "version": "1.0.0",
+  "description": "Active fixed-income yield curve strategies — duration positioning, curve shape trades, key rate durations, multi-currency fixed income, and strategy evaluation framework",
+  "category": "trading",
+  "tags": [
+    "portfolio-management",
+    "fixed-income",
+    "yield-curve",
+    "duration",
+    "convexity",
+    "butterfly-trade",
+    "curve-steepener",
+    "key-rate-duration",
+    "cfa-level-3"
+  ],
+  "aliases": [
+    "active-fi-yield-curve-l3",
+    "duration-positioning-l3",
+    "curve-steepener-flattener-l3",
+    "butterfly-trade-l3",
+    "key-rate-duration-strategy-l3",
+    "multi-currency-fi-l3",
+    "yield-curve-dynamics-l3"
+  ],
+  "actors": [
+    {
+      "id": "portfolio_manager",
+      "name": "Portfolio Manager",
+      "type": "human"
+    }
+  ],
+  "fields": [
+    {
+      "name": "strategy_id",
+      "type": "text",
+      "required": true,
+      "label": "Strategy identifier"
+    },
+    {
+      "name": "curve_view",
+      "type": "select",
+      "required": true,
+      "label": "duration_bet | steepener | flattener | butterfly | multi_currency"
+    }
+  ],
+  "rules": {
+    "yield_curve_dynamics": {
+      "parallel_shift": "All maturities move by same amount; modified duration captures P&L",
+      "twist": "Short and long rates diverge; steepening or flattening; key rate durations needed",
+      "butterfly": "Belly moves relative to wings; requires barbells vs bullets to exploit",
+      "static_curve": "No change anticipated; earn rolldown return as bonds age toward shorter maturity",
+      "dynamic_curve": "Rates move; profit from anticipating shift correctly"
+    },
+    "duration_convexity": {
+      "modified_duration": "Price sensitivity per 1% parallel yield change",
+      "macaulay_duration": "Weighted average time to receipt of cash flows; equals modified × (1+y)",
+      "convexity": "Second-order effect; positive convexity beneficial; portfolio gains more than it loses",
+      "dollar_duration": "Modified duration × price; absolute rate sensitivity; additive across portfolio"
+    },
+    "static_strategies": {
+      "buy_hold": "Earn YTM + rolldown; no trading; lowest cost",
+      "ride_yield_curve": "Buy longer maturity, sell before maturity; earn rolldown as bond ages",
+      "rolldown_return": "Bond rolls down curve to lower yield → capital gain; positive when curve is steep"
+    },
+    "dynamic_strategies": {
+      "duration_increase": "Long duration if rates expected to fall; buy longer bonds or futures",
+      "duration_decrease": "Short duration if rates expected to rise; sell long bonds; use pay-fixed swap",
+      "steepener": "Long long-term rates + short short-term rates; profit if curve steepens",
+      "flattener": "Long short-term + short long-term; profit if curve flattens",
+      "bullet": "Concentrate in single maturity; low dispersion; most exposed to rate at that point",
+      "barbell": "Concentrate at short and long ends; high convexity; profits from curve twist",
+      "butterfly": "Long belly + short wings (barbell vs bullet); profit from hump change",
+      "reverse_butterfly": "Short belly + long wings; profit from flattening of hump"
+    },
+    "key_rate_duration": {
+      "definition": "Sensitivity of portfolio value to 1% shift in yield at specific maturity",
+      "portfolio_krd": "Weighted average of individual bond KRDs; allows precise exposure mapping",
+      "target_profile": "Match KRD profile to liability duration profile or to curve view",
+      "isolate_exposure": "Use KRD to position specifically on expected curve segment movements"
+    },
+    "multi_currency_fi": {
+      "cross_currency": "Exploit rate differential across countries; hedge or leave currency unhedged",
+      "currency_hedged_carry": "Earn rate differential net of forward premium; hedged return ≈ domestic yield",
+      "active_currency_fi": "Take selective FX exposure alongside rate view; amplifies or dampens fi return",
+      "country_selection": "Allocate to markets with best risk-adjusted return; consider duration and spread risk"
+    },
+    "evaluation_framework": {
+      "horizon_return": "Project total return over investment horizon for each scenario",
+      "breakeven_analysis": "How much must rates change to eliminate advantage of current positioning",
+      "scenario_analysis": "Bull, base, bear rate scenarios; weighted return vs benchmark",
+      "risk_attribution": "Decompose return into duration, curve, spread, currency contributions"
+    },
+    "validation": {
+      "strategy_required": "strategy_id present",
+      "valid_view": "curve_view in [duration_bet, steepener, flattener, butterfly, multi_currency]"
+    }
+  },
+  "outcomes": {
+    "implement_curve_strategy": {
+      "priority": 1,
+      "description": "Implement yield curve strategy based on specified market view",
+      "given": [
+        {
+          "field": "strategy_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "curve_view",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "duration_bet",
+            "steepener",
+            "flattener",
+            "butterfly",
+            "multi_currency"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "portfolio_manager"
+        },
+        {
+          "action": "emit_event",
+          "event": "yield_curve.strategy.implemented"
+        }
+      ]
+    },
+    "invalid_view": {
+      "priority": 10,
+      "description": "Unsupported curve view",
+      "given": [
+        {
+          "field": "curve_view",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "duration_bet",
+            "steepener",
+            "flattener",
+            "butterfly",
+            "multi_currency"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "yield_curve.strategy.rejected"
+        }
+      ],
+      "error": "CURVE_INVALID_VIEW"
+    }
+  },
+  "errors": [
+    {
+      "code": "CURVE_INVALID_VIEW",
+      "status": 400,
+      "message": "curve_view must be one of duration_bet, steepener, flattener, butterfly, multi_currency"
+    }
+  ],
+  "events": [
+    {
+      "name": "yield_curve.strategy.implemented",
+      "payload": [
+        "strategy_id",
+        "curve_view",
+        "duration",
+        "convexity",
+        "expected_horizon_return"
+      ]
+    },
+    {
+      "name": "yield_curve.strategy.rejected",
+      "payload": [
+        "strategy_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use modified duration alone for curve positioning without assessing convexity",
+      "why": "Barbell and bullet portfolios can have identical duration but very different convexity profiles; in volatile rate environments, higher convexity significantly outperforms equal-duration lower-convexity portfolios"
+    },
+    {
+      "rule": "Do not implement steepener or flattener trades without quantifying the breakeven rate change",
+      "why": "Breakeven analysis reveals how much rates must move for the trade to be profitable net of carry cost; many curve trades have negative carry and require large moves to break even — sizing must reflect this"
+    },
+    {
+      "rule": "Do not apply single-country yield curve strategies to multi-currency fixed income portfolios without adjusting for hedged carry",
+      "why": "Hedged return in multi-currency FI approximately equals domestic yield; the local yield advantage evaporates once hedged — only unhedged positions carry the local rate; currency overlay must be explicitly modelled"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/pm/fixed-income/yield-curve"
+    },
+    "request": {
+      "schema": {
+        "strategy_id": "string",
+        "curve_view": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "strategy_id": "string",
+          "duration": "number",
+          "convexity": "number",
+          "expected_horizon_return": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "CURVE_INVALID_VIEW"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "fixed-income-portfolio-management-l3",
+      "type": "required"
+    },
+    {
+      "feature": "fi-active-credit-strategies-l3",
+      "type": "recommended"
+    }
+  ]
+}

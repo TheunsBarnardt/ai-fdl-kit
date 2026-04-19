@@ -1,0 +1,155 @@
+# ============================================================
+# capital-market-expectations-macro-l3 — Feature Blueprint
+# Source: CFA LV3 2024 Vol 1 — Portfolio Management Module 1
+# Capital Market Expectations, Part 1: Framework and Macro Considerations
+# ============================================================
+
+feature: capital-market-expectations-macro-l3
+version: "1.0.0"
+description: Develop capital market expectations — CME framework, forecasting challenges, GDP growth decomposition, econometric and indicator approaches, business cycle phases, monetary and fiscal policy
+category: trading
+tags: [portfolio-management, capital-market-expectations, business-cycle, gdp-growth, monetary-policy, cfa-level-3]
+aliases:
+  - cme-framework-l3
+  - gdp-growth-decomposition-l3
+  - business-cycle-phases-l3
+  - econometric-forecasting-cme
+  - economic-indicators-cme
+  - monetary-fiscal-policy-cme
+  - forecasting-challenges-cme
+
+actors:
+  - id: macro_strategist
+    name: Macro Strategist
+    type: system
+
+fields:
+  - name: forecast_id
+    type: text
+    required: true
+    label: Forecast identifier
+  - name: analysis_type
+    type: select
+    required: true
+    label: gdp_growth | business_cycle | monetary_policy | fiscal_policy | international
+
+rules:
+  cme_framework:
+    definition: "CME = long-run forecasts of risk/return characteristics of asset classes"
+    use_in_ips: "Drive strategic asset allocation; tactical shifts"
+    time_horizons: "Capital market cycle (3-5 yr); business cycle (1-2 yr)"
+  forecasting_challenges:
+    data_limitations: "Revisions, measurement error, definitional changes"
+    historical_bias: "Ex post smoothing, survivorship, sample period selection"
+    ex_ante_ex_post: "Historical risk understates true ex ante uncertainty"
+    analyst_biases: "Anchoring, availability, herding, overconfidence"
+    model_uncertainty: "No model is universally correct; regime change breaks calibrations"
+    conditioning_info: "Ignoring current cycle phase biases mean estimates"
+  gdp_growth_decomposition:
+    formula: "GDP growth = labour growth + productivity growth"
+    labour: "Working-age population growth + labour participation changes"
+    productivity: "Capital deepening + TFP growth"
+    anchoring: "Long-run asset returns anchor to long-run GDP growth"
+    emerging_markets: "Higher growth from catch-up; convergence over time"
+  forecasting_approaches:
+    econometric: "Structural or reduced-form models; data-intensive; fragile to regime change"
+    economic_indicators: "Leading, lagging, coincident; diffusion indexes"
+    checklist: "Qualitative scoring of macro factors; flexible; subjective"
+  business_cycle_phases:
+    early_expansion: "Recovery begins; unemployment peaks; easy policy; credits outperform"
+    expansion: "Growth above trend; inflation rises; equities perform well"
+    peak: "Growth slowing; inflation high; policy tightening; yield curve flat/inverts"
+    recession: "Negative growth; unemployment rising; easing; defensives outperform"
+    asset_class_rotation: "Risk assets → defensives → risk assets across cycle"
+  inflation_deflation:
+    inflation_types: "Demand-pull, cost-push, monetary"
+    deflation_risk: "Debt deflation spiral; cash/govts outperform"
+    break_even_inflation: "Market measure of expected inflation from TIPS vs nominal"
+  monetary_policy:
+    transmission: "Rate → credit conditions → investment → GDP"
+    zero_lower_bound: "QE, forward guidance when rates at zero"
+    negative_rates: "Distorts bank margins; may reduce effectiveness"
+    yield_curve_impact: "Steepening under QE; flattening when tightening"
+  fiscal_policy:
+    stimulus: "Tax cuts or spending increases; crowding out at full employment"
+    austerity: "Multiplier effects on GDP; timing matters"
+    policy_mix: "Tight monetary + loose fiscal = high rates, growth"
+  international_linkages:
+    macro_linkages: "Trade and capital flows transmit shocks"
+    interest_rate_fx: "Uncovered interest parity; carry trades"
+    contagion: "Emerging market crises spread through FX and capital flows"
+  validation:
+    forecast_required: "forecast_id present"
+    valid_analysis: "analysis_type in [gdp_growth, business_cycle, monetary_policy, fiscal_policy, international]"
+
+outcomes:
+  develop_cme:
+    priority: 1
+    description: Develop capital market expectation using macro framework
+    given:
+      - field: forecast_id
+        source: input
+        operator: exists
+      - field: analysis_type
+        source: input
+        operator: in
+        value: [gdp_growth, business_cycle, monetary_policy, fiscal_policy, international]
+    then:
+      - action: call_service
+        target: macro_strategist
+      - action: emit_event
+        event: cme.developed
+  invalid_analysis:
+    priority: 10
+    description: Unsupported analysis type
+    given:
+      - field: analysis_type
+        source: input
+        operator: not_in
+        value: [gdp_growth, business_cycle, monetary_policy, fiscal_policy, international]
+    then:
+      - action: emit_event
+        event: cme.rejected
+    error: CME_INVALID_ANALYSIS
+
+errors:
+  - code: CME_INVALID_ANALYSIS
+    status: 400
+    message: analysis_type must be one of the supported types
+
+events:
+  - name: cme.developed
+    payload: [forecast_id, analysis_type, gdp_growth_estimate, cycle_phase, policy_stance]
+  - name: cme.rejected
+    payload: [forecast_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use single-model CME without scenario analysis
+    why: "No single model captures all regimes; regime changes (GFC, COVID) produce errors of 300-500 bps in return forecasts — scenario-weighted estimates dominate point estimates"
+  - rule: Do not ignore conditioning information when using historical averages
+    why: "Historical average equity returns include periods of above/below-average starting valuations; conditioning on current P/E or Shiller CAPE improves forward return estimates materially"
+  - rule: Do not assume business cycle phase is stable for the forecast horizon
+    why: "Phases last variable lengths; CME must account for the full cycle phase path, not a static snapshot — transitions are where the largest mispricings occur"
+
+api:
+  http:
+    method: POST
+    path: /pm/cme/macro
+  request:
+    schema:
+      forecast_id: string
+      analysis_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        forecast_id: string
+        gdp_growth_estimate: number
+        cycle_phase: string
+    errors:
+      - status: 400
+        error_code: CME_INVALID_ANALYSIS
+
+related:
+  - feature: capital-market-expectations-asset-class-l3
+    type: recommended

@@ -1,0 +1,239 @@
+{
+  "feature": "fixed-income-portfolio-management-l3",
+  "version": "1.0.0",
+  "description": "Fixed-income portfolio management overview — roles of FI, mandate types, portfolio measures, liquidity, return decomposition, leverage, and taxation",
+  "category": "trading",
+  "tags": [
+    "portfolio-management",
+    "fixed-income",
+    "bond-portfolio",
+    "duration",
+    "spread-risk",
+    "leverage",
+    "fi-mandates",
+    "return-decomposition",
+    "cfa-level-3"
+  ],
+  "aliases": [
+    "fi-portfolio-overview-l3",
+    "bond-portfolio-management-l3",
+    "fixed-income-mandates-l3",
+    "fi-return-decomposition-l3",
+    "bond-portfolio-leverage-l3",
+    "fi-portfolio-measures-l3",
+    "bond-liquidity-management-l3"
+  ],
+  "actors": [
+    {
+      "id": "portfolio_manager",
+      "name": "Portfolio Manager",
+      "type": "human"
+    }
+  ],
+  "fields": [
+    {
+      "name": "portfolio_id",
+      "type": "text",
+      "required": true,
+      "label": "Portfolio identifier"
+    },
+    {
+      "name": "mandate_type",
+      "type": "select",
+      "required": true,
+      "label": "liability_based | total_return | esg_constrained"
+    }
+  ],
+  "rules": {
+    "roles_of_fi": {
+      "diversification": "Low or negative correlation with equities during risk-off; flight to quality",
+      "regular_cash_flows": "Known coupon and principal payments; suitable for liability matching",
+      "inflation_hedging": "TIPS provide direct inflation protection; real yields are observable",
+      "capital_preservation": "High-quality short-duration bonds preserve capital in bear markets"
+    },
+    "mandate_types": {
+      "liability_based": "Asset cash flows match liability cash flows; duration matching; immunization",
+      "total_return": "Maximize return vs benchmark; pure index or enhanced indexing",
+      "esg_constrained": "Exclude issuers failing ESG criteria; may track adjusted benchmark"
+    },
+    "portfolio_measures": {
+      "yield_to_maturity": "Aggregate YTM; fair approximation of expected return if held to maturity",
+      "duration": "Interest rate sensitivity; modified duration, effective duration, key rate duration",
+      "convexity": "Second-order price sensitivity to rate changes; positive convexity is beneficial",
+      "spread_duration": "Sensitivity of price to spread changes; key for credit portfolios",
+      "dts": "Duration Times Spread; measure of credit risk contribution; better than spread duration alone"
+    },
+    "correlations_between_sectors": {
+      "govt_ig": "Investment-grade corporates highly correlated with govts; spread is primary differentiator",
+      "hy_equities": "High yield correlates more with equities than govts; spread risk dominates rate risk",
+      "em_bonds": "Mix of local rate risk and spread risk; correlation with DM varies by stress regime"
+    },
+    "bond_liquidity": {
+      "most_liquid": "On-the-run sovereign bonds; benchmark corp issues; current coupon MBS",
+      "least_liquid": "Off-the-run govts; small corp issues; structured products; high yield",
+      "liquidity_factors": "Issue size, issuer frequency, time since issuance, credit quality, structure",
+      "portfolio_implications": "Illiquid bonds widen bid-ask; harder to rebalance; require liquidity buffer"
+    },
+    "return_decomposition": {
+      "coupon": "Coupon income as % of bond price",
+      "rolldown": "Return from bond rolling down yield curve toward maturity (when curve is upward sloping)",
+      "rate_change": "Duration × (−Δyield)",
+      "spread_change": "Spread duration × (−Δspread)",
+      "currency": "FX return for non-domestic bonds",
+      "total": "Sum of coupon + rolldown + rate change + spread change + currency"
+    },
+    "leverage": {
+      "using_leverage": "Amplifies returns and risks; suitable when expected return > financing cost",
+      "methods": "Repo agreements, futures, total return swaps, structured notes",
+      "repo": "Sell bond with agreement to repurchase; short-term financing at repo rate",
+      "leverage_risks": "Margin calls in stress; forced selling amplifies losses; counterparty risk",
+      "leverage_ratio": "Portfolio / equity; leverage ratio = (borrowed funds + equity) / equity"
+    },
+    "fi_taxation": {
+      "accrued_interest": "Taxable as ordinary income when received",
+      "capital_gains": "Tax on price appreciation; short-term vs long-term treatment varies by jurisdiction",
+      "discount_bonds": "OID amortization may be ordinary income; varies by jurisdiction",
+      "vehicle_selection": "Mutual funds vs ETFs vs separately managed accounts; different tax treatment"
+    },
+    "validation": {
+      "portfolio_required": "portfolio_id present",
+      "valid_mandate": "mandate_type in [liability_based, total_return, esg_constrained]"
+    }
+  },
+  "outcomes": {
+    "manage_fi_portfolio": {
+      "priority": 1,
+      "description": "Manage fixed-income portfolio within specified mandate type",
+      "given": [
+        {
+          "field": "portfolio_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "mandate_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "liability_based",
+            "total_return",
+            "esg_constrained"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "portfolio_manager"
+        },
+        {
+          "action": "emit_event",
+          "event": "fi_portfolio.managed"
+        }
+      ]
+    },
+    "invalid_mandate": {
+      "priority": 10,
+      "description": "Unsupported mandate type",
+      "given": [
+        {
+          "field": "mandate_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "liability_based",
+            "total_return",
+            "esg_constrained"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fi_portfolio.rejected"
+        }
+      ],
+      "error": "FI_INVALID_MANDATE"
+    }
+  },
+  "errors": [
+    {
+      "code": "FI_INVALID_MANDATE",
+      "status": 400,
+      "message": "mandate_type must be one of liability_based, total_return, esg_constrained"
+    }
+  ],
+  "events": [
+    {
+      "name": "fi_portfolio.managed",
+      "payload": [
+        "portfolio_id",
+        "mandate_type",
+        "duration",
+        "yield_to_maturity",
+        "spread_duration",
+        "leverage_ratio"
+      ]
+    },
+    {
+      "name": "fi_portfolio.rejected",
+      "payload": [
+        "portfolio_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use modified duration as the sole measure of interest rate risk for bonds with embedded options",
+      "why": "Modified duration assumes parallel yield curve shifts and no optionality; effective duration (from option-adjusted model) is required for callable bonds, MBS, and floaters to correctly measure rate sensitivity"
+    },
+    {
+      "rule": "Do not ignore liquidity mismatch between assets and investor redemption terms",
+      "why": "A total return fixed-income fund with illiquid high-yield or EM positions faces forced selling risk if redemptions spike in a credit crisis; liquidity buffer must match expected stress redemption scenarios"
+    },
+    {
+      "rule": "Do not evaluate leveraged bond strategies solely by gross return without deducting financing costs",
+      "why": "Net return = gross return − financing cost (repo rate); leverage amplifies losses if gross return < repo rate, which occurs in rising short-rate environments"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/pm/fixed-income/overview"
+    },
+    "request": {
+      "schema": {
+        "portfolio_id": "string",
+        "mandate_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "portfolio_id": "string",
+          "duration": "number",
+          "yield_to_maturity": "number",
+          "spread_duration": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "FI_INVALID_MANDATE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "liability-driven-index-strategies-l3",
+      "type": "recommended"
+    },
+    {
+      "feature": "capital-market-expectations-asset-class-l3",
+      "type": "recommended"
+    }
+  ]
+}

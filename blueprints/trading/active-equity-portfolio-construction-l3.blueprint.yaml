@@ -1,0 +1,161 @@
+# ============================================================
+# active-equity-portfolio-construction-l3 — Feature Blueprint
+# Source: CFA LV3 2024 Vol 3 — Portfolio Management Module 6
+# Active Equity Investing: Portfolio Construction
+# ============================================================
+
+feature: active-equity-portfolio-construction-l3
+version: "1.0.0"
+description: Active equity portfolio construction — building blocks, risk measures, risk budgeting, position sizing, long/short strategies, market-neutral, and implicit costs
+category: trading
+tags: [portfolio-management, equity, active-equity, portfolio-construction, risk-budgeting, long-short, market-neutral, tracking-error, cfa-level-3]
+aliases:
+  - active-equity-construction-l3
+  - equity-risk-budgeting-l3
+  - long-short-equity-construction-l3
+  - market-neutral-equity-l3
+  - long-extension-portfolio-l3
+  - equity-position-sizing-l3
+  - well-constructed-portfolio-l3
+
+actors:
+  - id: portfolio_manager
+    name: Portfolio Manager
+    type: human
+
+fields:
+  - name: portfolio_id
+    type: text
+    required: true
+    label: Portfolio identifier
+  - name: construction_type
+    type: select
+    required: true
+    label: long_only | long_short | long_extension | market_neutral
+
+rules:
+  building_blocks:
+    alpha: "Return attributed to manager skill; idiosyncratic to individual security selection"
+    factor_exposure: "Systematic risk tilts (value, momentum, quality); rewarded but not unique to manager"
+    sizing: "Position size should reflect conviction, alpha, and marginal contribution to risk"
+  benchmark_relative_risk:
+    tracking_error: "Standard deviation of active return; primary measure of active risk"
+    active_share: "Sum of absolute weight deviations / 2; measures degree of differentiation from index"
+    closet_indexing: "Low active share + high fee = value destruction; active share < 60% is warning sign"
+    high_conviction: "High active share + high tracking error = concentrated; requires skill to justify"
+  objectives_constraints:
+    absolute_risk: "Total portfolio volatility; relevant for standalone portfolios"
+    relative_risk: "Tracking error vs benchmark; relevant for benchmark-relative mandates"
+    risk_target: "Set by client risk tolerance; manager cannot exceed without mandate breach"
+    liquidity_constraint: "Position size limited by daily trading volume; avoid illiquid concentrations"
+    leverage: "Borrowing amplifies return and risk; introduces margin call risk; increases drawdown potential"
+  risk_budget:
+    allocation: "Divide total active risk budget across securities and factors"
+    marginal_contribution: "Each position's contribution to portfolio active risk; optimize efficiency"
+    information_ratio: "Alpha per unit of active risk; maximize IR across positions"
+    formal_constraints: "Sector limits, position limits, factor exposure limits"
+  implicit_costs:
+    market_impact: "Large orders move prices adversely; impact rises with position size as % of ADV"
+    slippage_estimation: "Slippage ≈ (1/2) × daily volatility × order size / ADV"
+    aum_capacity: "Larger AUM = larger orders = higher market impact; alpha decays with scale"
+    turnover: "High turnover increases market impact and commissions; net of costs IR often lower"
+  well_constructed_portfolio:
+    criteria: "Consistent with mandate; diversified; efficient use of risk budget; cost-aware; liquid"
+    wrong_bets: "Unintended factor tilts waste risk budget on unrewarded risk"
+    conviction_sizing: "Larger positions for highest-conviction ideas; smaller for low-conviction"
+  long_only:
+    merits: "No short-selling costs; simpler; suitable for most institutional mandates"
+    constraint: "Can only profit from long ideas; cannot isolate alpha by shorting overvalued stocks"
+    max_active_weight: "Limited to index weight; small-cap index stocks get small maximum short"
+  long_short:
+    structure: "Unencumbered longs and shorts; profit from both rising and falling stocks"
+    gross_exposure: "Sum of long and short exposure; measures total leverage"
+    net_exposure: "Long − short; net market exposure; determines beta"
+    benefits: "Full expression of short alpha; higher active share; alpha portable via shorts"
+    drawbacks: "Short-selling costs (borrow fee, opportunity cost); forced covering in squeezes"
+  long_extension:
+    structure: "130/30 or 140/40; invest 100% long + additional 30-40% short; net = 100%"
+    benefit: "More active share than long-only; short ideas generate additional alpha"
+    constraint: "Regulatory limits in many jurisdictions; harder to implement in less liquid markets"
+  market_neutral:
+    structure: "Equal long and short; near-zero beta; isolates stock-selection alpha"
+    use_case: "Pure alpha; low correlation to equity market; hedge fund structure"
+    risks: "Long-short spread compression; short squeeze; factor exposure unintended"
+  validation:
+    portfolio_required: "portfolio_id present"
+    valid_construction: "construction_type in [long_only, long_short, long_extension, market_neutral]"
+
+outcomes:
+  construct_active_portfolio:
+    priority: 1
+    description: Construct active equity portfolio using specified construction approach
+    given:
+      - field: portfolio_id
+        source: input
+        operator: exists
+      - field: construction_type
+        source: input
+        operator: in
+        value: [long_only, long_short, long_extension, market_neutral]
+    then:
+      - action: call_service
+        target: portfolio_manager
+      - action: emit_event
+        event: active_portfolio.constructed
+  invalid_construction:
+    priority: 10
+    description: Unsupported construction type
+    given:
+      - field: construction_type
+        source: input
+        operator: not_in
+        value: [long_only, long_short, long_extension, market_neutral]
+    then:
+      - action: emit_event
+        event: active_portfolio.rejected
+    error: CONSTRUCTION_INVALID_TYPE
+
+errors:
+  - code: CONSTRUCTION_INVALID_TYPE
+    status: 400
+    message: construction_type must be one of long_only, long_short, long_extension, market_neutral
+
+events:
+  - name: active_portfolio.constructed
+    payload: [portfolio_id, construction_type, active_share, tracking_error, expected_information_ratio]
+  - name: active_portfolio.rejected
+    payload: [portfolio_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use tracking error as the sole measure of active risk without also monitoring active share
+    why: "A portfolio can have high tracking error from factor bets (e.g., sector tilts) with low active share (closet index + factor tilt); active share reveals true idiosyncratic risk while TE includes factor risk"
+  - rule: Do not size positions without considering market impact costs relative to expected alpha
+    why: "For a position representing >5% of ADV, market impact can easily consume 20-50% of expected alpha; position size must be optimized against both conviction and the slippage cost to trade into and out of the position"
+  - rule: Do not run long/short portfolios without stress-testing for short squeeze scenarios
+    why: "Highly shorted stocks can experience violent short squeezes (e.g., GameStop 2021); a market-neutral book with concentrated short positions can suffer catastrophic losses even when the fundamental thesis is correct"
+
+api:
+  http:
+    method: POST
+    path: /pm/equity/portfolio-construction
+  request:
+    schema:
+      portfolio_id: string
+      construction_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        portfolio_id: string
+        active_share: number
+        tracking_error: number
+        expected_information_ratio: number
+    errors:
+      - status: 400
+        error_code: CONSTRUCTION_INVALID_TYPE
+
+related:
+  - feature: active-equity-strategies-l3
+    type: required
+  - feature: equity-portfolio-management-overview-l3
+    type: required

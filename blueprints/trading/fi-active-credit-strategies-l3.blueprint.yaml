@@ -1,0 +1,169 @@
+# ============================================================
+# fi-active-credit-strategies-l3 — Feature Blueprint
+# Source: CFA LV3 2024 Vol 3 — Portfolio Management Module 2
+# Fixed-Income Active Management: Credit Strategies
+# ============================================================
+
+feature: fi-active-credit-strategies-l3
+version: "1.0.0"
+description: Active credit fixed-income strategies — bottom-up/top-down/factor credit, liquidity and tail risk, synthetic credit, spread curve strategies, global credit, and structured credit
+category: trading
+tags: [portfolio-management, fixed-income, credit-strategies, credit-spread, high-yield, cds, structured-credit, factor-credit, cfa-level-3]
+aliases:
+  - credit-bond-strategies-l3
+  - bottom-up-credit-l3
+  - top-down-credit-l3
+  - factor-credit-strategies-l3
+  - credit-spread-curve-l3
+  - synthetic-credit-cds-l3
+  - structured-credit-l3
+  - global-credit-strategies-l3
+  - credit-tail-risk-l3
+
+actors:
+  - id: portfolio_manager
+    name: Portfolio Manager
+    type: human
+  - id: credit_analyst
+    name: Credit Analyst
+    type: human
+
+fields:
+  - name: strategy_id
+    type: text
+    required: true
+    label: Strategy identifier
+  - name: credit_approach
+    type: select
+    required: true
+    label: bottom_up | top_down | factor | synthetic | spread_curve | global | structured
+
+rules:
+  credit_spread_measures:
+    oas: "Option-Adjusted Spread; spread over risk-free after removing embedded option value"
+    z_spread: "Zero-volatility spread; constant spread over spot curve making PV = price"
+    dts: "Duration Times Spread = modified spread duration × OAS; comparable across instruments"
+    spread_duration: "Sensitivity to 1% change in credit spread; key for credit P&L attribution"
+  credit_risk:
+    pd_lgd: "Expected credit loss = PD × LGD; both must be estimated forward-looking"
+    downgrade_risk: "Rating migration can cause spread widening well before default"
+    liquidity_risk: "Credit bonds are illiquid; bid-ask wider in stress; forced selling amplifies losses"
+    market_credit_risk: "Spread changes driven by risk appetite, not just fundamental credit quality"
+  bottom_up_strategies:
+    security_selection: "Identify mispriced bonds relative to fair value given credit fundamentals"
+    credit_analysis: "Cash flow adequacy, leverage, coverage ratios, competitive position, covenant quality"
+    relative_value: "Compare similar bonds across issuers, maturities, capital structure"
+    fallen_angels: "Investment-grade downgraded to HY; often oversold; potential return opportunity"
+  top_down_strategies:
+    sector_allocation: "Overweight/underweight sectors (financial, energy, consumer) based on cycle view"
+    quality_tilt: "Overweight IG vs HY or vice versa based on spread outlook and default forecast"
+    country_allocation: "Within global credit, overweight countries with improving fundamentals"
+    duration_management: "Adjust credit spread duration relative to benchmark"
+  factor_strategies:
+    carry: "Buy high-spread bonds; earn excess spread net of expected losses"
+    momentum: "Buy bonds with recent spread tightening; sell widening"
+    value: "Buy bonds that are cheap vs fundamental model; sell expensive"
+    quality: "Buy bonds with improving credit quality; sell deteriorating"
+    size: "Small-issue premium; compensation for illiquidity in smaller bonds"
+  liquidity_tail_risk:
+    liquidity_risk: "Credit spreads widen when risk appetite drops; liquidity evaporates simultaneously"
+    liquidity_budget: "Maintain buffer of liquid assets; avoid concentrating in illiquid bonds"
+    tail_risk: "Left-tail events (default clusters, credit crises) not captured by normal distributions"
+    stress_testing: "Model portfolio under 2008-style credit crisis; assess drawdown and recovery"
+  synthetic_credit:
+    cds: "Credit default swap; protection buyer pays premium; seller bears default loss"
+    long_credit_cds: "Sell protection = long credit; earns premium; bears default risk"
+    short_credit_cds: "Buy protection = short credit; hedges or speculates on spread widening"
+    cds_index: "CDX (US), iTraxx (Europe); liquid; used for macro credit hedging and TAA"
+    total_return_swap: "Receive total return on credit index; pay floating; synthetic credit exposure"
+  spread_curve_strategies:
+    static: "Exploit mis-valuation on spread curve; buy cheap maturities vs rich maturities"
+    dynamic: "Position for expected changes in spread curve shape; steepener/flattener"
+    credit_barbell: "Short-maturity credit + long-duration govts; earn credit premium + duration premium"
+  global_credit:
+    investment_grade: "DM IG corporate bonds; broad universe; trade currency-hedged"
+    high_yield: "Sub-IG bonds; higher spread; higher default risk; more equity-like"
+    em_credit: "Sovereign and corporate bonds from emerging markets; additional country risk"
+  structured_credit:
+    abs: "Asset-backed securities; auto loans, student loans, credit cards"
+    cmbs: "Commercial mortgage-backed securities; collateralized by income-producing real estate"
+    clo: "Collateralized loan obligation; pool of leveraged loans; tranched risk"
+    securitization_benefits: "Diversification, risk transfer, improved access to credit markets"
+  validation:
+    strategy_required: "strategy_id present"
+    valid_approach: "credit_approach in [bottom_up, top_down, factor, synthetic, spread_curve, global, structured]"
+
+outcomes:
+  implement_credit_strategy:
+    priority: 1
+    description: Implement active credit strategy using specified approach
+    given:
+      - field: strategy_id
+        source: input
+        operator: exists
+      - field: credit_approach
+        source: input
+        operator: in
+        value: [bottom_up, top_down, factor, synthetic, spread_curve, global, structured]
+    then:
+      - action: call_service
+        target: portfolio_manager
+      - action: emit_event
+        event: credit.strategy.implemented
+  invalid_approach:
+    priority: 10
+    description: Unsupported credit approach
+    given:
+      - field: credit_approach
+        source: input
+        operator: not_in
+        value: [bottom_up, top_down, factor, synthetic, spread_curve, global, structured]
+    then:
+      - action: emit_event
+        event: credit.strategy.rejected
+    error: CREDIT_INVALID_APPROACH
+
+errors:
+  - code: CREDIT_INVALID_APPROACH
+    status: 400
+    message: credit_approach must be one of the supported credit strategies
+
+events:
+  - name: credit.strategy.implemented
+    payload: [strategy_id, credit_approach, spread_duration, oas, dts, expected_excess_return]
+  - name: credit.strategy.rejected
+    payload: [strategy_id, reason_code]
+
+anti_patterns:
+  - rule: Do not measure credit risk with spread duration alone without DTS
+    why: "Spread duration is not comparable across instruments with different spread levels; DTS (duration × spread) is a better measure of credit risk contribution and enables apples-to-apples comparison across the credit universe"
+  - rule: Do not ignore credit spread correlation with equities when sizing credit in a multi-asset portfolio
+    why: "HY credit correlates ~0.7 with equities during drawdowns; holding both can result in far more risk concentration than asset class weights suggest — credit contribution to equity beta must be accounted for in risk budgeting"
+  - rule: Do not treat CDS liquidity as a substitute for bond market liquidity in stress scenarios
+    why: "CDS markets can also become illiquid in severe credit crises; counterparty risk spikes; basis between CDS and bond spread widens dramatically — synthetic credit hedges may not offset physical positions as expected"
+
+api:
+  http:
+    method: POST
+    path: /pm/fixed-income/credit
+  request:
+    schema:
+      strategy_id: string
+      credit_approach: string
+  response:
+    success:
+      status: 200
+      schema:
+        strategy_id: string
+        spread_duration: number
+        oas: number
+        expected_excess_return: number
+    errors:
+      - status: 400
+        error_code: CREDIT_INVALID_APPROACH
+
+related:
+  - feature: yield-curve-strategies-l3
+    type: recommended
+  - feature: fixed-income-portfolio-management-l3
+    type: required

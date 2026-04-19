@@ -1,0 +1,160 @@
+# ============================================================
+# liability-driven-index-strategies-l3 — Feature Blueprint
+# Source: CFA LV3 2024 Vol 2 — Portfolio Management Module 6
+# Liability-Driven and Index-Based Strategies
+# ============================================================
+
+feature: liability-driven-index-strategies-l3
+version: "1.0.0"
+description: Liability-driven investing and bond indexing — immunization, cash flow matching, duration matching, contingent immunization, and enhanced indexing strategies
+category: trading
+tags: [portfolio-management, fixed-income, liability-driven-investing, immunization, cash-flow-matching, bond-indexing, duration-matching, cfa-level-3]
+aliases:
+  - liability-driven-investing-l3
+  - bond-immunization-l3
+  - cash-flow-matching-l3
+  - duration-matching-l3
+  - contingent-immunization-l3
+  - laddered-portfolio-l3
+  - bond-index-strategies-l3
+  - enhanced-bond-indexing-l3
+
+actors:
+  - id: portfolio_manager
+    name: Portfolio Manager
+    type: human
+  - id: actuary
+    name: Actuary
+    type: human
+
+fields:
+  - name: strategy_id
+    type: text
+    required: true
+    label: Strategy identifier
+  - name: ldi_type
+    type: select
+    required: true
+    label: immunization | cash_flow_matching | duration_matching | contingent | laddered | index | enhanced_index
+
+rules:
+  ldi_vs_adl:
+    ldi: "Liability-Driven Investing: assets structured to match liabilities; minimize surplus risk"
+    adl: "Asset-Driven Liabilities: rare; liabilities adjust to asset performance (some DB pension schemes)"
+  liability_types:
+    type_i: "Fixed amount, fixed timing; easiest to immunize (e.g., GIC, zero-coupon bond)"
+    type_ii: "Fixed amount, uncertain timing; mortality risk, prepayment risk"
+    type_iii: "Uncertain amount, fixed timing; inflation-linked liabilities"
+    type_iv: "Uncertain amount, uncertain timing; most complex; DB pension with inflation + longevity risk"
+  immunization:
+    conditions: "PV(assets) = PV(liabilities); duration(assets) = duration(liabilities); convexity(assets) ≥ convexity(liabilities)"
+    convexity: "Positive convexity ensures surplus rises regardless of rate shift direction"
+    rebalancing: "Required as time passes and rates move; duration drift must be corrected"
+    dispersion: "Minimizing asset cash flow dispersion around liability payment reduces structural risk"
+  cash_flow_matching:
+    definition: "Match exact timing and amount of liability cash flows with asset cash flows"
+    conservative: "No reinvestment risk; surplus risk near zero; but expensive and inflexible"
+    duration_match_vs_cf: "CF matching avoids reinvestment risk; duration matching is cheaper but has more risk"
+  laddered_portfolio:
+    structure: "Equal investment across maturities in regular intervals; continuous reinvestment"
+    benefits: "Diversifies across yield curve; rolling reinvestment reduces reinvestment rate risk; liquid"
+    use_case: "Insurance companies; retail investors; balanced duration and liquidity"
+  duration_matching:
+    basis: "Match dollar duration (BPV) of assets to BPV of liabilities"
+    multi_liability: "Use key rate durations to match liabilities at each key maturity"
+    derivatives_overlay: "Use interest rate swaps or futures to close duration gap cheaply"
+    contingent: "Hybrid: floor return immunized; if surplus sufficient, switch to active management"
+  contingent_immunization:
+    concept: "Actively manage until surplus falls to minimum required; then immunize"
+    trigger: "Surplus = PV(assets) − PV(liabilities) falls below safety cushion"
+    advantage: "Captures upside from active management while protecting minimum liability coverage"
+  ldi_risks:
+    model_risk: "Liability duration model may misspecify liability sensitivity to rates"
+    spread_risk: "If asset yield includes credit spread but liability discount is risk-free → spread risk"
+    counterparty: "Derivatives overlay introduces counterparty exposure"
+    asset_liquidity: "During stress, bond positions may be illiquid when rebalancing needed"
+  bond_indexing:
+    full_replication: "Hold all index securities in proportion; tracks closely; expensive and impractical for large indexes"
+    stratified_sampling: "Divide index into cells; hold representative bonds per cell; reduces cost"
+    enhanced_indexing: "Slight active deviations for alpha within tight tracking error budget"
+    primary_risk_factors: "Duration, key rate duration, spread duration, sector weights, credit quality"
+    benchmark_selection: "Match benchmark to investor mandate; avoid excessive cash drag"
+  validation:
+    strategy_required: "strategy_id present"
+    valid_ldi_type: "ldi_type in [immunization, cash_flow_matching, duration_matching, contingent, laddered, index, enhanced_index]"
+
+outcomes:
+  implement_ldi_strategy:
+    priority: 1
+    description: Implement liability-driven or index-based fixed-income strategy
+    given:
+      - field: strategy_id
+        source: input
+        operator: exists
+      - field: ldi_type
+        source: input
+        operator: in
+        value: [immunization, cash_flow_matching, duration_matching, contingent, laddered, index, enhanced_index]
+    then:
+      - action: call_service
+        target: portfolio_manager
+      - action: emit_event
+        event: ldi.strategy.implemented
+  invalid_ldi_type:
+    priority: 10
+    description: Unsupported LDI strategy type
+    given:
+      - field: ldi_type
+        source: input
+        operator: not_in
+        value: [immunization, cash_flow_matching, duration_matching, contingent, laddered, index, enhanced_index]
+    then:
+      - action: emit_event
+        event: ldi.strategy.rejected
+    error: LDI_INVALID_TYPE
+
+errors:
+  - code: LDI_INVALID_TYPE
+    status: 400
+    message: ldi_type must be one of the supported LDI strategies
+
+events:
+  - name: ldi.strategy.implemented
+    payload: [strategy_id, ldi_type, asset_duration, liability_duration, surplus, funding_ratio]
+  - name: ldi.strategy.rejected
+    payload: [strategy_id, reason_code]
+
+anti_patterns:
+  - rule: Do not immunize a single-liability portfolio without matching convexity as well as duration
+    why: "Duration matching alone immunizes against parallel yield curve shifts; mismatched convexity causes surplus loss for large non-parallel shifts; higher asset convexity provides a buffer at minimal cost"
+  - rule: Do not use derivatives overlay to close duration gap without quantifying spread risk
+    why: "If the liability discount rate is the risk-free rate but asset duration is achieved via credit bonds, a credit spread widening lowers asset value without reducing the liability — creating hidden surplus risk"
+  - rule: Do not allow duration drift to go unchecked between rebalancing dates in immunized portfolios
+    why: "Duration of bonds falls with time but often not at the same rate as liability duration; unchecked drift can cause cumulative mis-match large enough to break immunization — rebalance at minimum quarterly"
+
+api:
+  http:
+    method: POST
+    path: /pm/fixed-income/ldi
+  request:
+    schema:
+      strategy_id: string
+      ldi_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        strategy_id: string
+        asset_duration: number
+        liability_duration: number
+        surplus: number
+        funding_ratio: number
+    errors:
+      - status: 400
+        error_code: LDI_INVALID_TYPE
+
+related:
+  - feature: fixed-income-portfolio-management-l3
+    type: required
+  - feature: principles-asset-allocation-l3
+    type: recommended
