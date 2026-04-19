@@ -1,0 +1,146 @@
+# ============================================================
+# economics-investment-markets-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 6 — Portfolio Management Module 1, Economics and Investment Markets
+# ============================================================
+
+feature: economics-investment-markets-l2
+version: "1.0.0"
+description: Link economics to investment markets — PV model, real default-free rates, business cycle effects on yield curve, credit premium, equity risk premium, and commercial real estate pricing
+category: trading
+tags: [portfolio-management, economics, business-cycle, yield-curve, erp, credit-premium, cfa-level-2]
+aliases:
+  - business-cycle-asset-pricing
+  - real-default-free-interest-rates
+  - break-even-inflation-rates
+  - credit-premium-business-cycle
+  - equity-risk-premium-macro
+  - term-spread-business-cycle
+  - commercial-real-estate-pricing-macro
+
+actors:
+  - id: macro_strategist
+    name: Macro Investment Strategist
+    type: system
+
+fields:
+  - name: asset_class
+    type: text
+    required: true
+    label: Asset class identifier
+  - name: analysis_type
+    type: select
+    required: true
+    label: real_rates | yield_curve | credit | equity | real_estate
+
+rules:
+  present_value_model:
+    framework: "Asset price = PV of expected future cash flows at risk-adjusted discount rate"
+    discount_rate: "Risk-free + relevant risk premia"
+    expectations: "Price reflects consensus cash flow and discount rate expectations"
+  real_default_free_rates:
+    short_run: "Set by monetary policy; tracks inflation expectations"
+    long_run: "Co-moves with trend real GDP growth (Fisher)"
+    cyclicality: "Rise in expansion, fall in recession"
+    uncertainty_premium: "Compensation for real rate uncertainty over investment horizon"
+  business_cycle_and_rates:
+    early_expansion: "Short rates rising; curve steep"
+    peak: "Short rates highest; curve may invert"
+    recession: "Rates cut; curve steepens; credit spreads widen"
+    recovery: "Rates low; curve steep; risk assets rally"
+  yield_curve_cycle:
+    short_rate_tbills: "Tracks central bank policy; most cyclical"
+    term_spread: "Long − short; leading indicator of economic activity"
+    break_even_inflation: "Nominal − real (TIPS) yield; market-implied inflation"
+    slope_as_predictor: "Inverted curve has historically preceded recession by 12-18 months"
+  credit_premium:
+    definition: "Yield spread over default-free for default risk + liquidity"
+    cyclicality: "Widens in recession; tightens in expansion"
+    sovereign_credit: "Distinct from corporate; driven by fiscal position, FX reserves"
+    industry_factors: "Sector cyclicality affects credit quality"
+  equity_risk_premium:
+    definition: "Expected equity return above risk-free"
+    bad_consumption_outcomes: "Equities fall in recessions — compensation required"
+    earnings_cycle: "Corporate profits highly pro-cyclical"
+    valuation_multiples: "P/E expands when growth expected; contracts in stress"
+    size_of_erp: "Historically 3-6% long-run for developed markets"
+  commercial_real_estate:
+    pricing_formula: "V = NOI / cap_rate"
+    cap_rate_cycle: "Falls in expansion (prices rise); rises in recession (prices fall)"
+    cash_flow_cycle: "Vacancy rises in recession; rents fall"
+    real_estate_cycle_lag: "Follows economic cycle with 1-2 quarter lag"
+  validation:
+    asset_required: "asset_class present"
+    valid_analysis: "analysis_type in [real_rates, yield_curve, credit, equity, real_estate]"
+
+outcomes:
+  analyse_macro_investment:
+    priority: 1
+    description: Analyse economics and investment market linkage
+    given:
+      - field: asset_class
+        source: input
+        operator: exists
+      - field: analysis_type
+        source: input
+        operator: in
+        value: [real_rates, yield_curve, credit, equity, real_estate]
+    then:
+      - action: call_service
+        target: macro_strategist
+      - action: emit_event
+        event: macro.analysed
+  invalid_analysis:
+    priority: 10
+    description: Unsupported analysis type
+    given:
+      - field: analysis_type
+        source: input
+        operator: not_in
+        value: [real_rates, yield_curve, credit, equity, real_estate]
+    then:
+      - action: emit_event
+        event: macro.rejected
+    error: MACRO_INVALID_ANALYSIS
+
+errors:
+  - code: MACRO_INVALID_ANALYSIS
+    status: 400
+    message: analysis_type must be one of the supported types
+
+events:
+  - name: macro.analysed
+    payload: [asset_class, analysis_type, cycle_phase, risk_premium_estimate, relative_value]
+  - name: macro.rejected
+    payload: [asset_class, reason_code]
+
+anti_patterns:
+  - rule: Do not treat the inverted yield curve as a perfect recession predictor
+    why: "The term spread is a probabilistic leading indicator with variable lags (6-24 months); false positives occur, and monetary policy distortions (QE) can suppress the signal"
+  - rule: Do not assume credit spreads only reflect default risk
+    why: "A significant portion of investment-grade spreads (30-50%) reflects liquidity risk premium — tightening spreads can reflect liquidity improvement, not just credit improvement"
+  - rule: Do not use historical ERP without adjusting for starting valuation
+    why: "High starting P/E compresses prospective ERP — the equity risk premium is conditional on valuation; historical averages overstate expected return when multiples are elevated"
+
+api:
+  http:
+    method: POST
+    path: /portfolio/macro/analyse
+  request:
+    schema:
+      asset_class: string
+      analysis_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        asset_class: string
+        risk_premium_estimate: number
+    errors:
+      - status: 400
+        error_code: MACRO_INVALID_ANALYSIS
+
+related:
+  - feature: term-structure-interest-rate-dynamics-l2
+    type: recommended
+  - feature: active-portfolio-management-l2
+    type: recommended

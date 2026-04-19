@@ -1,0 +1,156 @@
+# ============================================================
+# active-portfolio-management-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 6 — Portfolio Management Module 2, Analysis of Active Portfolio Management
+# ============================================================
+
+feature: active-portfolio-management-l2
+version: "1.0.0"
+description: Analyse active portfolio management — value added, Sharpe and information ratio, fundamental law of active management (IC, BR, TC), optimal active portfolios, fixed-income and global equity strategies
+category: trading
+tags: [portfolio-management, active-management, information-ratio, fundamental-law, ic-br, cfa-level-2]
+aliases:
+  - fundamental-law-active-management
+  - information-ratio-l2
+  - information-coefficient-breadth
+  - transfer-coefficient-l2
+  - active-return-decomposition
+  - sharpe-vs-information-ratio
+  - optimal-active-portfolio
+
+actors:
+  - id: active_pm_analyst
+    name: Active Portfolio Management Analyst
+    type: system
+
+fields:
+  - name: portfolio_id
+    type: text
+    required: true
+    label: Portfolio identifier
+  - name: analysis_type
+    type: select
+    required: true
+    label: value_added | sharpe_ir | fundamental_law | optimal_portfolio | strategy
+
+rules:
+  value_added:
+    definition: "Active return = portfolio return − benchmark return"
+    benchmark_choice: "Determines what counts as active risk"
+    decomposition: "Active return = Σ (active weight × security return)"
+  sharpe_ratio:
+    formula: "SR = (Rp − Rf) / σp"
+    benchmark_independence: "Measures total risk-adjusted return"
+    constraint: "Long-only constraint reduces achievable SR"
+  information_ratio:
+    formula: "IR = (Rp − Rb) / TE where TE = tracking error"
+    interpretation: "Active return per unit of active risk"
+    optimal_active_risk: "TE* = IR × σ_b / SR_b"
+    limit: "Max achievable SR² = SR_b² + IR²"
+  fundamental_law_basic:
+    formula: "IR ≈ IC × √BR"
+    ic: "Information coefficient — correlation of forecasts with outcomes; measure of skill"
+    br: "Breadth — number of independent active bets per year"
+    implication: "Skill amplified by many independent bets"
+  full_fundamental_law:
+    formula: "IR = TC × IC × √BR"
+    tc: "Transfer coefficient — correlation of active weights with optimal weights; 1.0 if unconstrained"
+    long_only_constraint: "Reduces TC; reduces effective IR"
+    ex_post: "Realised IR vs ex ante expected IR tests skill"
+  active_security_returns:
+    alpha: "True expected active return from information advantage"
+    source: "Private research, better models, superior judgement"
+  constructing_optimal_portfolio:
+    optimal_active_weights: "Proportional to alpha / (2 × λ × σ²)"
+    aggressiveness: "Scale by risk aversion λ"
+    constrained: "Long-only reduces weights; TC < 1"
+  global_equity_strategy:
+    country_allocation: "Factor in macro and valuation signals"
+    sector_allocation: "Industry cycle and relative valuation"
+    stock_selection: "Bottom-up fundamental signals"
+    breadth: "Country × sector × stock decisions multiply BR"
+  fi_active_strategies:
+    duration: "Curve positioning; term premium signals"
+    credit: "Sector rotation, issue selection"
+    currency: "FX overlay for international mandates"
+    breadth: "Many bonds; high BR in pure fixed income"
+  practical_limitations:
+    ex_ante_ic: "Hard to measure before outcomes"
+    independence: "Bets may be correlated within factors"
+    skill_persistence: "IC estimates from past may not persist"
+  validation:
+    portfolio_required: "portfolio_id present"
+    valid_analysis: "analysis_type in [value_added, sharpe_ir, fundamental_law, optimal_portfolio, strategy]"
+
+outcomes:
+  analyse_active_pm:
+    priority: 1
+    description: Analyse active portfolio management approach
+    given:
+      - field: portfolio_id
+        source: input
+        operator: exists
+      - field: analysis_type
+        source: input
+        operator: in
+        value: [value_added, sharpe_ir, fundamental_law, optimal_portfolio, strategy]
+    then:
+      - action: call_service
+        target: active_pm_analyst
+      - action: emit_event
+        event: active_pm.analysed
+  invalid_analysis:
+    priority: 10
+    description: Unsupported analysis type
+    given:
+      - field: analysis_type
+        source: input
+        operator: not_in
+        value: [value_added, sharpe_ir, fundamental_law, optimal_portfolio, strategy]
+    then:
+      - action: emit_event
+        event: active_pm.rejected
+    error: ACTIVE_PM_INVALID_ANALYSIS
+
+errors:
+  - code: ACTIVE_PM_INVALID_ANALYSIS
+    status: 400
+    message: analysis_type must be one of the supported types
+
+events:
+  - name: active_pm.analysed
+    payload: [portfolio_id, analysis_type, ir, ic, br, tc, optimal_active_risk]
+  - name: active_pm.rejected
+    payload: [portfolio_id, reason_code]
+
+anti_patterns:
+  - rule: Do not count correlated bets as independent breadth
+    why: "The fundamental law assumes independent decisions; correlated factor bets (e.g. all value stocks together) reduce effective BR and overstate expected IR"
+  - rule: Do not treat a high realised IR as persistent skill without statistical testing
+    why: "A 3-year IR of 0.5 is not statistically significant — ex post IR must be tested for significance; luck and skill require long track records to separate"
+  - rule: Do not benchmark active management against a misspecified index
+    why: "Wrong benchmark inflates or deflates apparent active risk and return — a small-cap manager benchmarked to the S&P 500 will appear to have large active risk even if fully indexed to small caps"
+
+api:
+  http:
+    method: POST
+    path: /portfolio/active/analyse
+  request:
+    schema:
+      portfolio_id: string
+      analysis_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        portfolio_id: string
+        ir: number
+        optimal_active_risk: number
+    errors:
+      - status: 400
+        error_code: ACTIVE_PM_INVALID_ANALYSIS
+
+related:
+  - feature: multifactor-models-l2
+    type: recommended
+  - feature: backtesting-simulation-l2
+    type: recommended

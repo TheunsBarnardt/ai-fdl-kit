@@ -1,0 +1,152 @@
+# ============================================================
+# cfa-ethics-standards-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 6 — Ethical and Professional Standards Modules 1-3
+# ============================================================
+
+feature: cfa-ethics-standards-l2
+version: "1.0.0"
+description: Apply CFA ethics framework — Code of Ethics, Standards I-VII (professionalism, capital markets integrity, duties to clients/employers, investment analysis, conflicts, CFA designation)
+category: trading
+tags: [ethics, professional-standards, cfa-standards, conflicts-of-interest, fiduciary-duty, cfa-level-2]
+aliases:
+  - cfa-code-of-ethics
+  - standards-of-professional-conduct
+  - standard-i-professionalism
+  - standard-ii-integrity-capital-markets
+  - standard-iii-duties-to-clients
+  - standard-iv-duties-to-employers
+  - standard-vii-cfa-designation
+
+actors:
+  - id: ethics_reviewer
+    name: Ethics and Compliance Reviewer
+    type: system
+
+fields:
+  - name: member_id
+    type: text
+    required: true
+    label: Member or candidate identifier
+  - name: standard_group
+    type: select
+    required: true
+    label: professionalism | capital_markets | clients | employers | investment_analysis | conflicts | cfa_responsibilities
+
+rules:
+  code_of_ethics:
+    act_integrity: "Act with integrity, competence, diligence, and respect"
+    client_primacy: "Place interests of clients above personal interests"
+    independence: "Maintain objectivity and independence"
+    professional_conduct: "Reflect credit on the profession"
+    capital_markets: "Promote capital market integrity"
+    competence: "Maintain and improve professional competence"
+  standard_i_professionalism:
+    ia_knowledge_of_law: "Comply with most strict of applicable law, code, or regulations; dissociate from violations"
+    ib_independence_objectivity: "No gifts or pressures compromising independent judgement"
+    ic_misrepresentation: "Do not misrepresent qualifications, services, or performance"
+    id_misconduct: "Do not engage in dishonesty, fraud, or deceit"
+  standard_ii_capital_markets:
+    iia_material_nonpublic: "Do not trade on material nonpublic information (mosaic theory allowed)"
+    iib_market_manipulation: "Do not engage in information- or transaction-based manipulation"
+  standard_iii_duties_to_clients:
+    iiia_loyalty_prudence_care: "Act for clients' benefit; vote proxies in client interest"
+    iiib_fair_dealing: "Deal fairly with all clients in recommendations and transactions"
+    iiic_suitability: "Know client objectives, constraints, risk tolerance"
+    iiid_performance_presentation: "Communicate performance fairly, accurately (GIPS preferred)"
+    iiie_confidentiality: "Protect client information; exceptions for legal requirements"
+  standard_iv_duties_to_employers:
+    iva_loyalty: "Act in employer's interest; no misuse of firm assets; whistleblowing where warranted"
+    ivb_additional_compensation: "Disclose and obtain consent for outside compensation"
+    ivc_responsibilities_of_supervisors: "Prevent violations by subordinates; compliance systems"
+  standard_v_investment_analysis:
+    va_diligence_reasonable_basis: "Research independently; have basis for recommendations"
+    vb_communication: "Disclose fact vs opinion; material changes promptly"
+    vc_record_retention: "Maintain records supporting analysis per regulatory and firm requirements"
+  standard_vi_conflicts_of_interest:
+    via_disclosure_of_conflicts: "Disclose all conflicts in clear, prominent manner"
+    vib_priority_of_transactions: "Client transactions before employer and personal; IPO restrictions"
+    vic_referral_fees: "Disclose referral arrangements before or at time of engagement"
+  standard_vii_cfa_responsibilities:
+    viia_conduct_as_participant: "No cheating or compromising CFA exam integrity"
+    viib_cfa_designation: "Do not misrepresent CFA designation; no partial designation"
+  mosaic_theory:
+    definition: "Non-material nonpublic info + public info may form material conclusion; not a violation"
+    caution: "If single piece is material and nonpublic, mosaic doesn't shield"
+  gips_performance:
+    definition: "Global Investment Performance Standards; voluntary but strongly recommended"
+    compliance: "Firm-wide; GIPS-compliant composites"
+    advantage: "Standardised, comparable performance across managers"
+  validation:
+    member_required: "member_id present"
+    valid_standard: "standard_group in allowed set"
+
+outcomes:
+  review_ethics:
+    priority: 1
+    description: Review ethics and professional standards compliance
+    given:
+      - field: member_id
+        source: input
+        operator: exists
+      - field: standard_group
+        source: input
+        operator: in
+        value: [professionalism, capital_markets, clients, employers, investment_analysis, conflicts, cfa_responsibilities]
+    then:
+      - action: call_service
+        target: ethics_reviewer
+      - action: emit_event
+        event: ethics.reviewed
+  invalid_standard:
+    priority: 10
+    description: Unsupported standard group
+    given:
+      - field: standard_group
+        source: input
+        operator: not_in
+        value: [professionalism, capital_markets, clients, employers, investment_analysis, conflicts, cfa_responsibilities]
+    then:
+      - action: emit_event
+        event: ethics.rejected
+    error: ETHICS_INVALID_STANDARD
+
+errors:
+  - code: ETHICS_INVALID_STANDARD
+    status: 400
+    message: standard_group must be one of the supported standard groups
+
+events:
+  - name: ethics.reviewed
+    payload: [member_id, standard_group, violation_found, remediation_required]
+  - name: ethics.rejected
+    payload: [member_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume the employer's instructions override the Code and Standards
+    why: "Standard I(A) requires following the strictest of applicable law, regulations, or the Code; employer instructions do not supersede ethical requirements"
+  - rule: Do not treat receipt of material nonpublic information as safe if combined with public data
+    why: "Mosaic theory only applies when the MNPI piece itself is not material; a clearly material piece does not become compliant merely by adding public information"
+  - rule: Do not use soft-dollar arrangements without placing client interests first
+    why: "Soft dollars are a conflict of interest; they must produce direct benefits to the client and be fully disclosed — using them solely to reduce the manager's own costs violates Standard VI(A)"
+
+api:
+  http:
+    method: POST
+    path: /ethics/standards/review
+  request:
+    schema:
+      member_id: string
+      standard_group: string
+  response:
+    success:
+      status: 200
+      schema:
+        member_id: string
+        violation_found: boolean
+    errors:
+      - status: 400
+        error_code: ETHICS_INVALID_STANDARD
+
+related:
+  - feature: economics-investment-markets-l2
+    type: optional
