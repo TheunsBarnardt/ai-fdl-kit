@@ -2,10 +2,10 @@
 
 # Blueprint Index
 
-Fast lookup for all **793** blueprints across **23** categories.
+Fast lookup for all **801** blueprints across **23** categories.
 Each entry links to the human-friendly summary (`.md`) and the underlying spec (`.blueprint.yaml`).
 
-**Jump to a category:** [Access](#access) (18) · [Admin](#admin) (2) · [Ai](#ai) (9) · [Asset](#asset) (20) · [Auth](#auth) (39) · [Communication](#communication) (16) · [Crm](#crm) (5) · [Data](#data) (63) · [Infrastructure](#infrastructure) (15) · [Integration](#integration) (75) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (18) · [Observability](#observability) (6) · [Payment](#payment) (24) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Testing](#testing) (2) · [Trading](#trading) (358) · [Ui](#ui) (33) · [Workflow](#workflow) (67)
+**Jump to a category:** [Access](#access) (18) · [Admin](#admin) (2) · [Ai](#ai) (9) · [Asset](#asset) (20) · [Auth](#auth) (39) · [Communication](#communication) (16) · [Crm](#crm) (5) · [Data](#data) (63) · [Infrastructure](#infrastructure) (15) · [Integration](#integration) (75) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (18) · [Observability](#observability) (6) · [Payment](#payment) (24) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Testing](#testing) (2) · [Trading](#trading) (358) · [Ui](#ui) (41) · [Workflow](#workflow) (67)
 
 ---
 
@@ -817,16 +817,21 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**arbitrary-values**](./ui/arbitrary-values.md) | Use one-off custom values in utilities without defining them in theme, enabling flexible styling beyond framework constraints | 1.0.0 | [yaml](./ui/arbitrary-values.blueprint.yaml) |
 | [**button-controls**](./ui/button-controls.md) | Clickable buttons and button groups | 1.0.0 | [yaml](./ui/button-controls.blueprint.yaml) |
 | [**charts-visualization**](./ui/charts-visualization.md) | Chart rendering system with bar, line, pie, donut, area, scatter, time-series, and heatmap types, responsive sizing, tooltips, legends, and real-time updates | 1.0.0 | [yaml](./ui/charts-visualization.blueprint.yaml) |
+| [**color-system**](./ui/color-system.md) | Define a structured color palette using HSL for better control over shades and tones, ensuring sufficient colors for hierarchy while avoiding over-saturation and maintaining accessibility across all color-blindness types. | 1.0 | [yaml](./ui/color-system.blueprint.yaml) |
 | [**component-registry**](./ui/component-registry.md) | Pluggable component registration system with config-driven fields, slots, lifecycle hooks, and permissions | 1.0.0 | [yaml](./ui/component-registry.blueprint.yaml) |
 | [**component-registry-cli**](./ui/component-registry-cli.md) | CLI tool for initializing projects, adding UI components from registries, managing migrations, and providing MCP server integration for AI assistants | 1.0.0 | [yaml](./ui/component-registry-cli.blueprint.yaml) |
 | [**container-layouts**](./ui/container-layouts.md) | Layout containers for UI arrangement | 1.0.0 | [yaml](./ui/container-layouts.blueprint.yaml) |
 | [**dark-mode**](./ui/dark-mode.md) | Theme toggle supporting light, dark, and system-preference modes with CSS custom properties, user preference persistence, smooth transitions, and flash-of-wrong-theme prevention. | 1.0.0 | [yaml](./ui/dark-mode.blueprint.yaml) |
 | [**dashboard-analytics**](./ui/dashboard-analytics.md) | Configurable analytics dashboard with widget grid system, KPI cards, charts, date range selection, auto-refresh, and drill-down capabilities | 1.0.0 | [yaml](./ui/dashboard-analytics.blueprint.yaml) |
 | [**data-table**](./ui/data-table.md) | Sortable, filterable, paginated data table with column management, row selection, inline editing, bulk actions, and CSV export | 1.0.0 | [yaml](./ui/data-table.blueprint.yaml) |
+| [**depth-elevation**](./ui/depth-elevation.md) | Use shadows, layering, and spatial relationships to create visual depth and communicate element elevation, even in flat designs, making clickable elements feel interactive and content hierarchy clear. | 1.0 | [yaml](./ui/depth-elevation.blueprint.yaml) |
+| [**design-polish**](./ui/design-polish.md) | Apply finishing touches that elevate interface quality through thoughtful accent borders, strategic background decoration, empty states, minimal borders, and attention to small details that compound into professional appearance. | 1.0 | [yaml](./ui/design-polish.blueprint.yaml) |
 | [**drag-drop-editor**](./ui/drag-drop-editor.md) | Drag-and-drop page composition system with nested zones, collision detection, and component reordering | 1.0.0 | [yaml](./ui/drag-drop-editor.blueprint.yaml) |
 | [**ecommerce-store**](./ui/ecommerce-store.md) | Full online storefront with product catalog, category browsing, attribute filtering, shopping cart, multi-step checkout, payment integration, wishlist, and pricelist support. | 1.0.0 | [yaml](./ui/ecommerce-store.blueprint.yaml) |
+| [**feature-first-design**](./ui/feature-first-design.md) | Start design with core features and user workflows before deciding on app shell, navigation, or layout. This prevents design paralysis and ensures information architecture is driven by real requirements, not design assumptions. | 1.0 | [yaml](./ui/feature-first-design.blueprint.yaml) |
 | [**fleet-performance-dashboard**](./ui/fleet-performance-dashboard.md) | Configurable dashboards with widgets showing fleet KPIs, live driver map, order metrics, and performance analytics | 1.0.0 | [yaml](./ui/fleet-performance-dashboard.blueprint.yaml) |
 | [**form-builder**](./ui/form-builder.md) | Dynamic form creation and rendering with drag-and-drop field placement, conditional visibility, multi-step forms, validation rules, and versioning | 1.0.0 | [yaml](./ui/form-builder.blueprint.yaml) |
+| [**form-design**](./ui/form-design.md) | Design forms that are easy to scan and complete by organizing fields clearly, providing immediate feedback, handling errors gracefully, and minimizing cognitive load through smart defaults and progressive disclosure. | 1.0 | [yaml](./ui/form-design.blueprint.yaml) |
 | [**fuel-analytics**](./ui/fuel-analytics.md) | Analyse fuel consumption, cost trends, and efficiency metrics across the fleet or per vehicle with configurable grouping periods, anomaly detection, and benchmark comparisons. | 1.0.0 | [yaml](./ui/fuel-analytics.blueprint.yaml) |
 | [**internationalization**](./ui/internationalization.md) | Internationalization with locale switching, translation keys, pluralization, and RTL support | 1.0.0 | [yaml](./ui/internationalization.blueprint.yaml) |
 | [**keyframe-animation**](./ui/keyframe-animation.md) | Timeline-based keyframe animation and playback | 1.0.0 | [yaml](./ui/keyframe-animation.blueprint.yaml) |
@@ -838,11 +843,14 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**responsive-viewport**](./ui/responsive-viewport.md) | Multi-viewport responsive preview with auto-zoom, manual zoom controls, and iframe-based isolated rendering | 1.0.0 | [yaml](./ui/responsive-viewport.blueprint.yaml) |
 | [**scene-tree-management**](./ui/scene-tree-management.md) | Hierarchical scene graph and node management | 1.0.0 | [yaml](./ui/scene-tree-management.blueprint.yaml) |
 | [**self-order-kiosk**](./ui/self-order-kiosk.md) | Customer self-ordering system supporting kiosk terminals and mobile QR-code ordering, with menu browsing, cart management, payment processing, and real-time order status updates. | 1.0.0 | [yaml](./ui/self-order-kiosk.blueprint.yaml) |
+| [**spacing-system**](./ui/spacing-system.md) | Define a consistent spacing and sizing scale using mathematical ratios so components are visually balanced, grouping is clear, and whitespace reinforces information hierarchy. | 1.0 | [yaml](./ui/spacing-system.blueprint.yaml) |
 | [**text-input**](./ui/text-input.md) | Text entry fields and text editing | 1.0.0 | [yaml](./ui/text-input.blueprint.yaml) |
 | [**theme-configuration**](./ui/theme-configuration.md) | Define and customize design tokens (colors, spacing, typography, breakpoints) that power a CSS framework | 1.0.0 | [yaml](./ui/theme-configuration.blueprint.yaml) |
 | [**toast-notifications**](./ui/toast-notifications.md) | Transient toast/snackbar notifications with auto-dismiss, stacking, and accessibility | 1.0.0 | [yaml](./ui/toast-notifications.blueprint.yaml) |
 | [**trip-stay-timeline**](./ui/trip-stay-timeline.md) | Chronological feed of day-grouped journeys and place stays with single-expand accordion, companion map synchronisation, and hover highlighting. | 1.0.0 | [yaml](./ui/trip-stay-timeline.blueprint.yaml) |
+| [**typography-system**](./ui/typography-system.md) | Define a consistent type scale, font selection, and readability rules that establish clear visual hierarchy and ensure text is readable across all interface sizes and contexts. | 1.0 | [yaml](./ui/typography-system.blueprint.yaml) |
 | [**utility-composition**](./ui/utility-composition.md) | Build user interfaces by composing utility classes with variants and modifiers to generate CSS rules | 1.0.0 | [yaml](./ui/utility-composition.blueprint.yaml) |
+| [**visual-hierarchy**](./ui/visual-hierarchy.md) | Establish clear visual hierarchy through size, weight, color, and spacing so users can quickly scan and understand interface priority without cognitive overload. | 1.0 | [yaml](./ui/visual-hierarchy.blueprint.yaml) |
 | [**wizard-stepper**](./ui/wizard-stepper.md) | Multi-step form and process wizard with progress indicator, step validation, skip optional steps, save progress, and resume later | 1.0.0 | [yaml](./ui/wizard-stepper.blueprint.yaml) |
 
 ## Workflow
