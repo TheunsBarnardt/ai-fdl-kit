@@ -268,34 +268,35 @@ Before searching blueprints, check for a project config file. This eliminates th
 
 For each feature keyword extracted in Phase 1, always run **Tier 0** FIRST. Only fall through to Tiers 1–3 when Tier 0 misses.
 
+**Token efficiency: load headers first, full YAML only when needed.**
+Read `blueprints/blueprint-headers.json` once at the start of Phase 1. Keys: `id` (feature name), `c` (category), `d` (one-line description), `a` (aliases), `t` (tags), `r` (related feature IDs). Use this compact index for all Tiers 0–3 matching. Only read the full `.blueprint.yaml` file for blueprints the user confirms they want — loading full YAMLs during the match phase inflates context needlessly.
+
 **Tier 0 — Deterministic alias/name lookup (MANDATORY FIRST PASS)**
 
-Run `node scripts/blueprint-lookup.js "<keyword>"` for each keyword. This consults `blueprints/INDEX.md` directly and matches both canonical `feature` names AND registered `aliases[]`. Exit codes:
+Run `node scripts/blueprint-lookup.js "<keyword>"` for each keyword. This consults the JSON index directly and matches both canonical `feature` names AND registered `aliases[]`. Exit codes:
 - `0` = hit. Use the returned blueprint verbatim — do not run Tiers 1–3 for this keyword. This prevents fuzzy matching from inventing alternates when an exact alias already resolves ("sign in" → `auth/login` via alias).
 - `1` = miss. Keyword is not a known feature or alias. Fall through to Tiers 1–3 below.
-- `2` = INDEX missing. Stop and ask the user to run `npm run generate:readmes`.
+- `2` = INDEX missing. Stop and ask the user to run `npm run generate`.
 
 The deterministic tier closes the failure mode where fuzzy matching picked the wrong blueprint (or failed to recognize that one existed) and let code generation invent an endpoint. If a user keyword matches any blueprint's `aliases[]` exactly (case-insensitive), that blueprint is authoritative — no further matching needed.
 
-**Tier 1 — Exact feature name match**
-Check if any blueprint's `feature` field matches the keyword exactly or with common suffix/prefix patterns:
-- "login" → `feature: login` (exact)
-- "pos" → `feature: pos-core` (prefix match)
-- "shadcn" → `feature: shadcn-components`, `feature: shadcn-cli` (prefix match)
-- "expense" → `feature: expense-approval` (prefix match)
+**Tier 1 — Exact feature name match** (against `id` field in headers)
+Check if any blueprint's `id` matches the keyword exactly or with common suffix/prefix patterns:
+- "login" → `id: login` (exact)
+- "pos" → `id: pos-core` (prefix match)
+- "expense" → `id: expense-approval` (prefix match)
 
-**Tier 2 — Tag match**
-Scan every blueprint's `tags[]` array for the keyword. Also try common synonyms of the keyword:
+**Tier 2 — Tag match** (against `t` field in headers — no YAML reads needed)
+Scan every blueprint's `t` (tags) array for the keyword. Also try common synonyms:
 - For the user's keyword, check if any blueprint's tags contain the keyword as a substring or exact match
-- Also expand the keyword into synonyms using domain knowledge (e.g., "auth" also means "authentication", "login", "session"; "pos" also means "point-of-sale", "sales", "checkout")
+- Expand with domain synonyms (e.g., "auth" → "authentication", "login", "session")
 - Score by number of tag hits — more matching tags = stronger match
 
-**This is fully dynamic.** You are scanning the actual tags from the actual blueprints on disk. If someone added a new blueprint with tag "otp", it will be found automatically. There is no hardcoded tag list.
+**This is fully dynamic.** Scanning the headers index directly — no YAML files read.
 
-**Tier 3 — Semantic / description match**
-Read each blueprint's `description` field and use domain knowledge to match concepts that don't hit on name or tags:
-- Use your understanding of software domains to connect user terms to blueprint descriptions
-- If the user says "full X" (e.g., "full POS"), look at the matched blueprint's `related` array to discover the full ecosystem
+**Tier 3 — Semantic / description match** (against `d` field in headers — no YAML reads)
+Scan each blueprint's `d` (description) and use domain knowledge to match concepts that don't hit on name or tags:
+- If the user says "full X" (e.g., "full POS"), look at the matched blueprint's `r` (related IDs) in headers to discover the ecosystem
 - If no blueprint matches a keyword at all, flag it as a GAP
 
 ### Step 3: Read `related` arrays from every matched blueprint

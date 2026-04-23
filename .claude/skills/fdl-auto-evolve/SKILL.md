@@ -83,11 +83,13 @@ node scripts/propagate-agi.js --apply
 ```bash
 npm run generate
 ```
+- Runs `scripts/run-generate.js` — all sub-steps execute in parallel (~40s vs ~5 min sequential)
 - Regenerates `docs/blueprints/**/*.md` — Jekyll reference pages for the docs site
 - Regenerates `docs/api/**/*.json` — static JSON API
-- Regenerates `blueprints/**/*.md` — human-friendly summaries next to each YAML (via `scripts/generate-readmes.js`)
+- Regenerates `blueprints/**/*.md` — human-friendly summaries next to each YAML (**HUMAN-ONLY** — never load these in skills; use `blueprints/blueprint-headers.json` instead)
+- Regenerates `blueprints/blueprint-headers.json` — compact retrieval index for skills (~262 KB)
 - Updates `registry.json` with all features
-- Keeps every generated artifact in sync with the YAML source of truth
+- A content-hash manifest (`.cache/corpus-manifest.json`) tracks changed files; subsequent runs skip unchanged blueprints automatically
 
 ### Step 2b: Fitness Recommendation & Verification Loop (autoresearch keep-or-reset)
 ```bash

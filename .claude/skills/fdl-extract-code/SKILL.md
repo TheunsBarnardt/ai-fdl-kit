@@ -352,7 +352,18 @@ Do NOT silently overwrite it. Instead:
    - "Skip" → leave the existing blueprint untouched
 
 **If the blueprint does NOT exist:**
-Create it directly — no confirmation needed.
+
+Run the similarity gate before creating it:
+
+```bash
+node scripts/similarity.js blueprints/{category}/{feature}.blueprint.yaml --threshold 0.55 --json
+```
+
+*(Write the draft stub file first so the scanner has something to compare; delete it if the user aborts.)*
+
+- **Score ≥ 0.75** — STOP. Show: *"A very similar blueprint already exists: `{match.file}` (similarity {score}). (a) extend the existing one, (b) differentiate — tell me what's unique, or (c) proceed anyway as a deliberate variant."* Wait for user choice.
+- **0.55 ≤ score < 0.75** — Warn: *"Related blueprint found: `{match.file}` ({score}). Proceeding, but consider linking via `related[]`."* Continue.
+- **Score < 0.55** — No conflict, proceed directly.
 
 ### Step 6: Generate the Blueprint(s)
 

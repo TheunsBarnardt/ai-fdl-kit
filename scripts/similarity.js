@@ -96,6 +96,35 @@ function buildIdf(docs) {
   return idf;
 }
 
+// Build an inverted index: token → Set of doc indices.
+// Used to find candidate pairs without a full O(n²) scan.
+function buildInvertedIndex(docs) {
+  const idx = new Map();
+  for (let i = 0; i < docs.length; i++) {
+    for (const term of docs[i].vec.keys()) {
+      if (!idx.has(term)) idx.set(term, new Set());
+      idx.get(term).add(i);
+    }
+  }
+  return idx;
+}
+
+// For a single doc, find all docs that share at least one token (candidates).
+function candidatesFor(docIdx, docs, invertedIdx, topK = 30) {
+  const doc = docs[docIdx];
+  // Pick top-K terms by TF-IDF weight to limit posting-list traversal
+  const topTerms = [...doc.vec.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, topK)
+    .map(([t]) => t);
+  const candidates = new Set();
+  for (const term of topTerms) {
+    const posting = invertedIdx.get(term);
+    if (posting) for (const j of posting) if (j !== docIdx) candidates.add(j);
+  }
+  return candidates;
+}
+
 function run() {
   const args = process.argv.slice(2);
   const jsonOut = args.includes('--json');
@@ -111,19 +140,27 @@ function run() {
 
   if (target) {
     const normalized = target.replace(/\\/g, '/');
-    const anchor = docs.find(d => d.file.replace(/\\/g, '/') === normalized);
-    if (!anchor) {
+    const anchorIdx = docs.findIndex(d => d.file.replace(/\\/g, '/') === normalized);
+    if (anchorIdx < 0) {
       console.error(`Blueprint not found: ${target}`);
       process.exit(1);
     }
-    for (const d of docs) {
-      if (d === anchor) continue;
-      const score = cosine(anchor.vec, d.vec);
-      if (score >= threshold) results.push({ a: anchor.file, b: d.file, score });
+    const anchor = docs[anchorIdx];
+    const invertedIdx = buildInvertedIndex(docs);
+    for (const j of candidatesFor(anchorIdx, docs, invertedIdx)) {
+      const score = cosine(anchor.vec, docs[j].vec);
+      if (score >= threshold) results.push({ a: anchor.file, b: docs[j].file, score });
     }
   } else {
+    // Inverted-index pass: only evaluate pairs that share ≥1 token (O(n·k) vs O(n²))
+    const invertedIdx = buildInvertedIndex(docs);
+    const seen = new Set(); // dedup i<j pairs
     for (let i = 0; i < docs.length; i++) {
-      for (let j = i + 1; j < docs.length; j++) {
+      for (const j of candidatesFor(i, docs, invertedIdx)) {
+        if (j <= i) continue; // only upper-triangle
+        const key = `${i}:${j}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
         const score = cosine(docs[i].vec, docs[j].vec);
         if (score >= threshold) results.push({ a: docs[i].file, b: docs[j].file, score });
       }
