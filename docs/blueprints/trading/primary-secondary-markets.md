@@ -106,6 +106,57 @@ _Unsupported market type_
 | financial-markets-functions | recommended |  |
 | order-types-execution | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Primary Secondary Markets
+
+Distinguish primary issuance (IPO, seasoned offering, private placement) from secondary trading venues and evaluate call, continuous, quote-driven, and order-driven execution mechanisms
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| classify_market_event | `autonomous` | - | - |
+| invalid_market_type | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

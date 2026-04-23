@@ -115,6 +115,69 @@ _Proposal id missing_
 | fiscal-deficits-debt | required |  |
 | monetary-policy-framework | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fiscal Implementation Challenges
+
+Identify practical constraints on fiscal policy — recognition, legislative, and impact lags, political economy, and crowding-out effects — that limit its effectiveness
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fiscal_policy_framework` | fiscal-policy-framework | fail |
+| `fiscal_deficits_debt` | fiscal-deficits-debt | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| assess_implementation_risk | `autonomous` | - | - |
+| high_implementation_risk | `autonomous` | - | - |
+| missing_proposal | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -121,6 +121,68 @@ _Unsupported depreciation method_
 | fsa-balance-sheet | required |  |
 | fsa-income-statement | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Long Lived Assets Accounting
+
+Account for long-lived assets — acquisition, depreciation/amortisation, impairment, revaluation, derecognition — across IFRS and US GAAP frameworks
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fsa_balance_sheet` | fsa-balance-sheet | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_depreciation | `autonomous` | - | - |
+| invalid_inputs | `autonomous` | - | - |
+| invalid_method | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

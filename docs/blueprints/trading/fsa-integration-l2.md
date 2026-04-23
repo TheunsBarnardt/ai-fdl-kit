@@ -114,6 +114,67 @@ _Unsupported phase_
 | financial-report-quality-l2 | required |  |
 | multinational-operations-l2 | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fsa Integration L2
+
+Integrate FSA techniques in a six-phase framework — define purpose, collect data, process, analyse via DuPont, segment and capital structure, conclude with recommendations
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `financial_report_quality_l2` | financial-report-quality-l2 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| execute_phase | `autonomous` | - | - |
+| invalid_phase | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

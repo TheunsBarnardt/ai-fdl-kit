@@ -3,7 +3,7 @@ title: "Button Controls Blueprint"
 layout: default
 parent: "UI"
 grand_parent: Blueprint Catalog
-description: "Clickable buttons and button groups. 4 outcomes. rules: implementation, platform_agnostic"
+description: "Clickable buttons and button groups. 4 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous"
 ---
 
 # Button Controls Blueprint
@@ -74,6 +74,40 @@ description: "Clickable buttons and button groups. 4 outcomes. rules: implementa
 
 **Result:** Customize appearance completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Button Controls
+
+Clickable buttons and button groups
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| button_creation | `supervised` | - | - |
+| button_signals | `autonomous` | - | - |
+| button_groups | `autonomous` | - | - |
+| styling | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -91,7 +125,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Button Controls Blueprint",
-  "description": "Clickable buttons and button groups. 4 outcomes. rules: implementation, platform_agnostic",
+  "description": "Clickable buttons and button groups. 4 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

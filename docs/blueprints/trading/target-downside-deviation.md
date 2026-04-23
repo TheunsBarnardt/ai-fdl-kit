@@ -107,6 +107,58 @@ _Fewer than 2 observations_
 | measures-of-dispersion | recommended |  |
 | holding-period-return | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Target Downside Deviation
+
+Compute the target downside deviation (target semideviation) — the square root of the average squared deviations below a target return — a risk measure for investors asymmetrically averse to losses
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_target_semideviation | `autonomous` | - | - |
+| empty_observations | `autonomous` | - | - |
+| insufficient_sample | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

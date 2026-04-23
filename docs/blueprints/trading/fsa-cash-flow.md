@@ -108,6 +108,67 @@ _Required inputs missing_
 | fsa-income-statement | recommended |  |
 | fsa-balance-sheet | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fsa Cash Flow
+
+Analyse cash flow statements — CFO, CFI, CFF — using direct and indirect methods, convert indirect to direct, and derive free cash flow and cash flow ratios
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fsa_framework` | fsa-framework | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| analyze_cash_flow | `autonomous` | - | - |
+| missing_inputs | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

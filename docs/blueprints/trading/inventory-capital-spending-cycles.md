@@ -118,6 +118,69 @@ _Observation date missing_
 | business-cycle-phases | required |  |
 | economic-indicators | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Inventory Capital Spending Cycles
+
+Track inventory-to-sales ratios, capital expenditure, and workforce costs across the business cycle to anticipate turning points and firm profitability
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `business_cycle_phases` | business-cycle-phases | fail |
+| `economic_indicators` | economic-indicators | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| update_cycle_metrics | `supervised` | - | - |
+| inventory_alert | `autonomous` | - | - |
+| missing_date | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

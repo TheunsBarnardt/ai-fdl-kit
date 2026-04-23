@@ -3,7 +3,7 @@ title: "Scene Tree Management Blueprint"
 layout: default
 parent: "UI"
 grand_parent: Blueprint Catalog
-description: "Hierarchical scene graph and node management. 6 outcomes. rules: implementation, platform_agnostic"
+description: "Hierarchical scene graph and node management. 6 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous"
 ---
 
 # Scene Tree Management Blueprint
@@ -94,6 +94,42 @@ description: "Hierarchical scene graph and node management. 6 outcomes. rules: i
 
 **Result:** Load scene files into tree completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Scene Tree Management
+
+Hierarchical scene graph and node management
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| node_creation | `supervised` | - | - |
+| parent-child_relationships | `autonomous` | - | - |
+| node_naming | `autonomous` | - | - |
+| node_traversal | `autonomous` | - | - |
+| node_groups | `autonomous` | - | - |
+| scene_instantiation | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -111,7 +147,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Scene Tree Management Blueprint",
-  "description": "Hierarchical scene graph and node management. 6 outcomes. rules: implementation, platform_agnostic",
+  "description": "Hierarchical scene graph and node management. 6 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

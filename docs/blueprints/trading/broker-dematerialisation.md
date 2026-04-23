@@ -275,6 +275,77 @@ _Prevent a client from dematerialising in their own name via the broker; they mu
 | broker-client-account-maintenance | required |  |
 | popia-compliance | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Dematerialisation
+
+Back-office conversion of paper share certificates into electronic records via a central securities depository, with lodgement, nominee-name registration, scrip register updates, proprietary and...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| lodge_valid_batch | `autonomous` | - | - |
+| reject_oversized_batch | `supervised` | - | - |
+| reject_mixed_holder_batch | `supervised` | - | - |
+| reject_non_resident_mix | `supervised` | - | - |
+| mark_batch_dematerialised | `autonomous` | - | - |
+| handle_rejected_scrip | `supervised` | - | - |
+| handle_tainted_scrip | `autonomous` | - | - |
+| daily_nominee_reconciliation | `autonomous` | - | - |
+| rematerialise_position | `autonomous` | - | - |
+| block_client_own_name_via_broker | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

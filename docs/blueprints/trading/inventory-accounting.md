@@ -119,6 +119,68 @@ _Entity missing_
 | fsa-balance-sheet | required |  |
 | fsa-income-statement | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Inventory Accounting
+
+Apply FIFO, LIFO, and weighted-average cost-flow methods to compute COGS and ending inventory, convert LIFO to FIFO, and evaluate the impact on ratios and valuation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fsa_balance_sheet` | fsa-balance-sheet | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_cogs_inventory | `autonomous` | - | - |
+| invalid_method | `autonomous` | - | - |
+| missing_entity | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

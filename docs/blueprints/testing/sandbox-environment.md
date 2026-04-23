@@ -89,6 +89,62 @@ description: "Parallel PGW environment with full data isolation — merchants/te
 | payments-gateway-api | required | Sandbox is a config variant of the PGW |
 | sandbox-rail-adapter | required | Sandbox uses the mock rail exclusively |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Sandbox Environment
+
+Parallel PGW environment with full data isolation — merchants/terminals can be flipped to sandbox for demos and integration testing without moving real money; provisioned per merchant at enrolment
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payments_gateway_api` | payments-gateway-api | degrade |
+| `sandbox_rail_adapter` | sandbox-rail-adapter | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| provisioned | `autonomous` | - | - |
+| unauthorized | `autonomous` | - | - |
+| already_provisioned | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

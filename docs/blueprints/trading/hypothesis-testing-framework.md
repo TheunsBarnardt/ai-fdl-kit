@@ -149,6 +149,60 @@ _Null or alternative missing_
 | parametric-vs-nonparametric-tests | recommended |  |
 | central-limit-theorem | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Hypothesis Testing Framework
+
+Conduct statistical hypothesis tests through the standard six-step framework — stating hypotheses, selecting test statistic, setting significance, deciding rule, computing, and concluding
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| reject_null_critical_value | `supervised` | - | - |
+| reject_null_p_value | `supervised` | - | - |
+| fail_to_reject | `supervised` | - | - |
+| invalid_significance_level | `autonomous` | - | - |
+| missing_hypotheses | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

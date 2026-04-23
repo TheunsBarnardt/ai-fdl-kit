@@ -131,6 +131,68 @@ _Unsupported allocation method_
 | capital-market-expectations-asset-class-l3 | required |  |
 | asset-allocation-constraints-l3 | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Principles Asset Allocation L3
+
+Asset allocation methods — MVO, Monte Carlo, Black-Litterman, liability-relative, goals-based sub-portfolios, risk parity, factor-based, rebalancing heuristics
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `overview_asset_allocation_l3` | overview-asset-allocation-l3 | fail |
+| `capital_market_expectations_asset_class_l3` | capital-market-expectations-asset-class-l3 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| develop_allocation | `autonomous` | - | - |
+| invalid_method | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

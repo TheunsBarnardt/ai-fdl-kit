@@ -101,6 +101,68 @@ _Missing returns series_
 | systematic-nonsystematic-risk | required |  |
 | capm-security-market-line | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Beta Market Model
+
+Calculate and interpret beta using the market model, describe return-generating models, and explain beta adjustment, estimation windows, and implications for expected return
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `systematic_nonsystematic_risk` | systematic-nonsystematic-risk | fail |
+| `capm_security_market_line` | capm-security-market-line | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| estimate_beta | `autonomous` | - | - |
+| missing_inputs | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

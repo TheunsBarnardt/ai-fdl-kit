@@ -93,6 +93,73 @@ description: "Admin web UI — live transaction explorer with drill-down, refund
 | refunds-returns | required | Refund initiation flow |
 | dispute-management | required | Dispute initiation flow |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Transactions Console
+
+Admin web UI — live transaction explorer with drill-down, refund/dispute initiation, reconciliation state, and CSV/JSON export; every admin action is audited
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `popia_compliance` | popia-compliance | degrade |
+| `payments_gateway_api` | payments-gateway-api | degrade |
+| `refunds_returns` | refunds-returns | degrade |
+| `dispute_management` | dispute-management | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| listed | `autonomous` | - | - |
+| unauthorized | `autonomous` | - | - |
+| forbidden | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

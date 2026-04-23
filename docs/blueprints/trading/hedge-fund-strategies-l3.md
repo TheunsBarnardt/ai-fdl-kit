@@ -131,7 +131,59 @@ _Unsupported hedge fund type_
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| hedge-fund-strategies-l2 | extends | Builds on L2 foundations — prerequisite before this level's material |
 | asset-allocation-alternatives-l3 | recommended |  |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Hedge Fund Strategies L3
+
+Hedge fund strategy classification and analysis — long/short equity, event-driven, relative value, global macro, managed futures, and multi-manager structures with conditional factor risk models
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| analyze_hedge_fund_strategy | `autonomous` | - | - |
+| invalid_type | `autonomous` | - | - |
 
 
 <script type="application/ld+json">

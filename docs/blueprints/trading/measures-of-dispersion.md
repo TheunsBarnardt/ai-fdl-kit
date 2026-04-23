@@ -176,6 +176,63 @@ _Empty dataset_
 | skewness | recommended |  |
 | kurtosis | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Measures Of Dispersion
+
+Compute measures of dispersion — range, mean absolute deviation (MAD), variance, standard deviation, and coefficient of variation — to describe variability of observations around their mean
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_range | `autonomous` | - | - |
+| compute_mad | `autonomous` | - | - |
+| compute_variance | `autonomous` | - | - |
+| compute_std_dev | `autonomous` | - | - |
+| compute_cv | `autonomous` | - | - |
+| insufficient_sample | `autonomous` | - | - |
+| cv_mean_zero | `autonomous` | - | - |
+| empty_observations | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

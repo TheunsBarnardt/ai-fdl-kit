@@ -3,7 +3,7 @@ title: "Container Layouts Blueprint"
 layout: default
 parent: "UI"
 grand_parent: Blueprint Catalog
-description: "Layout containers for UI arrangement. 5 outcomes. rules: implementation, platform_agnostic"
+description: "Layout containers for UI arrangement. 5 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous"
 ---
 
 # Container Layouts Blueprint
@@ -84,6 +84,41 @@ description: "Layout containers for UI arrangement. 5 outcomes. rules: implement
 
 **Result:** Scrollable content area completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Container Layouts
+
+Layout containers for UI arrangement
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| box_container | `autonomous` | - | - |
+| grid_container | `autonomous` | - | - |
+| tab_container | `autonomous` | - | - |
+| margin_container | `autonomous` | - | - |
+| scroll_container | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -101,7 +136,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Container Layouts Blueprint",
-  "description": "Layout containers for UI arrangement. 5 outcomes. rules: implementation, platform_agnostic",
+  "description": "Layout containers for UI arrangement. 5 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

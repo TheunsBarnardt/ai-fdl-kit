@@ -116,6 +116,69 @@ _Non-positive tenor_
 | swaps-contracts-features | required |  |
 | derivatives-arbitrage-replication | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Swap Pricing Valuation
+
+Price interest-rate, currency, and equity swaps at inception (par swap rate) and value during life using spot-curve discounting and replicating portfolios of bonds
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `swaps_contracts_features` | swaps-contracts-features | fail |
+| `derivatives_arbitrage_replication` | derivatives-arbitrage-replication | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| price_swap | `autonomous` | - | - |
+| invalid_family | `autonomous` | - | - |
+| invalid_tenor | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

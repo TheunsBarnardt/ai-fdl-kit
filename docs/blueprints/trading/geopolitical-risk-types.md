@@ -124,6 +124,69 @@ _Scenario missing_
 | geopolitical-analysis-framework | required |  |
 | international-trade-framework | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Geopolitical Risk Types
+
+Categorize geopolitical risk by velocity (event, exogenous, thematic) and assess its investment impact via likelihood, velocity, and portfolio effect
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `geopolitical_analysis_framework` | geopolitical-analysis-framework | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| score_risk | `autonomous` | - | - |
+| high_impact_warning | `autonomous` | - | - |
+| invalid_type | `autonomous` | - | - |
+| missing_scenario | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

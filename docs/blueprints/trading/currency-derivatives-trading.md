@@ -3,7 +3,7 @@ title: "Currency Derivatives Trading Blueprint"
 layout: default
 parent: "Trading"
 grand_parent: Blueprint Catalog
-description: "FX derivatives trading with forwards, swaps, options, close-out auctions. 8 fields. 4 outcomes. 4 error codes. rules: trading"
+description: "FX derivatives trading with forwards, swaps, options, close-out auctions. 8 fields. 4 outcomes. 4 error codes. rules: trading. AGI: supervised"
 ---
 
 # Currency Derivatives Trading Blueprint
@@ -129,13 +129,76 @@ Spot rates published 10:00, 11:30, EOD. All used for daily MTM.
 |---------|-------------|--------|
 | derivatives-market-overview | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Currency Derivatives Trading
+
+FX derivatives trading with forwards, swaps, options, close-out auctions
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `derivatives_market_overview` | derivatives-market-overview | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| fx_forward_order_insert | `autonomous` | - | - |
+| fx_swap_initiation | `autonomous` | - | - |
+| fx_close_out_auction_uncross | `autonomous` | - | - |
+| banking_settlement_confirmed | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Currency Derivatives Trading Blueprint",
-  "description": "FX derivatives trading with forwards, swaps, options, close-out auctions. 8 fields. 4 outcomes. 4 error codes. rules: trading",
+  "description": "FX derivatives trading with forwards, swaps, options, close-out auctions. 8 fields. 4 outcomes. 4 error codes. rules: trading. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

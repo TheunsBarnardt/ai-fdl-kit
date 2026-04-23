@@ -311,6 +311,81 @@ _All-Or-None order rejected if full quantity not available_
 | trading-surveillance | recommended |  |
 | member-risk-management | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Order Types Attributes Management
+
+Equity market order types (Market, Limit, Stop, Stop-Limit), order attributes, modifiers, lifecycle (submission to execution/cancellation), and execution rules.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `equity_market_trading_overview` | equity-market-trading-overview | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| order_submitted | `autonomous` | - | - |
+| order_accepted | `autonomous` | - | - |
+| market_order_executed | `autonomous` | - | - |
+| limit_order_queued | `autonomous` | - | - |
+| limit_order_partially_filled | `autonomous` | - | - |
+| stop_order_triggered | `autonomous` | - | - |
+| stop_limit_order_activated | `autonomous` | - | - |
+| iceberg_order_refreshed | `autonomous` | - | - |
+| order_cancelled | `supervised` | - | - |
+| order_expired | `autonomous` | - | - |
+| day_order_cancelled_at_close | `supervised` | - | - |
+| ioc_order_cancelled | `supervised` | - | - |
+| fok_order_rejected | `supervised` | - | - |
+| aon_order_rejected | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

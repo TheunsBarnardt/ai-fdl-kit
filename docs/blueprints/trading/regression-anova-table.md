@@ -122,6 +122,69 @@ _n too small for valid df_
 | simple-linear-regression-ols | required |  |
 | regression-goodness-of-fit | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Regression Anova Table
+
+Construct and interpret the ANOVA table for a simple linear regression — decomposing total variation into regression and error components and computing the overall F-test
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `simple_linear_regression_ols` | simple-linear-regression-ols | fail |
+| `regression_goodness_of_fit` | regression-goodness-of-fit | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| build_anova_table | `autonomous` | - | - |
+| degenerate_sse | `autonomous` | - | - |
+| insufficient_n | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

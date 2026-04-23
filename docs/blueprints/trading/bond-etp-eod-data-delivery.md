@@ -130,6 +130,7 @@ description: "End-of-day bond electronic trading platform data delivery via FTP 
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| derivatives-eod-data-delivery | extends | Inherits shared FTP fixed-width EOD delivery specification |
 | equities-eod-data-delivery | optional | Equities EOD data uses same FTP delivery infrastructure |
 | bonds-eod-data-delivery | recommended | Full bonds market data provides broader bond market coverage |
 

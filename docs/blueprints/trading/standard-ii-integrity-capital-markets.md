@@ -98,6 +98,67 @@ _Unsupported substandard_
 |---------|-------------|--------|
 | cfa-code-of-ethics | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Standard Ii Integrity Capital Markets
+
+Apply Standard II (Integrity of Capital Markets) — Material Nonpublic Information and Market Manipulation — to investment research, trading, and execution practices
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `cfa_code_of_ethics` | cfa-code-of-ethics | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| review_standard_ii | `autonomous` | - | - |
+| invalid_substandard | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

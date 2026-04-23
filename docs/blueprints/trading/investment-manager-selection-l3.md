@@ -127,6 +127,67 @@ _Unsupported evaluation stage_
 |---------|-------------|--------|
 | portfolio-performance-evaluation-l3 | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Investment Manager Selection L3
+
+Investment manager selection — search framework, style analysis, qualitative and quantitative due diligence, Type I/II errors, manager philosophy, operational due diligence, and fee evaluation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `portfolio_performance_evaluation_l3` | portfolio-performance-evaluation-l3 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| evaluate_investment_manager | `autonomous` | - | - |
+| invalid_stage | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

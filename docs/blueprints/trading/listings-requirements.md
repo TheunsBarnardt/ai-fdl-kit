@@ -188,6 +188,61 @@ _Trading suspended when issuer non-compliance detected_
 | corporate-actions-reference-data | recommended |  |
 | continuous-disclosure-policy | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Listings Requirements
+
+Manages listing and compliance requirements for securities, including approval criteria, disclosure obligations, and continuing obligations for issuers.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| listing_approved | `supervised` | - | - |
+| listing_admitted | `autonomous` | - | - |
+| annual_reporting_due | `autonomous` | - | - |
+| material_disclosure_required | `autonomous` | - | - |
+| regulatory_suspension | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

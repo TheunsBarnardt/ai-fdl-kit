@@ -139,6 +139,71 @@ _Required conditional inputs missing_
 | probability-tree-conditional-expectation | required |  |
 | bayes-formula | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Total Probability Rule
+
+Apply the total probability rule and law of total expectation — decomposing an unconditional probability or expectation into a weighted sum over mutually exclusive, exhaustive scenarios
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `expected_value_variance` | expected-value-variance | fail |
+| `probability_tree_conditional_expectation` | probability-tree-conditional-expectation | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_unconditional_probability | `autonomous` | - | - |
+| compute_unconditional_expectation | `autonomous` | - | - |
+| compute_unconditional_variance | `autonomous` | - | - |
+| scenarios_not_exhaustive | `autonomous` | - | - |
+| missing_conditionals | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

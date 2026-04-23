@@ -118,6 +118,67 @@ _Unsupported currency strategy type_
 | currency-management-intro-l3 | required |  |
 | swaps-forwards-futures-strategies-l3 | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Currency Management Program L3
+
+Active currency management strategies — fundamentals, technical, carry trade, volatility trading, forward/option instruments, exotic options, and EM currency management
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `currency_management_intro_l3` | currency-management-intro-l3 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| implement_currency_program | `autonomous` | - | - |
+| invalid_strategy | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

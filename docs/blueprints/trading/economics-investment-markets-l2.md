@@ -117,6 +117,57 @@ _Unsupported analysis type_
 | term-structure-interest-rate-dynamics-l2 | recommended |  |
 | active-portfolio-management-l2 | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Economics Investment Markets L2
+
+Link economics to investment markets — PV model, real default-free rates, business cycle effects on yield curve, credit premium, equity risk premium, and commercial real estate pricing
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| analyse_macro_investment | `autonomous` | - | - |
+| invalid_analysis | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

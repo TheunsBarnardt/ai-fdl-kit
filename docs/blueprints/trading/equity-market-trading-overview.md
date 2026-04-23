@@ -208,6 +208,74 @@ _Trading session ends at designated close time_
 | trading-surveillance | recommended |  |
 | member-risk-management | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Equity Market Trading Overview
+
+Equity market structure, participants, trading sessions, order settlement, risk management, and circuit breaker rules for spot equity trading.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `order_types_attributes_management` | order-types-attributes-management | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| session_opened | `autonomous` | - | - |
+| order_accepted | `autonomous` | - | - |
+| order_matched | `autonomous` | - | - |
+| circuit_breaker_triggered | `autonomous` | - | - |
+| trading_halt_resumed | `autonomous` | - | - |
+| trade_settlement_initiated | `autonomous` | - | - |
+| session_closed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

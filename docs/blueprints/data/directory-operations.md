@@ -3,7 +3,7 @@ title: "Directory Operations Blueprint"
 layout: default
 parent: "Data"
 grand_parent: Blueprint Catalog
-description: "Directory traversal and management. 4 outcomes. rules: implementation, platform_agnostic"
+description: "Directory traversal and management. 4 outcomes. rules: implementation, platform_agnostic. AGI: supervised"
 ---
 
 # Directory Operations Blueprint
@@ -74,6 +74,44 @@ description: "Directory traversal and management. 4 outcomes. rules: implementat
 
 **Result:** Normalize and join paths completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Directory Operations
+
+Directory traversal and management
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| directory_listing | `autonomous` | - | - |
+| directory_creation | `supervised` | - | - |
+| directory_deletion | `human_required` | - | - |
+| path_resolution | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -91,7 +129,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Directory Operations Blueprint",
-  "description": "Directory traversal and management. 4 outcomes. rules: implementation, platform_agnostic",
+  "description": "Directory traversal and management. 4 outcomes. rules: implementation, platform_agnostic. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

@@ -262,6 +262,77 @@ _Generate contract notes for each client account after deal release_
 | popia-compliance | required |  |
 | broker-back-office-dissemination | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Deal Management
+
+Internal back-office deal management covering allocation, release, extensions, direct deals, pre-dated deals, deal adjustments, and contract note generation for equity trades
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| real_time_allocation_actual_price | `autonomous` | - | - |
+| real_time_allocation_average_price | `autonomous` | - | - |
+| release_trade_real_time | `autonomous` | - | - |
+| reject_unbalanced_release | `supervised` | - | - |
+| same_day_allocation | `autonomous` | - | - |
+| next_day_allocation | `autonomous` | - | - |
+| pre_dated_deal_correction | `autonomous` | - | - |
+| deal_adjustment | `autonomous` | - | - |
+| reject_operator_adjustment | `supervised` | - | - |
+| generate_contract_notes | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -116,6 +116,68 @@ _Unsupported parity condition_
 | forward-rates-interest-rate-parity | required |  |
 | exchange-rate-regimes | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Currency Exchange Equilibrium L2
+
+Determine FX equilibrium values via international parity conditions, carry trade, balance of payments flows, monetary models, and Mundell-Fleming
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `forward_exchange_rate_no_arbitrage` | forward-exchange-rate-no-arbitrage | fail |
+| `forward_rates_interest_rate_parity` | forward-rates-interest-rate-parity | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| evaluate_parity | `autonomous` | - | - |
+| invalid_parity | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

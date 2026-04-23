@@ -3,7 +3,7 @@ title: "Keyboard Input Blueprint"
 layout: default
 parent: "Integration"
 grand_parent: Blueprint Catalog
-description: "Keyboard input capture and key state tracking. 4 outcomes. rules: implementation, platform_agnostic"
+description: "Keyboard input capture and key state tracking. 4 outcomes. rules: implementation, platform_agnostic. AGI: supervised"
 ---
 
 # Keyboard Input Blueprint
@@ -74,6 +74,44 @@ description: "Keyboard input capture and key state tracking. 4 outcomes. rules: 
 
 **Result:** Access raw keyboard input completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Keyboard Input
+
+Keyboard input capture and key state tracking
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| key_state_detection | `autonomous` | - | - |
+| key_events | `autonomous` | - | - |
+| key_modifiers | `supervised` | - | - |
+| raw_input | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -91,7 +129,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Keyboard Input Blueprint",
-  "description": "Keyboard input capture and key state tracking. 4 outcomes. rules: implementation, platform_agnostic",
+  "description": "Keyboard input capture and key state tracking. 4 outcomes. rules: implementation, platform_agnostic. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

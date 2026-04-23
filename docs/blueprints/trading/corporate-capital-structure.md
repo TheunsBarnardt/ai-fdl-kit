@@ -116,6 +116,58 @@ _Entity id missing_
 | capital-allocation-npv-irr | recommended |  |
 | corporate-stakeholders | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Corporate Capital Structure
+
+Determine optimal capital structure using Modigliani-Miller propositions, static trade-off theory, and pecking order theory — balancing tax shield, bankruptcy costs, and signalling
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_wacc | `autonomous` | - | - |
+| invalid_weights | `autonomous` | - | - |
+| missing_entity | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

@@ -130,6 +130,70 @@ _No candidate portfolios provided_
 | target-downside-deviation | recommended |  |
 | measures-of-dispersion | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Safety First Shortfall Risk
+
+Apply Roy's safety-first criterion — select the portfolio that minimises the probability of return falling below a threshold by maximising the safety-first ratio
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `portfolio_expected_return` | portfolio-expected-return | fail |
+| `portfolio_variance_covariance` | portfolio-variance-covariance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_sfratio_and_select | `autonomous` | - | - |
+| compute_shortfall_probability | `autonomous` | - | - |
+| zero_std_dev | `autonomous` | - | - |
+| empty_candidates | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

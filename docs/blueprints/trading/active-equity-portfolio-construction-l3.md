@@ -129,6 +129,68 @@ _Unsupported construction type_
 | active-equity-strategies-l3 | required |  |
 | equity-portfolio-management-overview-l3 | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Active Equity Portfolio Construction L3
+
+Active equity portfolio construction — building blocks, risk measures, risk budgeting, position sizing, long/short strategies, market-neutral, and implicit costs
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `active_equity_strategies_l3` | active-equity-strategies-l3 | fail |
+| `equity_portfolio_management_overview_l3` | equity-portfolio-management-overview-l3 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| construct_active_portfolio | `autonomous` | - | - |
+| invalid_construction | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

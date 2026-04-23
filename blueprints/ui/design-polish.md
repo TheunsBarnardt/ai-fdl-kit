@@ -2,66 +2,66 @@
 
 # Design Polish
 
-> Apply finishing touches that elevate interface quality through thoughtful accent borders, strategic background decoration, empty states, minimal borders, and attention to small details that compound into professional appearance.
+> Apply finishing touches that elevate interface quality through accent borders, background decoration, empty states, minimal borders, and small details that compound into a professional appearance.
 
-**Category:** Ui · **Version:** 1.0 · **Tags:** design-system · visual-design · interaction-design
+**Category:** Ui · **Version:** 1.0.0 · **Tags:** design-system · visual-design · interaction-design
 
 ## What this does
 
-Apply finishing touches that elevate interface quality through thoughtful accent borders, strategic background decoration, empty states, minimal borders, and attention to small details that compound into professional appearance.
+Apply finishing touches that elevate interface quality through accent borders, background decoration, empty states, minimal borders, and small details that compound into a professional appearance.
 
 Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
 
 ## Fields
 
-- **primary_button_style** *(text, optional)*
-- **input_focus_treatment** *(text, optional)*
-- **empty_state_elements** *(text, optional)*
-- **border_strategy** *(text, optional)*
-- **background_decoration** *(text, optional)*
+- **primary_button_style** *(text, optional)* — Color, padding, and hover state treatment
+- **input_focus_treatment** *(text, optional)* — Visual feedback on form input focus
+- **empty_state_elements** *(text, optional)* — Illustration, copy, and CTA for empty states
+- **border_strategy** *(text, optional)* — How borders are used (minimal, shadows, spacing instead)
+- **background_decoration** *(text, optional)* — Pattern, gradient, or texture approach
 
 ## What must be true
 
-- **0:** Supercharge the defaults — primary buttons, inputs, and frequently used elements deserve extra attention
-- **1:** Add color with accent borders — thin colored borders create visual interest without visual noise
-- **2:** Decorate backgrounds — subtle patterns, gradients, or texture can make backgrounds feel intentional
-- **3:** Don't overlook empty states — users see these moments; empty states are opportunities for personality and guidance
-- **4:** Use fewer borders — reduce reliance on borders; use spacing, shadows, or color to define sections instead
-- **5:** Think outside the box — small details (rounded corners, icons, micro-copy) compound into polished feel
+- **supercharge_the_defaults:** Supercharge the defaults — primary buttons, inputs, and frequently used elements deserve extra attention
+- **add_color_with_accent_borders:** Add color with accent borders — thin colored borders create visual interest without visual noise
+- **decorate_backgrounds:** Decorate backgrounds — subtle patterns, gradients, or texture can make backgrounds feel intentional
+- **dont_overlook_empty_states:** Don't overlook empty states — users see these moments; empty states are opportunities for personality and guidance
+- **use_fewer_borders:** Use fewer borders — reduce reliance on borders; use spacing, shadows, or color to define sections instead
+- **think_outside_the_box:** Think outside the box — small details (rounded corners, icons, micro-copy) compound into polished feel
 
 ## Success & failure scenarios
 
 **✅ Success paths**
 
-- **0** — when primary action button is designed, then primary button is inviting and clearly clickable.
-- **1** — when form input field is styled, then input has visual interest on interaction without looking cluttered.
-- **2** — when empty state is displayed to user, then empty state guides user and reflects product personality.
-- **3** — when section or content area needs visual boundary, then boundaries are clear without visual clutter from borders.
-- **4** — when background needs visual interest, then background feels intentional and sophisticated.
+- **Primary Action Button Designed** — when primary action button is designed, then primary button is inviting and clearly clickable.
+- **Form Input Field Styled** — when form input field is styled, then input has visual interest on interaction without looking cluttered.
+- **Empty State Displayed** — when empty state is displayed to user, then empty state guides user and reflects product personality.
+- **Section Needs Visual Boundary** — when section or content area needs visual boundary, then boundaries are clear without visual clutter from borders.
+- **Background Needs Visual Interest** — when background needs visual interest, then background feels intentional and sophisticated.
 
 ## Connects to
 
-- **visual-hierarchy** *(recommended)*
-- **color-system** *(recommended)*
-- **depth-elevation** *(recommended)*
-- **animation-state-machine** *(optional)*
+- **visual-hierarchy** *(recommended)* — Polish amplifies hierarchy through refined visual signals
+- **color-system** *(recommended)* — Polish uses strategic color accents from system
+- **depth-elevation** *(recommended)* — Shadows and layering enhance polish
+- **animation-state-machine** *(optional)* — Micro-interactions add polish to state transitions
 
-## Quality fitness 🟡 60/100
+## Quality fitness 🟢 78/100
 
 Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
 
 | Dimension | Score | Points |
 |-----------|-------|--------|
 | Description | `██████████` | 10/10 |
-| Rules | `░░░░░░░░░░` | 0/10 |
-| Outcomes | `████████████████░░░░░░░░░` | 16/25 |
+| Rules | `██████░░░░` | 6/10 |
+| Outcomes | `████████████████████░░░░░` | 20/25 |
 | Structured conditions | `████████░░` | 8/10 |
 | Error binding | `██████████` | 10/10 |
-| Field validation | `███░░░░░░░` | 3/10 |
-| Relationships | `████████░░` | 8/10 |
+| Field validation | `█████░░░░░` | 5/10 |
+| Relationships | `██████████` | 10/10 |
 | Events | `██░░░` | 2/5 |
-| AGI readiness | `░░░░░` | 0/5 |
-| Simplicity | `███░░` | 3/5 |
+| AGI readiness | `██░░░` | 2/5 |
+| Simplicity | `█████` | 5/5 |
 
 ---
 

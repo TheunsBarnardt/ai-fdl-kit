@@ -111,6 +111,68 @@ _mu or sigma missing_
 | monte-carlo-simulation | recommended |  |
 | expected-value-variance | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Lognormal Distribution Asset Prices
+
+Model asset prices using the lognormal distribution — bounded below by zero, right-skewed, and the theoretical consequence of normally distributed continuously compounded returns
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `continuously_compounded_returns` | continuously-compounded-returns | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_moments | `autonomous` | - | - |
+| invalid_sigma | `autonomous` | - | - |
+| missing_parameters | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

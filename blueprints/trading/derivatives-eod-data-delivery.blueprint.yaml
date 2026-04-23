@@ -1,0 +1,215 @@
+# ============================================================
+# Derivatives EOD Data Delivery — Abstract Parent Blueprint
+# ============================================================
+# Shared specification for fixed-width flat file end-of-day
+# data delivery via FTP. All instrument-specific EOD blueprints
+# extend this blueprint and override only the instrument-specific
+# sections (market_identification, contract_types, tags).
+# ============================================================
+
+feature: derivatives-eod-data-delivery
+version: "1.0.0"
+description: "Abstract: shared FTP fixed-width flat file delivery specification for end-of-day exchange derivatives data. Extended by equity, currency, interest-rate, commodity, and bond-ETP blueprints."
+category: trading
+tags:
+  - market-data
+  - eod
+  - ftp
+  - dissemination
+  - fixed-width
+  - non-live
+  - derivatives
+
+actors:
+  - id: data_subscriber
+    name: Data Subscriber
+    type: human
+    description: Licensed recipient who receives end-of-day derivatives data files via FTP
+  - id: exchange_operations
+    name: Exchange Operations
+    type: system
+    description: Exchange dissemination system that generates and delivers EOD files
+  - id: customer_services
+    name: Customer Services
+    type: human
+    description: Provisions subscriber credentials and dataset access before go-live
+
+fields:
+  - name: market_number
+    type: number
+    required: true
+    label: Exchange market number identifying the instrument class
+  - name: contract_type
+    type: text
+    required: true
+    label: Contract type code (F=Future, Y=Option, etc.)
+  - name: instrument_type
+    type: text
+    required: true
+    label: Instrument type identifier
+  - name: record_type
+    type: text
+    required: true
+    label: Record type code determining the file layout
+  - name: record_sub_type
+    type: text
+    required: true
+    label: Record sub-type for further layout discrimination
+  - name: run_date
+    type: date
+    required: true
+    label: Business date the data represents (CCYYMMDD)
+  - name: instrument
+    type: text
+    required: false
+    label: Instrument identifier
+  - name: file_name
+    type: text
+    required: false
+    label: Delivered flat file name
+
+rules:
+  data_format:
+    format: fixed_width_flat_file
+    encoding: ASCII
+    field_types:
+      A: Alpha only
+      N: "Numeric only (integer shown as N(I))"
+      AN: Alphanumeric
+      DATE: 8-byte date CCYYMMDD
+      B: "Boolean — T for True, F for False"
+  delivery:
+    channel: FTP
+    primary_time: "20:30"
+    frequency: daily
+    # Subscriber must connect after this time to retrieve the current day's files
+  subscription:
+    requires_written_request: true
+    requires_license_agreement: true
+    provisioning: "Customer Services provides IDP user ID, dataset name, and password"
+  redelivery:
+    policy: "Exchange Operations redelivers on request if files are corrupted or missing"
+    contact: "Subscriber contacts Customer Services to initiate redelivery"
+  immutability:
+    rule: "EOD files are immutable once published — corrections trigger a new file with a redelivery flag"
+
+outcomes:
+  successful_delivery:
+    priority: 10
+    description: All subscribed record types delivered to subscriber after trading day closes
+    given:
+      - "subscriber is licensed and provisioned with IDP credentials"
+      - "trading day has completed and EOD batch has run"
+    then:
+      - action: emit_event
+        event: data.eod.delivered
+        payload: [run_date, market_number, record_types, file_name]
+    result: "Subscriber receives complete end-of-day derivatives data via FTP"
+
+  subscriber_provisioned:
+    priority: 11
+    description: New subscriber granted FTP access after completing license and setup
+    given:
+      - "prospective subscriber has contacted Market Data Department in writing"
+      - "license agreement is signed"
+    then:
+      - action: emit_event
+        event: data.subscriber.provisioned
+        payload: [subscriber_id, dataset_name]
+    result: "Subscriber has working FTP access and can connect to retrieve files"
+
+  delivery_failed:
+    priority: 1
+    error: DELIVERY_FAILED
+    description: File generation or FTP transfer failed
+    given:
+      - "EOD batch error or FTP transfer error occurs"
+    then:
+      - action: emit_event
+        event: data.eod.delivery_failed
+        payload: [run_date, market_number, reason]
+    result: "Delivery failed — Exchange Operations initiates redelivery procedure"
+
+  invalid_credentials:
+    priority: 2
+    error: INVALID_CREDENTIALS
+    description: Subscriber FTP credentials rejected
+    given:
+      - "IDP authentication fails for subscriber"
+    then: []
+    result: "Subscriber cannot connect — contact Customer Services to reset credentials"
+
+errors:
+  - code: DELIVERY_FAILED
+    status: 500
+    message: "End-of-day data file delivery failed. Exchange Operations will redeliver."
+  - code: INVALID_CREDENTIALS
+    status: 401
+    message: "IDP authentication failed — contact Customer Services."
+  - code: DATASET_NOT_PROVISIONED
+    status: 403
+    message: "Requested dataset has not been provisioned for this subscriber."
+
+events:
+  - name: data.eod.delivered
+    description: "All subscribed record types for a given market delivered for the business day"
+    payload: [run_date, market_number, record_types, file_name]
+  - name: data.eod.delivery_failed
+    description: "EOD file delivery failed — redelivery process initiated"
+    payload: [run_date, market_number, reason]
+  - name: data.subscriber.provisioned
+    description: "New subscriber provisioned with FTP access to a dataset"
+    payload: [subscriber_id, dataset_name]
+
+related:
+  - feature: equity-derivatives-eod-data-delivery
+    type: optional
+    reason: Equity derivatives instrument family
+  - feature: currency-derivatives-eod-data-delivery
+    type: optional
+    reason: Currency derivatives instrument family
+  - feature: interest-rates-derivatives-eod-data-delivery
+    type: optional
+    reason: Interest rate derivatives instrument family
+  - feature: commodity-derivatives-eod-data-delivery
+    type: optional
+    reason: Commodity derivatives instrument family
+  - feature: bond-etp-eod-data-delivery
+    type: optional
+    reason: Bond ETP instrument family
+
+agi:
+  goals:
+    - id: reliable_eod_data_delivery
+      description: Deliver complete, accurate end-of-day derivatives data files to licensed subscribers via FTP
+      success_metrics:
+        - metric: delivery_success_rate
+          target: ">= 99.9%"
+          measurement: Successful deliveries divided by total scheduled deliveries
+        - metric: delivery_timeliness
+          target: "< 30 min after EOD batch"
+          measurement: Time from batch completion to file availability on FTP
+      constraints:
+        - type: regulatory
+          description: All deliveries must be auditable and traceable
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before redelivery of corrected files
+    escalation_triggers:
+      - delivery_failure_rate > 0.1%
+  safety:
+    action_permissions:
+      - action: successful_delivery
+        permission: autonomous
+      - action: subscriber_provisioned
+        permission: supervised
+      - action: delivery_failed
+        permission: supervised
+      - action: invalid_credentials
+        permission: autonomous
+  tradeoffs:
+    - prefer: data_integrity
+      over: speed
+      reason: Incomplete or corrupt EOD files cause downstream settlement failures

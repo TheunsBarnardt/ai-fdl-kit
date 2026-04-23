@@ -273,6 +273,69 @@ _Generate response dataset with per-record error lines and notify configured add
 | broker-back-office-dissemination | recommended |  |
 | broker-client-data-upload | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Financial Data Upload
+
+Fixed-width bulk GL and financial upload - cash receipts, cash payments and journal entries - with double-entry validation, GL account checks and reversal rules
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| automated_ftp_upload | `autonomous` | - | - |
+| manual_online_upload | `autonomous` | - | - |
+| bulk_gl_entry_upload | `autonomous` | - | - |
+| gl_account_validation | `autonomous` | - | - |
+| gl_account_invalid | `autonomous` | - | - |
+| double_entry_validation | `autonomous` | - | - |
+| debit_credit_balancing | `autonomous` | - | - |
+| unbalanced_journal | `autonomous` | - | - |
+| currency_conversion_rounding | `autonomous` | - | - |
+| same_day_reversal | `autonomous` | - | - |
+| prior_date_reversal | `autonomous` | - | - |
+| reversal_period_closed | `autonomous` | - | - |
+| trailer_mismatch | `autonomous` | - | - |
+| generate_response_dataset | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

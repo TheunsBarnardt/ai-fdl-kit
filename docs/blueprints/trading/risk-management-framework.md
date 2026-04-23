@@ -103,6 +103,67 @@ _Unsupported risk type_
 | risk-budgeting-tolerance | required |  |
 | investment-policy-statement-ips | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Risk Management Framework
+
+Establish an enterprise risk management framework with governance, risk tolerance, risk identification (financial and non-financial), and risk measurement, mitigation, and monitoring
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `risk_budgeting_tolerance` | risk-budgeting-tolerance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| assess_risk | `autonomous` | - | - |
+| invalid_type | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

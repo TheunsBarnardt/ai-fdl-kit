@@ -127,6 +127,70 @@ _Neither population nor sample std dev provided_
 | measures-of-dispersion | required |  |
 | sampling-methods | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Standard Error Sample Mean
+
+Compute the standard error of the sample mean — the dispersion of the sampling distribution — using known or estimated population standard deviation divided by the square root of the sample size
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `central_limit_theorem` | central-limit-theorem | fail |
+| `measures_of_dispersion` | measures-of-dispersion | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_known_sigma | `autonomous` | - | - |
+| compute_estimated | `autonomous` | - | - |
+| insufficient_sample | `autonomous` | - | - |
+| missing_std_dev | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

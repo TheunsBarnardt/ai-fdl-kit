@@ -125,6 +125,68 @@ _Entity or period missing_
 | fsa-balance-sheet | recommended |  |
 | fsa-cash-flow | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fsa Income Statement
+
+Analyse income statements — revenue/expense recognition, non-recurring items, basic and diluted EPS, common-size ratios — applying IFRS 15 / ASC 606 five-step model
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fsa_framework` | fsa-framework | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| analyze_income_statement | `autonomous` | - | - |
+| invalid_revenue | `autonomous` | - | - |
+| missing_inputs | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

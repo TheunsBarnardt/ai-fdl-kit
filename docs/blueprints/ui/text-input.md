@@ -3,7 +3,7 @@ title: "Text Input Blueprint"
 layout: default
 parent: "UI"
 grand_parent: Blueprint Catalog
-description: "Text entry fields and text editing. 5 outcomes. rules: implementation, platform_agnostic"
+description: "Text entry fields and text editing. 5 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous"
 ---
 
 # Text Input Blueprint
@@ -84,6 +84,41 @@ description: "Text entry fields and text editing. 5 outcomes. rules: implementat
 
 **Result:** Clipboard integration completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Text Input
+
+Text entry fields and text editing
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| single-line_input | `autonomous` | - | - |
+| multi-line_input | `autonomous` | - | - |
+| text_validation | `autonomous` | - | - |
+| cursor_control | `autonomous` | - | - |
+| copy/paste | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -101,7 +136,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Text Input Blueprint",
-  "description": "Text entry fields and text editing. 5 outcomes. rules: implementation, platform_agnostic",
+  "description": "Text entry fields and text editing. 5 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

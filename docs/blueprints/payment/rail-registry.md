@@ -103,6 +103,69 @@ description: "Pluggable RailAdapter registry — admin API to add/swap rails, ro
 | payshap-rail | recommended | First-class ZA rail adapter |
 | sandbox-rail-adapter | recommended | Mock rail used for sandbox and demos |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Rail Registry
+
+Pluggable RailAdapter registry — admin API to add/swap rails, routing policy engine that selects a rail per payment by amount/region/merchant
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payments_gateway_api` | payments-gateway-api | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| rail_registered | `autonomous` | - | - |
+| invalid_policy | `autonomous` | - | - |
+| unauthorized | `autonomous` | - | - |
+| duplicate | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

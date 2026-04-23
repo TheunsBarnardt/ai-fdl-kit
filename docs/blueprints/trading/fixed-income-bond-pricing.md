@@ -118,6 +118,69 @@ _Negative YTM_
 | fixed-income-yield-measures | required |  |
 | fixed-income-spot-forward-rates | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fixed Income Bond Pricing
+
+Price bonds using discounted cash flow with spot or constant-yield discounting, reconcile full (dirty) vs flat (clean) price via accrued interest, and explain price-yield relationships
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fixed_income_yield_measures` | fixed-income-yield-measures | fail |
+| `fixed_income_spot_forward_rates` | fixed-income-spot-forward-rates | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| price_bond | `autonomous` | - | - |
+| invalid_maturity | `autonomous` | - | - |
+| invalid_ytm | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

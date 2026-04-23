@@ -159,6 +159,70 @@ JSE analyst signs off pass/fail. Valid until software modification.
 | interest-rate-derivatives-trading | required |  |
 | currency-derivatives-trading | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Derivatives Market Overview
+
+Derivatives trading market infrastructure, sessions, settlement, and conformance
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `interest_rate_derivatives_trading` | interest-rate-derivatives-trading | fail |
+| `currency_derivatives_trading` | currency-derivatives-trading | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| market_session_open | `autonomous` | - | - |
+| circuit_breaker_triggered | `autonomous` | - | - |
+| closing_auction_settlement | `autonomous` | - | - |
+| conformance_passed | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

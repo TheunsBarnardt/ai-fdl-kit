@@ -124,6 +124,57 @@ _Unsupported standard group_
 |---------|-------------|--------|
 | economics-investment-markets-l2 | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Cfa Ethics Standards L2
+
+Apply CFA ethics framework — Code of Ethics, Standards I-VII (professionalism, capital markets integrity, duties to clients/employers, investment analysis, conflicts, CFA designation)
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| review_ethics | `autonomous` | - | - |
+| invalid_standard | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

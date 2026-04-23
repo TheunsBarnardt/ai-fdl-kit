@@ -259,6 +259,76 @@ _Scheduled download exceeds configured SLA window without completion_
 | broker-client-account-maintenance | recommended |  |
 | popia-compliance | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Bond Download Automation
+
+Automated scheduled download of bond instrument datasets from a bond-data-feed-provider, including error monitoring, adhoc request handling, and a file processing pipeline for verified distribution
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| schedule_adhoc_download | `autonomous` | - | - |
+| reject_adhoc_wrong_date | `supervised` | - | - |
+| reject_invalid_instrument | `supervised` | - | - |
+| execute_scheduled_download | `autonomous` | - | - |
+| complete_and_verify_dataset | `autonomous` | - | - |
+| fail_on_provider_unavailable | `autonomous` | - | - |
+| verification_failure_quarantine | `autonomous` | - | - |
+| reject_duplicate_completed | `supervised` | - | - |
+| escalate_retries_exhausted | `autonomous` | - | - |
+| sla_breach_alert | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

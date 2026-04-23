@@ -129,6 +129,57 @@ _Unsupported evaluation type_
 | investment-manager-selection-l3 | recommended |  |
 | trade-strategy-execution-l3 | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Portfolio Performance Evaluation L3
+
+Portfolio performance evaluation — return attribution (BHB, Brinson-Fachler), FI attribution, risk attribution, benchmark quality, appraisal measures, capture ratios, and skill evaluation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| evaluate_performance | `autonomous` | - | - |
+| invalid_evaluation | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

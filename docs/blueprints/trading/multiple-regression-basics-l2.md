@@ -88,6 +88,67 @@ _Fit multiple linear regression model_
 | regression-assumptions | required |  |
 | multiple-regression-evaluation-l2 | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Multiple Regression Basics L2
+
+Multiple linear regression — formulate model with multiple independent variables, interpret coefficients and intercept, and validate the six classical OLS assumptions
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `simple_linear_regression_ols` | simple-linear-regression-ols | fail |
+| `regression_assumptions` | regression-assumptions | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| fit_mlr | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

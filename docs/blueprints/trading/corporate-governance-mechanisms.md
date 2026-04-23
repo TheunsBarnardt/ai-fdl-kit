@@ -110,6 +110,68 @@ _Entity id missing_
 | corporate-stakeholders | required |  |
 | corporate-organizational-forms | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Corporate Governance Mechanisms
+
+Catalog corporate governance mechanisms — reporting, voting, covenants, board oversight, regulation — and assess effectiveness in resolving stakeholder conflicts
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `corporate_stakeholders` | corporate-stakeholders | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| evaluate_mechanism | `autonomous` | - | - |
+| invalid_mechanism | `autonomous` | - | - |
+| missing_entity | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

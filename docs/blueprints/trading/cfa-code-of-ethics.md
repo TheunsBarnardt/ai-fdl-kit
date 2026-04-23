@@ -102,6 +102,70 @@ _Unsupported member type_
 | standard-ii-integrity-capital-markets | required |  |
 | standard-iii-duties-to-clients | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Cfa Code Of Ethics
+
+State the CFA Institute Code of Ethics and its six principles, and describe the organization of the seven Standards of Professional Conduct they govern
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `ethics_framework_investment` | ethics-framework-investment | fail |
+| `standard_i_professionalism` | standard-i-professionalism | fail |
+| `standard_ii_integrity_capital_markets` | standard-ii-integrity-capital-markets | fail |
+| `standard_iii_duties_to_clients` | standard-iii-duties-to-clients | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| review_code_compliance | `autonomous` | - | - |
+| invalid_member | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

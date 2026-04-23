@@ -108,7 +108,59 @@ _Unsupported strategy type_
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| hedge-fund-strategies | extends | Builds on L1 foundations — prerequisite before this level's material |
 | multifactor-models-l2 | recommended |  |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Hedge Fund Strategies L2
+
+Evaluate hedge fund strategies — equity L/S, dedicated short, market neutral, merger arb, distressed, relative value, global macro, managed futures, and conditional factor risk model analysis
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| evaluate_hedge_fund | `autonomous` | - | - |
+| invalid_strategy | `autonomous` | - | - |
 
 
 <script type="application/ld+json">

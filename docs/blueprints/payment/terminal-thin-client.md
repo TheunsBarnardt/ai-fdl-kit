@@ -106,6 +106,70 @@ description: "Android thin-client payment terminal — base UI + palm-vein captu
 | device-attestation | required | TPM-backed attestation on every PGW call |
 | biometric-auth | required | Shared enrolment + auth semantics |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Terminal Thin Client
+
+Android thin-client payment terminal — base UI + palm-vein capture with on-device 1:N match + card reader SPoC passthrough + PGW API client; no rail SDKs or EMV kernel on-device
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `popia_compliance` | popia-compliance | fail |
+| `payments_gateway_api` | payments-gateway-api | fail |
+| `palm_vein` | palm-vein | fail |
+| `device_attestation` | device-attestation | fail |
+| `biometric_auth` | biometric-auth | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| palm_payment_initiated | `autonomous` | - | - |
+| card_payment_initiated | `autonomous` | - | - |
+| pgw_unreachable | `autonomous` | - | - |
+| palm_no_match | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

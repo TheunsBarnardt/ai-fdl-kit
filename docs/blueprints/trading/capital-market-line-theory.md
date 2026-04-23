@@ -96,6 +96,68 @@ _Non-positive market std dev_
 | portfolio-efficient-frontier | required |  |
 | capm-security-market-line | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Capital Market Line Theory
+
+Derive the Capital Market Line, combine risk-free asset with the market portfolio, and describe leveraged and lending portfolios with differing borrowing and lending rates
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `portfolio_efficient_frontier` | portfolio-efficient-frontier | fail |
+| `capm_security_market_line` | capm-security-market-line | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_cml | `autonomous` | - | - |
+| invalid_market_sd | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

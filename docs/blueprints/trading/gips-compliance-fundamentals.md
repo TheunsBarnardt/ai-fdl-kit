@@ -101,6 +101,67 @@ _Unsupported compliance status_
 | gips-composites-requirements | required |  |
 | standard-iii-duties-to-clients | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Gips Compliance Fundamentals
+
+Describe the Global Investment Performance Standards — who can claim compliance, benefits of compliance, fundamentals of compliance, and key verification and presentation requirements
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `gips_composites_requirements` | gips-composites-requirements | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| assess_gips_compliance | `autonomous` | - | - |
+| invalid_status | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

@@ -99,6 +99,67 @@ _Unsupported stage_
 | real-estate-investments | recommended |  |
 | alt-investments-features-categories | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Infrastructure Investments
+
+Evaluate infrastructure investments by stage (greenfield vs. brownfield), category (economic, social), return profile, and diversification and inflation-hedging benefits
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `alt_investments_features_categories` | alt-investments-features-categories | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| analyse_infrastructure | `autonomous` | - | - |
+| invalid_stage | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

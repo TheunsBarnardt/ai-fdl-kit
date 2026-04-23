@@ -109,6 +109,68 @@ _Unsupported client type_
 | portfolio-management-process | required |  |
 | strategic-asset-allocation | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Investment Policy Statement Ips
+
+Draft an Investment Policy Statement covering risk and return objectives, liquidity, time horizon, tax, legal, unique circumstances, and ESG considerations for individual and institutional clients
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `portfolio_management_process` | portfolio-management-process | fail |
+| `strategic_asset_allocation` | strategic-asset-allocation | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| draft_ips | `autonomous` | - | - |
+| invalid_client | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

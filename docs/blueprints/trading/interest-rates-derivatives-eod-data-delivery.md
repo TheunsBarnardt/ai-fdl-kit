@@ -140,6 +140,7 @@ description: "End-of-day interest rate derivatives data delivery via FTP — fix
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| derivatives-eod-data-delivery | extends | Inherits shared FTP fixed-width EOD delivery specification |
 | equities-eod-data-delivery | optional | Equities EOD data uses same FTP delivery infrastructure |
 
 ## AGI Readiness

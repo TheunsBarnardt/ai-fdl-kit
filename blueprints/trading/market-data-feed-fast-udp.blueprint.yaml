@@ -1,0 +1,166 @@
+# ============================================================
+# Market Data Feed FAST/UDP — Abstract Parent Blueprint
+# ============================================================
+# Shared specification for real-time FAST-protocol UDP multicast
+# feeds with TCP recovery/replay channels. Extended by
+# instrument-specific feed blueprints (market-data-gateway,
+# indices-feed, regulatory-news-feed).
+# ============================================================
+
+feature: market-data-feed-fast-udp
+version: "1.0.0"
+description: "Abstract: shared FAST UDP multicast + TCP recovery/replay specification for real-time market data feeds. Extended by market-data-gateway, indices, and regulatory-news blueprints."
+category: trading
+tags:
+  - market-data
+  - fast-protocol
+  - udp-multicast
+  - tcp-recovery
+  - real-time
+  - live-feed
+
+actors:
+  - id: data_consumer
+    name: Data Consumer
+    type: human
+    description: Licensed client connecting to the multicast or TCP recovery channels
+  - id: feed_gateway
+    name: Feed Gateway
+    type: system
+    description: Exchange gateway publishing FAST-encoded UDP multicast streams
+
+fields:
+  - name: credentials_valid
+    type: boolean
+    required: true
+    label: Whether the client's authentication credentials are valid
+  - name: user_id
+    type: text
+    required: true
+    label: Authenticated user identifier
+  - name: security_id
+    type: text
+    required: false
+    label: Security or instrument identifier being subscribed to
+
+rules:
+  delivery:
+    multicast: "Real-time UDP multicast feeds A and B (primary + redundant)"
+    recovery: "TCP recovery channel for missed messages and trade history snapshots"
+    replay: "TCP replay channel for on-demand message recovery"
+  protocol:
+    encoding: "FAST (Fix Adapted for STreaming) binary encoding"
+    transport: "UDP for multicast, TCP for recovery and replay"
+  session:
+    logon_required: "Client must authenticate before receiving data"
+    heartbeat: "Heartbeat messages must be sent on idle sessions"
+  failover:
+    rule: "Client must subscribe to both Feed A and Feed B and deduplicate by sequence number"
+
+outcomes:
+  logon_successful:
+    priority: 1
+    description: Client successfully authenticates and establishes a data session
+    given:
+      - field: credentials_valid
+        source: request
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: session.established
+        payload: [user_id]
+    result: "Session active — client can receive real-time feed data"
+
+  market_data_published:
+    priority: 2
+    description: Real-time data updates published to subscribed clients via multicast
+    given:
+      - field: data_available
+        source: system
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: feed.data_published
+        payload: [security_id]
+    result: "Data disseminated to all subscribed consumers"
+
+  auth_failed:
+    priority: 1
+    error: AUTH_FAILED
+    description: Client credentials rejected — session not established
+    given:
+      - field: credentials_valid
+        source: request
+        operator: eq
+        value: false
+    then: []
+    result: "Client cannot connect — check credentials"
+
+errors:
+  - code: AUTH_FAILED
+    status: 401
+    message: "Authentication failed — check credentials and try again."
+  - code: SESSION_ERROR
+    status: 500
+    message: "Session error — reconnect or contact support."
+  - code: SEQUENCE_GAP
+    status: 500
+    message: "Sequence gap detected — use TCP recovery channel to fill missing messages."
+
+events:
+  - name: session.established
+    description: "Client authenticated and session opened"
+    payload: [user_id]
+  - name: feed.data_published
+    description: "Real-time feed data published to multicast group"
+    payload: [security_id, sequence_number]
+  - name: session.heartbeat
+    description: "Heartbeat sent to keep session alive"
+    payload: [user_id, timestamp]
+
+related:
+  - feature: market-data-gateway-fast-udp
+    type: optional
+    reason: Market data gateway — equities and derivatives
+  - feature: indices-feed-fast-udp
+    type: optional
+    reason: Indices feed via FTSE
+  - feature: regulatory-news-feed-fast
+    type: optional
+    reason: Regulatory news via FAST multicast
+
+agi:
+  goals:
+    - id: reliable_fast_udp_feed
+      description: Deliver real-time market data via FAST UDP multicast with sub-millisecond latency
+      success_metrics:
+        - metric: message_loss_rate
+          target: 0%
+          measurement: Messages lost vs total published (clients use recovery for gaps)
+        - metric: latency
+          target: "< 1ms"
+          measurement: Gateway publish to consumer receive
+      constraints:
+        - type: performance
+          description: Must not introduce latency above exchange SLA
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - on AUTH_FAILED threshold breach
+    escalation_triggers:
+      - session_error_rate > 1%
+  safety:
+    action_permissions:
+      - action: logon_successful
+        permission: autonomous
+      - action: market_data_published
+        permission: autonomous
+      - action: auth_failed
+        permission: autonomous
+  tradeoffs:
+    - prefer: throughput
+      over: latency_consistency
+      reason: UDP multicast maximises throughput; TCP recovery handles gaps

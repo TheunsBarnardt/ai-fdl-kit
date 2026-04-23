@@ -134,6 +134,70 @@ _A price is zero or negative_
 | annualized-return | recommended |  |
 | geometric-mean-return | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Continuously Compounded Return
+
+Compute the continuously compounded (log) return — preferred in quantitative finance for its additive properties over time
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `holding_period_return` | holding-period-return | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| from_prices | `autonomous` | - | - |
+| from_hpr | `autonomous` | - | - |
+| to_hpr | `autonomous` | - | - |
+| invalid_hpr | `autonomous` | - | - |
+| non_positive_price | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

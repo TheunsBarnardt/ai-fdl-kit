@@ -119,6 +119,69 @@ _Entity missing_
 | fsa-income-statement | required |  |
 | corporate-capital-structure | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Bonds Leases Accounting
+
+Account for non-current liabilities — bond issuance at par/premium/discount, effective interest method, debt covenants, and lease capitalisation under IFRS 16 and ASC 842
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fsa_balance_sheet` | fsa-balance-sheet | fail |
+| `fsa_income_statement` | fsa-income-statement | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| account_for_instrument | `autonomous` | - | - |
+| invalid_type | `autonomous` | - | - |
+| missing_entity | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

@@ -261,6 +261,77 @@ _Reject investments that reference a balance code not on the balance table_
 | popia-compliance | required |  |
 | broker-back-office-dissemination | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Money Market
+
+Broker-managed money market facility for investing pooled client funds in daily call and fixed-term deposits with a deposit-taking institution, with automated interest capitalisation and reinvestment
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_call_investment | `supervised` | - | - |
+| create_fixed_term_investment | `supervised` | - | - |
+| reject_missing_mandate | `supervised` | - | - |
+| capitalise_call_interest_month_end | `autonomous` | - | - |
+| capitalise_and_mature_fixed_term | `autonomous` | - | - |
+| auto_reinvest_matured_investment | `autonomous` | - | - |
+| block_reinvestment_on_withdrawal | `human_required` | - | - |
+| process_client_withdrawal | `autonomous` | - | - |
+| reject_unauthorised_rate_change | `supervised` | - | - |
+| reject_unknown_balance_code | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

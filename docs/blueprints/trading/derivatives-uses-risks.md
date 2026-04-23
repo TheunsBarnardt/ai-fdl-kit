@@ -105,6 +105,67 @@ _Unsupported purpose_
 | derivatives-instrument-features | required |  |
 | derivatives-arbitrage-replication | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Derivatives Uses Risks
+
+Catalogue derivative benefits and risks for issuers and investors — hedging, speculation, cost-efficiency, leverage, counterparty risk, operational and legal risks
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `derivatives_instrument_features` | derivatives-instrument-features | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| assess_program | `autonomous` | - | - |
+| invalid_purpose | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

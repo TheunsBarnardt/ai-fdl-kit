@@ -3,7 +3,7 @@ title: "Animation State Machine Blueprint"
 layout: default
 parent: "UI"
 grand_parent: Blueprint Catalog
-description: "State machine-based animation control. 4 outcomes. rules: implementation, platform_agnostic"
+description: "State machine-based animation control. 4 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous"
 ---
 
 # Animation State Machine Blueprint
@@ -74,6 +74,40 @@ description: "State machine-based animation control. 4 outcomes. rules: implemen
 
 **Result:** Execute code on state change completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Animation State Machine
+
+State machine-based animation control
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| state_creation | `supervised` | - | - |
+| transitions | `autonomous` | - | - |
+| blend_spaces | `autonomous` | - | - |
+| state_callbacks | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -91,7 +125,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Animation State Machine Blueprint",
-  "description": "State machine-based animation control. 4 outcomes. rules: implementation, platform_agnostic",
+  "description": "State machine-based animation control. 4 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

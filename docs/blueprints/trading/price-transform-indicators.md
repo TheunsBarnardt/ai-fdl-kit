@@ -120,6 +120,68 @@ description: "Single-bar OHLC price transformation functions that synthesize a r
 | moving-average-overlap-studies | recommended |  |
 | market-data-feeds | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Price Transform Indicators
+
+Single-bar OHLC price transformation functions that synthesize a representative scalar price from open, high, low, and close without any time-period smoothing
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `market_data_feeds` | market-data-feeds | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_success | `autonomous` | - | - |
+| missing_open | `autonomous` | - | - |
+| mismatched_lengths | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

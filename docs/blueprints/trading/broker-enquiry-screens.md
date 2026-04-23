@@ -243,6 +243,77 @@ _Reject enquiries where date range is inverted or exceeds maximum window_
 | broker-back-office-dissemination | recommended |  |
 | broker-client-data-upload | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Enquiry Screens
+
+Online enquiry facilities for broker back-office users to view client balances, open deals, securities positions, financial history, charge and trade statistics, and portfolio holdings
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| view_open_positions_and_history | `autonomous` | - | - |
+| reject_out_of_scope_enquiry | `supervised` | - | - |
+| drill_into_specified_deal | `autonomous` | - | - |
+| view_account_balance | `autonomous` | - | - |
+| capture_balance_transfer | `autonomous` | - | - |
+| reject_unreleased_transfer | `supervised` | - | - |
+| view_portfolio_valuation | `autonomous` | - | - |
+| view_financial_history | `autonomous` | - | - |
+| view_trade_statistics | `autonomous` | - | - |
+| reject_invalid_date_range | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

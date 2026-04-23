@@ -100,6 +100,67 @@ _Unsupported land type_
 | natural-resources-commodities | recommended |  |
 | alt-investments-features-categories | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Farmland Timberland Investments
+
+Invest in farmland and timberland for combined income from crop/lumber sales and land appreciation, with biological growth providing optionality on harvest timing
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `alt_investments_features_categories` | alt-investments-features-categories | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| analyse_land | `autonomous` | - | - |
+| invalid_type | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

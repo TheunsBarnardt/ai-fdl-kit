@@ -292,6 +292,79 @@ _Archive a scale when a newer scale with later effective date activates_
 | broker-client-data-upload | recommended |  |
 | broker-back-office-dissemination | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Negotiable Brokerage
+
+Negotiable brokerage configuration covering custom commission rate schedules, per-client rate assignments, contract-note overrides, minimum charges, and brokerage scale tables keyed by instrument...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| propose_new_negotiable_scale | `autonomous` | - | - |
+| reject_past_dated_rate | `supervised` | - | - |
+| reject_overlapping_bands | `supervised` | - | - |
+| approve_negotiable_scale | `supervised` | - | - |
+| activate_on_effective_date | `autonomous` | - | - |
+| assign_scale_to_client | `autonomous` | - | - |
+| bulk_assign_scale | `autonomous` | - | - |
+| reject_bulk_assignment_in_trading_window | `supervised` | - | - |
+| apply_contract_note_override | `supervised` | - | - |
+| reject_unjustified_override | `supervised` | - | - |
+| apply_minimum_charge | `autonomous` | - | - |
+| archive_superseded_scale | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

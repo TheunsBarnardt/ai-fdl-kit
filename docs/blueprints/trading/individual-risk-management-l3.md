@@ -135,6 +135,67 @@ _Unsupported individual risk type_
 | private-wealth-management-overview-l3 | required |  |
 | private-wealth-topics-l3 | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Individual Risk Management L3
+
+Individual risk management — human and financial capital, economic net worth, life insurance types, annuities, individual risk exposures, and optimal risk management strategy
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `private_wealth_management_overview_l3` | private-wealth-management-overview-l3 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| manage_individual_risk | `autonomous` | - | - |
+| invalid_risk | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

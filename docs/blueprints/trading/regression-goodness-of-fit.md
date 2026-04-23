@@ -121,6 +121,68 @@ _Sample size too small for df_
 | regression-anova-table | recommended |  |
 | regression-coefficient-hypothesis-tests | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Regression Goodness Of Fit
+
+Measure how well a simple linear regression explains the dependent variable using R-squared, the standard error of estimate, and the overall F-test
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `simple_linear_regression_ols` | simple-linear-regression-ols | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_fit_metrics | `autonomous` | - | - |
+| invalid_sst | `autonomous` | - | - |
+| insufficient_n | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

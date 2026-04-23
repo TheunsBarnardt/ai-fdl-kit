@@ -134,6 +134,58 @@ _Required simulation inputs missing_
 | continuously-compounded-returns | recommended |  |
 | expected-value-variance | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Monte Carlo Simulation
+
+Generate many random samples from specified probability distributions to estimate risk/return metrics, value complex securities, and test model sensitivities to distributional assumptions
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| run_simulation | `autonomous` | - | - |
+| insufficient_trials | `autonomous` | - | - |
+| missing_inputs | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

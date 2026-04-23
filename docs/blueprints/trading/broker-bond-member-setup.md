@@ -342,6 +342,81 @@ _Surveillance may suspend an active member on a capital-adequacy breach_
 | broker-back-office-dissemination | recommended |  |
 | broker-client-data-upload | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Bond Member Setup
+
+Onboarding and configuration of a new bond-market member on the broker back-office system including reference data, settlement accounts, user access, capital adequacy, and trade-processing enablement
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| record_member_application | `autonomous` | - | - |
+| reject_missing_service_provider_letter | `supervised` | - | - |
+| approve_member_after_exchange_confirmation | `supervised` | - | - |
+| load_broker_master_record | `autonomous` | - | - |
+| reject_non_senior_loading | `supervised` | - | - |
+| provision_access_credentials | `autonomous` | - | - |
+| register_settlement_details | `autonomous` | - | - |
+| reject_unverified_settlement | `supervised` | - | - |
+| load_resident_client_settlement | `autonomous` | - | - |
+| load_non_resident_client_settlement | `autonomous` | - | - |
+| confirm_capital_adequacy | `autonomous` | - | - |
+| activate_bond_member | `autonomous` | - | - |
+| reject_activation_without_capital_confirmation | `supervised` | - | - |
+| suspend_on_capital_breach | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

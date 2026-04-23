@@ -127,6 +127,69 @@ _Horizon non-positive_
 | industry-competitive-analysis | required |  |
 | equity-valuation-ddm | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Company Forecasting Model
+
+Forecast company financials — revenue, operating costs, working capital, capital investment — using top-down, bottom-up, and hybrid methods with scenario analysis
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `company_business_model_analysis` | company-business-model-analysis | fail |
+| `industry_competitive_analysis` | industry-competitive-analysis | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| generate_forecast | `autonomous` | - | - |
+| invalid_approach | `autonomous` | - | - |
+| invalid_horizon | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

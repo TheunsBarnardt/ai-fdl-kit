@@ -127,6 +127,70 @@ _Client reconciles state with server_
 | native-trading-gateway-basic | required |  |
 | drop-copy-gateway-fix | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Client Failure Recovery
+
+Systematic procedures for detecting and recovering from client or gateway failures with message replay and order state resynchronization
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `native_trading_gateway_enhanced` | native-trading-gateway-enhanced | fail |
+| `native_trading_gateway_basic` | native-trading-gateway-basic | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| failure_detection | `autonomous` | - | - |
+| client_reconnection | `autonomous` | - | - |
+| message_recovery | `autonomous` | - | - |
+| state_resync | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

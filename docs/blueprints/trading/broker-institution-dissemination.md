@@ -225,6 +225,77 @@ _When a broker revokes authorisation, the next batch excludes that broker's data
 | broker-corporate-actions | optional |  |
 | broker-portfolio-management | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Institution Dissemination
+
+Overnight dissemination of broker back-office data (accounts, balances, deals, transactions, entitlements) to subscribed institutional clients for reconciliation.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| schedule_requires_authorisation | `autonomous` | - | - |
+| schedule_requires_popia_basis | `autonomous` | - | - |
+| schedule_created | `supervised` | - | - |
+| overnight_file_generated | `autonomous` | - | - |
+| trailer_record_count_mismatch | `autonomous` | - | - |
+| credentials_rejected | `supervised` | - | - |
+| file_retrieved | `autonomous` | - | - |
+| reconciliation_completed | `autonomous` | - | - |
+| authorisation_revoked | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

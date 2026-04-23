@@ -135,6 +135,67 @@ _Unsupported institution type_
 | overview-asset-allocation-l3 | required |  |
 | asset-allocation-alternatives-l3 | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Institutional Portfolio Management L3
+
+Institutional investor portfolio management — pension funds, SWFs, endowments, foundations, banks, and insurers — objectives, constraints, liabilities, risk, and asset allocation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `overview_asset_allocation_l3` | overview-asset-allocation-l3 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| manage_institutional_portfolio | `autonomous` | - | - |
+| invalid_type | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

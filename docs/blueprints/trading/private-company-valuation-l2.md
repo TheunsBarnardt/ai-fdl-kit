@@ -126,6 +126,57 @@ _Unsupported valuation approach_
 | free-cash-flow-valuation-l2 | recommended |  |
 | market-based-valuation-multiples-l2 | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Private Company Valuation L2
+
+Value private companies — public vs private differences, earnings normalisation, discount rate models, lack of control and marketability discounts, income/market/excess-earnings approaches
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| value_private_company | `autonomous` | - | - |
+| invalid_approach | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

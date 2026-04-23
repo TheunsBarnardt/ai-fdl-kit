@@ -216,6 +216,72 @@ description: "A suite of volatility measurement and price band indicators for qu
 | market-data-feeds | required |  |
 | regulation-28-compliance | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Volatility Band Indicators
+
+A suite of volatility measurement and price band indicators for quantifying market risk, setting dynamic stop levels, and identifying breakout conditions across financial time series
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `moving_average_overlap_studies` | moving-average-overlap-studies | fail |
+| `market_data_feeds` | market-data-feeds | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_success | `autonomous` | - | - |
+| bbands_computed | `autonomous` | - | - |
+| volatility_expansion | `autonomous` | - | - |
+| insufficient_data | `autonomous` | - | - |
+| invalid_parameters | `autonomous` | - | - |
+| natr_zero_close | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

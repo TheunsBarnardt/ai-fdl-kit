@@ -3,12 +3,12 @@ title: "Machine Learning L2 Blueprint"
 layout: default
 parent: "Trading"
 grand_parent: Blueprint Catalog
-description: "Apply ML to investment problems — supervised (penalised regression, SVM, KNN, CART, random forest), unsupervised (PCA, clustering), neural networks, deep learni"
+description: "CFA Level 2 ML — extends L1 fundamentals with penalised regression (LASSO/Ridge), SVM, KNN, CART, random forest, PCA, k-means/hierarchical clustering, neural ne"
 ---
 
 # Machine Learning L2 Blueprint
 
-> Apply ML to investment problems — supervised (penalised regression, SVM, KNN, CART, random forest), unsupervised (PCA, clustering), neural networks, deep learning, reinforcement learning
+> CFA Level 2 ML — extends L1 fundamentals with penalised regression (LASSO/Ridge), SVM, KNN, CART, random forest, PCA, k-means/hierarchical clustering, neural networks, and reinforcement learning
 
 | | |
 |---|---|
@@ -111,8 +111,59 @@ _Unsupported algorithm_
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| machine-learning-techniques | required |  |
+| machine-learning-techniques | extends | Builds directly on L1 ML foundations — prerequisite before attempting L2 material |
 | big-data-projects-l2 | recommended |  |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Machine Learning L2
+
+CFA Level 2 ML — extends L1 fundamentals with penalised regression (LASSO/Ridge), SVM, KNN, CART, random forest, PCA, k-means/hierarchical clustering, neural networks, and reinforcement learning
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| train_ml_model | `autonomous` | - | - |
+| invalid_algorithm | `autonomous` | - | - |
 
 
 <script type="application/ld+json">
@@ -120,7 +171,7 @@ _Unsupported algorithm_
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Machine Learning L2 Blueprint",
-  "description": "Apply ML to investment problems — supervised (penalised regression, SVM, KNN, CART, random forest), unsupervised (PCA, clustering), neural networks, deep learni",
+  "description": "CFA Level 2 ML — extends L1 fundamentals with penalised regression (LASSO/Ridge), SVM, KNN, CART, random forest, PCA, k-means/hierarchical clustering, neural ne",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

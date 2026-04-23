@@ -206,6 +206,62 @@ _Validated batches feed the cash-receipt, cash-payment and journal functions; in
 |---------|-------------|--------|
 | broker-money-market | extends |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Money Market Upload
+
+Daily bulk upload of money market investments, cash movements, journals and memo transactions from external broker systems via fixed-width card-code records.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| upload_mm_trade_batch | `autonomous` | - | - |
+| validate_mm_trade | `autonomous` | - | - |
+| calculate_yield | `autonomous` | - | - |
+| calculate_maturity_value | `autonomous` | - | - |
+| schedule_maturity_processing | `autonomous` | - | - |
+| reconcile_against_back_office | `autonomous` | - | - |
+| process_accepted_batch | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

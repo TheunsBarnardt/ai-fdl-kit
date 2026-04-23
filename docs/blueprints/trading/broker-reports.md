@@ -356,6 +356,81 @@ _Capture generation failures and mark report as failed_
 | broker-back-office-dissemination | recommended |  |
 | broker-client-data-upload | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Reports
+
+Standard broker reporting subsystem covering contract notes, statements, portfolio valuations, tax certificates, scheduled batch generation, and multi-channel delivery
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| request_standard_report | `autonomous` | - | - |
+| schedule_recurring_batch | `autonomous` | - | - |
+| reject_invalid_schedule | `supervised` | - | - |
+| generate_contract_note | `autonomous` | - | - |
+| generate_portfolio_valuation | `autonomous` | - | - |
+| generate_it3b_tax_certificate | `autonomous` | - | - |
+| reject_it3b_for_excluded_account | `supervised` | - | - |
+| generate_cgt_certificate | `autonomous` | - | - |
+| deliver_hardcopy | `autonomous` | - | - |
+| deliver_xml_feed | `autonomous` | - | - |
+| deliver_electronic | `autonomous` | - | - |
+| reject_electronic_without_consent | `supervised` | - | - |
+| retry_failed_delivery | `autonomous` | - | - |
+| handle_generation_failure | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

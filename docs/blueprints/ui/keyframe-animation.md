@@ -3,7 +3,7 @@ title: "Keyframe Animation Blueprint"
 layout: default
 parent: "UI"
 grand_parent: Blueprint Catalog
-description: "Timeline-based keyframe animation and playback. 5 outcomes. rules: implementation, platform_agnostic"
+description: "Timeline-based keyframe animation and playback. 5 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous"
 ---
 
 # Keyframe Animation Blueprint
@@ -84,6 +84,41 @@ description: "Timeline-based keyframe animation and playback. 5 outcomes. rules:
 
 **Result:** Trigger events at keyframes completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Keyframe Animation
+
+Timeline-based keyframe animation and playback
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| animation_recording | `autonomous` | - | - |
+| animation_playback | `autonomous` | - | - |
+| animation_blending | `autonomous` | - | - |
+| animation_speed | `autonomous` | - | - |
+| animation_callbacks | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -101,7 +136,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Keyframe Animation Blueprint",
-  "description": "Timeline-based keyframe animation and playback. 5 outcomes. rules: implementation, platform_agnostic",
+  "description": "Timeline-based keyframe animation and playback. 5 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

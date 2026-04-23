@@ -3,7 +3,7 @@ title: "Floating Rate Note Pricing Blueprint"
 layout: default
 parent: "Trading"
 grand_parent: Blueprint Catalog
-description: "Floating rate note pricing using discount margin methodology and swap zero curve.. 4 fields. 1 outcomes. 1 error codes. rules: pricing"
+description: "Floating rate note pricing using discount margin methodology and swap zero curve.. 4 fields. 1 outcomes. 1 error codes. rules: pricing. AGI: supervised"
 ---
 
 # Floating Rate Note Pricing Blueprint
@@ -63,13 +63,73 @@ _Calculate FRN all-in price using discount margin method_
 |---------|-------------|--------|
 | bond-pricing-models | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Floating Rate Note Pricing
+
+Floating rate note pricing using discount margin methodology and swap zero curve.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `bond_pricing_models` | bond-pricing-models | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| frn_priced | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Floating Rate Note Pricing Blueprint",
-  "description": "Floating rate note pricing using discount margin methodology and swap zero curve.. 4 fields. 1 outcomes. 1 error codes. rules: pricing",
+  "description": "Floating rate note pricing using discount margin methodology and swap zero curve.. 4 fields. 1 outcomes. 1 error codes. rules: pricing. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

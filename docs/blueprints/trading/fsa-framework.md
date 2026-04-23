@@ -103,6 +103,57 @@ _Missing required inputs_
 | fsa-balance-sheet | recommended |  |
 | fsa-cash-flow | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fsa Framework
+
+Apply a six-step financial statement analysis framework — purpose, data collection, processing, analysis, communication, follow-up — using regulated and supplementary information sources
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| start_analysis | `autonomous` | - | - |
+| missing_inputs | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

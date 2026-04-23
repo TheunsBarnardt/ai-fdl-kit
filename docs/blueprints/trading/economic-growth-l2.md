@@ -111,6 +111,57 @@ _Unsupported growth model_
 |---------|-------------|--------|
 | economic-indicators | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Economic Growth L2
+
+Analyse drivers of economic growth — production function, growth accounting, capital deepening vs technology, classical/neoclassical/endogenous growth theories, convergence
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| decompose_growth | `autonomous` | - | - |
+| invalid_model | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

@@ -129,7 +129,69 @@ _Unsupported multiple_
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| equity-valuation-multiples | extends | Builds on L1 foundations — prerequisite before this level's material |
 | equity-valuation-applications-l2 | required |  |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Market Based Valuation Multiples L2
+
+Apply price and enterprise value multiples — P/E, P/B, P/S, P/CF, dividend yield, EV/EBITDA, EV/Sales, justified vs comparables, harmonic mean, momentum indicators
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `equity_valuation_applications_l2` | equity-valuation-applications-l2 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| value_with_multiple | `autonomous` | - | - |
+| invalid_multiple | `autonomous` | - | - |
 
 
 <script type="application/ld+json">

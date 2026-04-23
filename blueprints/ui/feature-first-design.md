@@ -2,66 +2,74 @@
 
 # Feature First Design
 
-> Start design with core features and user workflows before deciding on app shell, navigation, or layout. This prevents design paralysis and ensures information architecture is driven by real requirements, not design assumptions.
+> Start design with core features and user workflows before deciding on app shell or navigation. This prevents design paralysis and ensures information architecture is driven by real requirements.
 
-**Category:** Ui · **Version:** 1.0 · **Tags:** design-process · methodology · workflow
+**Category:** Ui · **Version:** 1.0.0 · **Tags:** design-process · methodology · workflow
 
 ## What this does
 
-Start design with core features and user workflows before deciding on app shell, navigation, or layout. This prevents design paralysis and ensures information architecture is driven by real requirements, not design assumptions.
+Start design with core features and user workflows before deciding on app shell or navigation. This prevents design paralysis and ensures information architecture is driven by real requirements.
 
 Combines technical outcomes (acceptance criteria) with documented business flows, so engineering and operations share one source of truth.
 
 ## Fields
 
-- **priority_features** *(text, optional)*
-- **current_feature** *(text, optional)*
-- **design_phase** *(text, optional)*
+- **priority_features** *(text, optional)* — Ranked list of features to design and build
+- **current_feature** *(text, optional)* — Feature currently in design cycle
+- **design_phase** *(text, optional)* — Current phase (requirements, wireframe, prototype, iterate, polish)
 
 ## What must be true
 
-- **0:** Start with a feature, not a layout — design the actual functionality (search, form, display) before worrying about navigation or shell
-- **1:** Detail comes later — low-fidelity mockups (wireframes, sketches) are fine initially; color, icons, and polish come after core flows work
-- **2:** Don't design too much — design one feature end-to-end before moving to the next; don't try to design the entire app in abstract
-- **3:** Work in cycles — iterate between design and code; use working prototypes to identify real problems faster than abstract mockups
-- **4:** Be a pessimist about features — don't imply functionality you aren't ready to build; design only what's committed
-- **5:** Make it real early — build and test with real data as soon as possible, not static mockups
+- **start_with_feature_not_layout:** Start with a feature, not a layout — design the actual functionality (search, form, display) before worrying about navigation or shell
+- **detail_comes_later:** Detail comes later — low-fidelity mockups (wireframes, sketches) are fine initially; color, icons, and polish come after core flows work
+- **dont_design_too_much:** Don't design too much — design one feature end-to-end before moving to the next; don't try to design the entire app in abstract
+- **work_in_cycles:** Work in cycles — iterate between design and code; use working prototypes to identify real problems faster than abstract mockups
+- **be_pessimist_about_features:** Be a pessimist about features — don't imply functionality you aren't ready to build; design only what's committed
+- **make_it_real_early:** Make it real early — build and test with real data as soon as possible, not static mockups
 
 ## Success & failure scenarios
 
 **✅ Success paths**
 
-- **0** — when new feature is being designed, then design effort is focused on real requirements, not assumptions.
-- **1** — when feature design is ready for implementation, then design moves into code early for faster iteration.
-- **2** — when working prototype reveals design problems, then design problems are caught early with real user interaction.
-- **3** — when multiple features are planned, then each feature is complete and tested before next begins.
+- **New Feature Being Designed** — when new feature is being designed, then design effort is focused on real requirements, not assumptions.
+- **Feature Design Ready For Implementation** — when feature design is ready for implementation, then design moves into code early for faster iteration.
+- **Working Prototype Reveals Problems** — when working prototype reveals design problems, then design problems are caught early with real user interaction.
+- **Multiple Features Planned** — when multiple features are planned, then each feature is complete and tested before next begins.
 
 ## Business flows
 
-**0** — Iterative design cycle starting from feature, not layout
+**Feature First Design Cycle** — Iterative design cycle starting from feature, not layout
+
+1. **define_feature_scope** *(designer)* — Identify core workflow and required fields for the feature
+1. **sketch_wireframe** *(designer)* — Sketch low-fidelity wireframe focusing on feature, not shell
+1. **implement_prototype** *(developer)* — Developer builds functional prototype from wireframe
+1. **test_with_real_data** *(designer)* — Test prototype with real data and identify problems
+1. **refine_design** *(designer)* — Iterate on design to fix discovered issues
+1. **apply_visual_polish** *(designer)* — Add visual refinement (color, icons, spacing)
+1. **merge_to_main** *(developer)* — Merge polished feature to main
 
 ## Connects to
 
-- **design-polish** *(optional)*
-- **form-design** *(recommended)*
-- **accessibility** *(required)*
+- **design-polish** *(optional)* — Polish is applied after core feature is working
+- **form-design** *(recommended)* — Forms are common features to start with
+- **accessibility** *(required)* — Accessibility is considered from start, not bolted on later
 
-## Quality fitness 🔴 57/100
+## Quality fitness 🟢 75/100
 
 Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
 
 | Dimension | Score | Points |
 |-----------|-------|--------|
 | Description | `██████████` | 10/10 |
-| Rules | `░░░░░░░░░░` | 0/10 |
-| Outcomes | `███████████████░░░░░░░░░░` | 15/25 |
+| Rules | `██████░░░░` | 6/10 |
+| Outcomes | `███████████████████░░░░░░` | 19/25 |
 | Structured conditions | `███████░░░` | 7/10 |
 | Error binding | `██████████` | 10/10 |
-| Field validation | `███░░░░░░░` | 3/10 |
-| Relationships | `███████░░░` | 7/10 |
+| Field validation | `█████░░░░░` | 5/10 |
+| Relationships | `█████████░` | 9/10 |
 | Events | `██░░░` | 2/5 |
-| AGI readiness | `░░░░░` | 0/5 |
-| Simplicity | `███░░` | 3/5 |
+| AGI readiness | `██░░░` | 2/5 |
+| Simplicity | `█████` | 5/5 |
 
 ---
 

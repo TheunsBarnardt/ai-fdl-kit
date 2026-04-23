@@ -249,6 +249,75 @@ _Authorised administrator lists all functions for a user or all users for a func
 | login | recommended |  |
 | password-reset | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker User Access
+
+User access management for back-office systems with screen-level and function-level security, role-based view/update permissions, dual-control verification, and audit trail of access changes
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| grant_new_function_access | `autonomous` | - | - |
+| reject_broker_scope_violation | `supervised` | - | - |
+| verify_and_activate_access | `autonomous` | - | - |
+| reject_unauthorised_verifier | `supervised` | - | - |
+| deactivate_access | `autonomous` | - | - |
+| reactivate_access | `autonomous` | - | - |
+| reject_update_on_enquiry_only_function | `supervised` | - | - |
+| runtime_function_invocation_check | `autonomous` | - | - |
+| enquire_access_by_user_or_function | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

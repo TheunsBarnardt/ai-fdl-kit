@@ -101,6 +101,57 @@ _Unsupported method_
 | equity-valuation-multiples | recommended |  |
 | equity-valuation-ddm | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Enterprise Value Asset Based
+
+Value firms using enterprise-value multiples (EV/EBITDA, EV/Sales, EV/Invested Capital) and asset-based methods, including when each is appropriate
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| value_firm_via_ev | `autonomous` | - | - |
+| invalid_method | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

@@ -253,6 +253,77 @@ _Generate manufactured dividend payments for open stock-lending positions_
 | broker-client-account-maintenance | required |  |
 | broker-back-office-dissemination | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Corporate Actions
+
+Back-office corporate actions processing covering event announcement, last-day-to-trade and record-date lifecycle, client entitlements, rights issues, cash or share elections, and loan/collateral...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `popia_compliance` | popia-compliance | fail |
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| announce_new_event | `autonomous` | - | - |
+| reject_duplicate_event | `supervised` | - | - |
+| freeze_positions_at_ldt | `autonomous` | - | - |
+| process_record_date | `autonomous` | - | - |
+| reject_rd_without_frozen_file | `supervised` | - | - |
+| capture_client_election | `autonomous` | - | - |
+| reject_late_election | `supervised` | - | - |
+| reject_over_election | `supervised` | - | - |
+| settle_entitlements | `autonomous` | - | - |
+| process_loan_manufactured_payment | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -101,6 +101,67 @@ _Unsupported category_
 | private-equity-investments | recommended |  |
 | alt-investments-features-categories | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Private Debt Investments
+
+Evaluate private debt categories (direct lending, mezzanine, distressed, venture debt, unitranche) by seniority, yield, covenants, and risk-return and compare with private equity
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `alt_investments_features_categories` | alt-investments-features-categories | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| analyse_private_debt | `autonomous` | - | - |
+| invalid_category | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

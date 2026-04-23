@@ -107,6 +107,7 @@ description: "Allow unauthenticated guest users to access rooms without a full a
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| guest-accounts | recommended | Guest room access requires a guest account for identity and permission scoping |
 | room-invitations | required | Guest join follows the same membership state machine as regular joins |
 | room-power-levels | required | Guest users' ability to send events is constrained by power level thresholds |
 | room-state-history | required | Guest access policy is stored as a room state event |

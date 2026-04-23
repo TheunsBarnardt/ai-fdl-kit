@@ -3,7 +3,7 @@ title: "Mesh Rendering Blueprint"
 layout: default
 parent: "Integration"
 grand_parent: Blueprint Catalog
-description: "3D mesh data structures and rendering. 5 outcomes. rules: implementation, platform_agnostic"
+description: "3D mesh data structures and rendering. 5 outcomes. rules: implementation, platform_agnostic. AGI: supervised"
 ---
 
 # Mesh Rendering Blueprint
@@ -84,6 +84,45 @@ description: "3D mesh data structures and rendering. 5 outcomes. rules: implemen
 
 **Result:** Blend between mesh targets completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Mesh Rendering
+
+3D mesh data structures and rendering
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| mesh_creation | `supervised` | - | - |
+| mesh_vertex_data | `autonomous` | - | - |
+| mesh_index_buffers | `autonomous` | - | - |
+| mesh_primitives | `autonomous` | - | - |
+| mesh_morphing | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -101,7 +140,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Mesh Rendering Blueprint",
-  "description": "3D mesh data structures and rendering. 5 outcomes. rules: implementation, platform_agnostic",
+  "description": "3D mesh data structures and rendering. 5 outcomes. rules: implementation, platform_agnostic. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

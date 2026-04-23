@@ -99,6 +99,63 @@ description: "Admin vendor registry — acquirers, SMS/email/KYC/fraud-signal pr
 | transactions-console | required | Vendor management is a companion module of the admin console |
 | rail-registry | required | Acquirer vendors plug into rails via this registry |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vendor Management
+
+Admin vendor registry — acquirers, SMS/email/KYC/fraud-signal providers; credential rotation, per-merchant overrides, health + cost visibility, full audit trail
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `transactions_console` | transactions-console | degrade |
+| `rail_registry` | rail-registry | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| vendor_registered | `autonomous` | - | - |
+| invalid_config | `autonomous` | - | - |
+| unauthorized | `autonomous` | - | - |
+| already_exists | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

@@ -2,66 +2,66 @@
 
 # Color System
 
-> Define a structured color palette using HSL for better control over shades and tones, ensuring sufficient colors for hierarchy while avoiding over-saturation and maintaining accessibility across all color-blindness types.
+> Define a structured color palette using HSL for better shade control, ensuring sufficient colors for hierarchy while avoiding over-saturation and maintaining accessibility for color-blind users.
 
-**Category:** Ui · **Version:** 1.0 · **Tags:** design-system · accessibility · visual-design
+**Category:** Ui · **Version:** 1.0.0 · **Tags:** design-system · accessibility · visual-design
 
 ## What this does
 
-Define a structured color palette using HSL for better control over shades and tones, ensuring sufficient colors for hierarchy while avoiding over-saturation and maintaining accessibility across all color-blindness types.
+Define a structured color palette using HSL for better shade control, ensuring sufficient colors for hierarchy while avoiding over-saturation and maintaining accessibility for color-blind users.
 
 Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
 
 ## Fields
 
-- **primary_colors** *(text, optional)*
-- **neutral_palette** *(text, optional)*
-- **accent_colors** *(text, optional)*
-- **color_format** *(text, optional)*
-- **contrast_standard** *(text, optional)*
+- **primary_colors** *(text, optional)* — Main brand and action colors (5-8 base hues)
+- **neutral_palette** *(text, optional)* — Greys and near-neutrals with subtle hue biases
+- **accent_colors** *(text, optional)* — Alert, error, success, warning colors with sufficient contrast
+- **color_format** *(text, optional)* — Preferred format: HSL (recommended) or hex
+- **contrast_standard** *(text, optional)* — Minimum contrast ratio (WCAG AA 4.5:1 or AAA 7:1)
 
 ## What must be true
 
-- **0:** Use HSL instead of hex — easier to understand (Hue 0-360°, Saturation 0-100%, Lightness 0-100%) and generate shades
-- **1:** You need more colors than you think — plan for 5-8 base colors with 5-9 shades each (dark, lighter, lightest, etc.)
-- **2:** Define shades up front — don't generate them ad-hoc; create a structured palette
-- **3:** Don't let lightness kill saturation — reduce saturation as lightness increases to keep colors vibrant
-- **4:** Greys don't have to be grey — subtle hue can make neutrals feel warmer or cooler
-- **5:** Accessible doesn't have to mean ugly — sufficient contrast is possible with saturated, modern colors
-- **6:** Don't rely on color alone — always pair color with other signals (icon, text, weight) for color-blind users
+- **use_hsl_instead_of_hex:** Use HSL instead of hex — easier to understand (Hue 0-360°, Saturation 0-100%, Lightness 0-100%) and generate shades
+- **need_more_colors_than_you_think:** You need more colors than you think — plan for 5-8 base colors with 5-9 shades each (dark, lighter, lightest, etc.)
+- **define_shades_up_front:** Define shades up front — don't generate them ad-hoc; create a structured palette
+- **dont_let_lightness_kill_saturation:** Don't let lightness kill saturation — reduce saturation as lightness increases to keep colors vibrant
+- **greys_dont_have_to_be_grey:** Greys don't have to be grey — subtle hue can make neutrals feel warmer or cooler
+- **accessible_doesnt_have_to_be_ugly:** Accessible doesn't have to mean ugly — sufficient contrast is possible with saturated, modern colors
+- **dont_rely_on_color_alone:** Don't rely on color alone — always pair color with other signals (icon, text, weight) for color-blind users
 
 ## Success & failure scenarios
 
 **✅ Success paths**
 
-- **0** — when design system is initiated, then color palette is comprehensive and systematic.
-- **1** — when color shade is generated, then shade remains true to base hue and maintains vibrancy across the range.
-- **2** — when text color is applied to background, then text is readable for users with low vision and color-blindness.
-- **3** — when information or meaning is conveyed through color, then meaning is conveyed to color-blind users without color alone.
-- **4** — when neutral or background color is selected, then neutral feels intentional and cohesive with brand rather than colorless.
+- **Design System Initiated** — when design system is initiated, then color palette is comprehensive and systematic.
+- **Color Shade Generated** — when color shade is generated, then shade remains true to base hue and maintains vibrancy across the range.
+- **Text Color Applied To Background** — when text color is applied to background, then text is readable for users with low vision and color-blindness.
+- **Information Conveyed Through Color** — when information or meaning is conveyed through color, then meaning is conveyed to color-blind users without color alone.
+- **Neutral Background Color Selected** — when neutral or background color is selected, then neutral feels intentional and cohesive with brand rather than colorless.
 
 ## Connects to
 
-- **visual-hierarchy** *(required)*
-- **dark-mode** *(recommended)*
-- **accessibility** *(required)*
+- **visual-hierarchy** *(required)* — Color is a tool for expressing hierarchy and emphasis
+- **dark-mode** *(recommended)* — Color system must work in both light and dark modes
+- **accessibility** *(required)* — Color choices must pass contrast ratios and avoid color-only meaning
 
-## Quality fitness 🔴 58/100
+## Quality fitness 🟢 76/100
 
 Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
 
 | Dimension | Score | Points |
 |-----------|-------|--------|
 | Description | `██████████` | 10/10 |
-| Rules | `░░░░░░░░░░` | 0/10 |
-| Outcomes | `████████████████░░░░░░░░░` | 16/25 |
+| Rules | `██████░░░░` | 6/10 |
+| Outcomes | `████████████████████░░░░░` | 20/25 |
 | Structured conditions | `███████░░░` | 7/10 |
 | Error binding | `██████████` | 10/10 |
-| Field validation | `███░░░░░░░` | 3/10 |
-| Relationships | `███████░░░` | 7/10 |
+| Field validation | `█████░░░░░` | 5/10 |
+| Relationships | `█████████░` | 9/10 |
 | Events | `██░░░` | 2/5 |
-| AGI readiness | `░░░░░` | 0/5 |
-| Simplicity | `███░░` | 3/5 |
+| AGI readiness | `██░░░` | 2/5 |
+| Simplicity | `█████` | 5/5 |
 
 ---
 

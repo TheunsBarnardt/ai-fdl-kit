@@ -287,6 +287,78 @@ _Only users with proprietary trading role may act on proprietary loans_
 | broker-client-account-maintenance | required |  |
 | popia-compliance | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Securities Lending Collateral
+
+Back-office securities lending and borrowing (SLB) with cash and securities collateral, loan book, collateral interest, proprietary loans, and central-securities-depository movement via...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| capture_securities_loan | `autonomous` | - | - |
+| reject_loan_without_collateral | `supervised` | - | - |
+| reject_duplicate_loan | `supervised` | - | - |
+| confirm_and_send_settlement_message | `autonomous` | - | - |
+| activate_loan_on_settlement_intimation | `autonomous` | - | - |
+| revalue_active_loan | `autonomous` | - | - |
+| top_up_cash_collateral | `autonomous` | - | - |
+| accrue_cash_collateral_interest | `autonomous` | - | - |
+| return_loan_and_release_collateral | `autonomous` | - | - |
+| reject_return_on_inactive_loan | `supervised` | - | - |
+| enforce_proprietary_role | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

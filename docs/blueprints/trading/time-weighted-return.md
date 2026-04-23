@@ -107,6 +107,69 @@ _No sub-period returns provided_
 | geometric-mean-return | recommended |  |
 | annualized-return | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Time Weighted Return
+
+Calculate time-weighted rate of return by chain-linking sub-period HPRs, neutralising the effect of external cash flow timing for fair manager evaluation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `money_weighted_return` | money-weighted-return | fail |
+| `holding_period_return` | holding-period-return | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_twr | `autonomous` | - | - |
+| total_loss_sub_period | `autonomous` | - | - |
+| empty_sub_periods | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

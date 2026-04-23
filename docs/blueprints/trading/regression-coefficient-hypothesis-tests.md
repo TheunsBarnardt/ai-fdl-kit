@@ -123,6 +123,69 @@ _n - 2 <= 0_
 | regression-goodness-of-fit | recommended |  |
 | hypothesis-testing-framework | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Regression Coefficient Hypothesis Tests
+
+Test hypotheses about the slope and intercept of a simple linear regression using the t-statistic on each estimated coefficient
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `simple_linear_regression_ols` | simple-linear-regression-ols | fail |
+| `hypothesis_testing_framework` | hypothesis-testing-framework | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| run_coefficient_test | `autonomous` | - | - |
+| invalid_standard_error | `autonomous` | - | - |
+| insufficient_n | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

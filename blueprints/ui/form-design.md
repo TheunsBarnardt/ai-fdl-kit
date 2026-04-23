@@ -2,66 +2,66 @@
 
 # Form Design
 
-> Design forms that are easy to scan and complete by organizing fields clearly, providing immediate feedback, handling errors gracefully, and minimizing cognitive load through smart defaults and progressive disclosure.
+> Design forms that are easy to scan and complete by organizing fields clearly, providing immediate feedback, handling errors gracefully, and minimizing cognitive load through smart defaults.
 
-**Category:** Ui · **Version:** 1.0 · **Tags:** ui · interaction-design · user-experience
+**Category:** Ui · **Version:** 1.0.0 · **Tags:** ui · interaction-design · user-experience
 
 ## What this does
 
-Design forms that are easy to scan and complete by organizing fields clearly, providing immediate feedback, handling errors gracefully, and minimizing cognitive load through smart defaults and progressive disclosure.
+Design forms that are easy to scan and complete by organizing fields clearly, providing immediate feedback, handling errors gracefully, and minimizing cognitive load through smart defaults.
 
 Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
 
 ## Fields
 
-- **field_count** *(number, optional)*
-- **required_fields** *(number, optional)*
-- **error_handling_strategy** *(text, optional)*
-- **success_feedback** *(text, optional)*
-- **conditional_fields** *(text, optional)*
+- **field_count** *(number, optional)* — Number of input fields in form
+- **required_fields** *(number, optional)* — How many fields are required vs optional
+- **error_handling_strategy** *(text, optional)* — Real-time validation, on-blur, or on-submit
+- **success_feedback** *(text, optional)* — How success is communicated (message, redirect, animation)
+- **conditional_fields** *(text, optional)* — Fields that show/hide based on user input
 
 ## What must be true
 
-- **0:** Group related fields logically — use spacing and optional section headers to communicate field relationships
-- **1:** Labels are crucial signals — descriptive labels above or beside inputs (avoid placeholders as labels)
-- **2:** Provide immediate feedback — validation feedback (errors, success, warnings) appears without additional steps
-- **3:** Smart defaults reduce effort — pre-fill when possible; use sensible defaults for optional fields
-- **4:** Error messages are user-safe — explain what went wrong and how to fix it, never expose system details
-- **5:** Don't over-design for edge cases — handle common paths smoothly; edge cases can be addressed with help text
+- **group_related_fields_logically:** Group related fields logically — use spacing and optional section headers to communicate field relationships
+- **labels_are_crucial_signals:** Labels are crucial signals — descriptive labels above or beside inputs (avoid placeholders as labels)
+- **provide_immediate_feedback:** Provide immediate feedback — validation feedback (errors, success, warnings) appears without additional steps
+- **smart_defaults_reduce_effort:** Smart defaults reduce effort — pre-fill when possible; use sensible defaults for optional fields
+- **error_messages_are_user_safe:** Error messages are user-safe — explain what went wrong and how to fix it, never expose system details
+- **dont_over_design_for_edge_cases:** Don't over-design for edge cases — handle common paths smoothly; edge cases can be addressed with help text
 
 ## Success & failure scenarios
 
 **✅ Success paths**
 
-- **0** — when form is presented to user, then form is scannable and user understands what's required.
-- **1** — when user enters invalid data in field, then user understands error and knows how to fix it.
-- **2** — when form submission is successful, then user confident that action completed.
-- **3** — when form has optional or conditional fields, then form doesn't overwhelm with unnecessary fields.
-- **4** — when form is long (>5 fields), then long form feels manageable and completion is visible.
+- **Form Presented To User** — when form is presented to user, then form is scannable and user understands what's required.
+- **User Enters Invalid Data** — when user enters invalid data in field, then user understands error and knows how to fix it.
+- **Form Submission Successful** — when form submission is successful, then user confident that action completed.
+- **Form Has Optional Conditional Fields** — when form has optional or conditional fields, then form doesn't overwhelm with unnecessary fields.
+- **Form Is Long** — when form is long (>5 fields), then long form feels manageable and completion is visible.
 
 ## Connects to
 
-- **form-validation** *(required)*
-- **accessibility** *(required)*
-- **visual-hierarchy** *(recommended)*
-- **error-handling** *(recommended)*
+- **form-validation** *(required)* — Forms require robust validation rules and error handling
+- **accessibility** *(required)* — Forms must be keyboard-navigable with proper label/input associations
+- **visual-hierarchy** *(recommended)* — Form hierarchy guides user through logical field progression
+- **error-handling** *(recommended)* — Error states integrate with broader error handling system
 
-## Quality fitness 🔴 59/100
+## Quality fitness 🟢 81/100
 
 Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
 
 | Dimension | Score | Points |
 |-----------|-------|--------|
 | Description | `██████████` | 10/10 |
-| Rules | `░░░░░░░░░░` | 0/10 |
-| Outcomes | `████████████████░░░░░░░░░` | 16/25 |
+| Rules | `██████░░░░` | 6/10 |
+| Outcomes | `████████████████████████░` | 24/25 |
 | Structured conditions | `███████░░░` | 7/10 |
 | Error binding | `██████████` | 10/10 |
-| Field validation | `███░░░░░░░` | 3/10 |
-| Relationships | `████████░░` | 8/10 |
+| Field validation | `█████░░░░░` | 5/10 |
+| Relationships | `██████████` | 10/10 |
 | Events | `██░░░` | 2/5 |
-| AGI readiness | `░░░░░` | 0/5 |
-| Simplicity | `███░░` | 3/5 |
+| AGI readiness | `██░░░` | 2/5 |
+| Simplicity | `█████` | 5/5 |
 
 ---
 

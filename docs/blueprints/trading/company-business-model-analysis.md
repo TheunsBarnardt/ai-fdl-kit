@@ -112,6 +112,67 @@ _Entity missing_
 | industry-competitive-analysis | required |  |
 | company-forecasting-model | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Company Business Model Analysis
+
+Characterise a company's business model, revenue drivers, pricing power, and cost structure to assess operating profitability and working-capital intensity
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `industry_competitive_analysis` | industry-competitive-analysis | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| profile_business_model | `autonomous` | - | - |
+| missing_entity | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

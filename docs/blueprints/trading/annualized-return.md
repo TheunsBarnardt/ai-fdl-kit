@@ -122,6 +122,69 @@ _period_unit not in supported set_
 | geometric-mean-return | recommended |  |
 | continuously-compounded-return | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Annualized Return
+
+Convert a return earned over any period (days, weeks, months, quarters) into an equivalent annualized (compounded-to-one-year) rate
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `holding_period_return` | holding-period-return | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_annualized | `autonomous` | - | - |
+| total_loss_input | `autonomous` | - | - |
+| invalid_period_length | `autonomous` | - | - |
+| unsupported_unit | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

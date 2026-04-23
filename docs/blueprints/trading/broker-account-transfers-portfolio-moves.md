@@ -265,6 +265,77 @@ _Roll back execution when the central securities depository rejects the settleme
 | popia-compliance | required |  |
 | broker-back-office-dissemination | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Account Transfers Portfolio Moves
+
+Automates account-to-account transfers and bulk portfolio moves of dematerialised listed equity holdings between client accounts, including source/destination validation, supervisor approval, and...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| request_internal_transfer | `autonomous` | - | - |
+| reject_insufficient_holding | `supervised` | - | - |
+| reject_past_settlement_date | `supervised` | - | - |
+| approve_transfer | `supervised` | - | - |
+| block_self_approval | `human_required` | - | - |
+| execute_approved_transfer | `supervised` | - | - |
+| settle_on_csd_confirmation | `autonomous` | - | - |
+| request_portfolio_move_by_linkage | `autonomous` | - | - |
+| reject_non_equity_instrument | `supervised` | - | - |
+| handle_csd_rejection | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -183,6 +183,72 @@ _Every limit change, approval, rejection, or error writes an immutable audit ent
 | broker-client-account-maintenance | required |  |
 | popia-compliance | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Credit Limit Upload
+
+Bulk upload or update of per-account credit limits by brokers with validation, supervisor approval, effective-date scheduling, and audit trail.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| upload_limits_bulk | `autonomous` | - | - |
+| validate_limit | `autonomous` | - | - |
+| supervisor_approval_required | `supervised` | - | - |
+| schedule_effective_date | `autonomous` | - | - |
+| audit_trail | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

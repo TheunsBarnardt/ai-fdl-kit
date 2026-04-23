@@ -3,7 +3,7 @@ title: "Service Area Management Blueprint"
 layout: default
 parent: "Workflow"
 grand_parent: Blueprint Catalog
-description: "Define and manage geographic service areas and zones that control where fleet operations are permitted. 9 fields. 5 outcomes. 3 error codes. rules: valid_bounda"
+description: "Define and manage geographic service areas and zones that control where fleet operations are permitted. 13 fields. 7 outcomes. 4 error codes. rules: valid_bound"
 ---
 
 # Service Area Management Blueprint
@@ -39,6 +39,10 @@ description: "Define and manage geographic service areas and zones that control 
 | `stroke_color` | text | No | Border Color |  |
 | `parent_uuid` | text | No | Parent Area |  |
 | `status` | select | Yes | Status |  |
+| `zone_id` | text | No | Zone ID |  |
+| `zone_name` | text | No | Zone Name |  |
+| `zone_description` | text | No | Zone Description |  |
+| `zone_border` | json | No | Zone Boundary (GeoJSON) |  |
 
 ## States
 
@@ -70,6 +74,9 @@ description: "Define and manage geographic service areas and zones that control 
 - **overlap_allowed:** Overlapping service areas are permitted; the most specific matching area takes precedence
 - **rate_binding:** Service rate structures can be bound to specific service areas and zones
 - **valid_colors:** Visualization colors must be valid hex color codes
+- **multi_polygon_support:** Service areas support multi-polygon geometry for non-contiguous regions
+- **zone_containment:** Zone entry and exit detection via driver location updates fires zone.driver_entered/exited events
+- **fleet_zone_scoping:** Fleets can be assigned to specific zones to restrict or organize operational coverage
 
 ## Outcomes
 
@@ -105,13 +112,6 @@ description: "Define and manage geographic service areas and zones that control 
 
 **Result:** Sub-zone added to the service area
 
-### Invalid_boundary (Priority: 2) — Error: `SERVICE_AREA_INVALID_BOUNDARY`
-
-**Given:**
-- border GeoJSON is malformed or has fewer than 3 coordinate pairs
-
-**Result:** Area creation rejected due to invalid boundary
-
 ### Area_deactivated (Priority: 3)
 
 **Given:**
@@ -123,6 +123,34 @@ description: "Define and manage geographic service areas and zones that control 
 
 **Result:** Service area deactivated; no new orders allowed within boundary
 
+### Fleet_scoped_to_zone (Priority: 3)
+
+**Given:**
+- dispatcher assigns a fleet to a service area or zone
+
+**Then:**
+- **set_field** target: `fleet.service_area_id` — Fleet is associated with the service area
+- **set_field** target: `fleet.zone_id` — Fleet is associated with the specific zone
+
+**Result:** Fleet operations logically restricted to the assigned zone
+
+### Zone_containment_checked (Priority: 4)
+
+**Given:**
+- a point (driver or order location) is tested against zone boundaries
+
+**Then:**
+- **set_field** target: `response.inside_zone` — Boolean result indicating if the point falls within any zone boundary
+
+**Result:** Platform can enforce or report whether a location is within an operational zone
+
+### Invalid_boundary (Priority: 5) — Error: `SERVICE_AREA_INVALID_BOUNDARY`
+
+**Given:**
+- border GeoJSON is malformed or has fewer than 3 coordinate pairs
+
+**Result:** Area creation rejected due to invalid boundary
+
 ## Errors
 
 | Code | Status | Message | Retry |
@@ -130,6 +158,7 @@ description: "Define and manage geographic service areas and zones that control 
 | `ORDER_OUTSIDE_SERVICE_AREA` | 422 | This location is outside our operational service area. | No |
 | `SERVICE_AREA_INVALID_BOUNDARY` | 422 | The provided boundary is invalid. Please draw a valid polygon. | No |
 | `SERVICE_AREA_NOT_FOUND` | 404 | Service area not found. | No |
+| `ZONE_NOT_FOUND` | 404 | The specified zone could not be found. | No |
 
 ## Events
 
@@ -139,6 +168,8 @@ description: "Define and manage geographic service areas and zones that control 
 | `service_area.updated` | Fired when a service area boundary or settings change | `area_id`, `name` |
 | `service_area.deactivated` | Fired when a service area is disabled | `area_id`, `name` |
 | `service_area.zone_added` | Fired when a zone is added to a service area | `area_id`, `zone_id`, `name` |
+| `zone.driver_entered` | Driver's location update places them inside a zone boundary | `zone_id`, `driver_id`, `latitude`, `longitude` |
+| `zone.driver_exited` | Driver's location update places them outside a zone they were previously in | `zone_id`, `driver_id`, `latitude`, `longitude` |
 
 ## Related Blueprints
 
@@ -147,6 +178,7 @@ description: "Define and manage geographic service areas and zones that control 
 | order-lifecycle | recommended | Orders are validated against service area boundaries |
 | vehicle-fleet-registry | recommended | Fleet assignments can be scoped to service areas |
 | trip-billing-invoicing | optional | Service rates are linked to specific areas and zones |
+| driver-location-streaming | recommended | Driver location updates enable real-time zone entry/exit detection |
 
 ## AGI Readiness
 
@@ -213,7 +245,7 @@ source:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Service Area Management Blueprint",
-  "description": "Define and manage geographic service areas and zones that control where fleet operations are permitted. 9 fields. 5 outcomes. 3 error codes. rules: valid_bounda",
+  "description": "Define and manage geographic service areas and zones that control where fleet operations are permitted. 13 fields. 7 outcomes. 4 error codes. rules: valid_bound",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

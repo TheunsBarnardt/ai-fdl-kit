@@ -124,6 +124,69 @@ _Required inputs missing_
 | implied-forward-rates | recommended |  |
 | fixed-income-present-value | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Forward Exchange Rate No Arbitrage
+
+Compute the no-arbitrage forward exchange rate between two currencies via covered interest rate parity — using cash flow additivity across currency-specific risk-free investments
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `cash_flow_additivity` | cash-flow-additivity | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_forward_rate | `autonomous` | - | - |
+| invalid_spot | `autonomous` | - | - |
+| invalid_rate | `autonomous` | - | - |
+| missing_inputs | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

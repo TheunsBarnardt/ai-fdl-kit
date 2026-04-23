@@ -114,6 +114,75 @@ description: "Server-side EMV L2 kernel — processes SPoC-forwarded card data f
 | payments-gateway-api | required | PGW is the sole caller of the cloud EMV kernel |
 | emv-card-reader | required | Device-side SPoC reader that feeds this kernel |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Cloud Emv Kernel
+
+Server-side EMV L2 kernel — processes SPoC-forwarded card data from thin-client terminals; handles chip/tap/stripe authorization, tokenisation, PIN verification
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `popia_compliance` | popia-compliance | fail |
+| `payments_gateway_api` | payments-gateway-api | fail |
+| `emv_card_reader` | emv-card-reader | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| authorised | `autonomous` | - | - |
+| declined | `autonomous` | - | - |
+| pin_failed | `autonomous` | - | - |
+| invalid_data | `autonomous` | - | - |
+| network_unavailable | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

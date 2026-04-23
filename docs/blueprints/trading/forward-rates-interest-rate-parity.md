@@ -126,6 +126,69 @@ _Pair missing_
 | fx-quotes-cross-rates | required |  |
 | exchange-rate-regimes | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Forward Rates Interest Rate Parity
+
+Price FX forward rates using covered interest rate parity, interpret forward points, and evaluate covered vs uncovered IRP implications for carry trades
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fx_quotes_cross_rates` | fx-quotes-cross-rates | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_forward | `autonomous` | - | - |
+| invalid_tenor | `autonomous` | - | - |
+| invalid_spot | `autonomous` | - | - |
+| missing_pair | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

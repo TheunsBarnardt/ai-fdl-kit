@@ -68,6 +68,68 @@ _Calculate inflation-indexed bond price with CPI adjustment_
 |---------|-------------|--------|
 | bond-pricing-models | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Inflation Indexed Bond Pricing
+
+Pricing methodology for inflation-linked bonds with CPI-adjusted principals.
+Supports linear CPI interpolation for settlement dates between published months.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `bond_pricing_models` | bond-pricing-models | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| iilb_priced | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

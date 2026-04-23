@@ -120,6 +120,69 @@ _Non-positive expiry_
 | derivatives-instrument-features | required |  |
 | forward-futures-pricing | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Forwards Futures Contracts
+
+Compare forward and futures contracts on customisation, mark-to-market, margin, clearing, and basis, and compute settlement cash flows and mark-to-market variation margin
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `derivatives_instrument_features` | derivatives-instrument-features | fail |
+| `forward_futures_pricing` | forward-futures-pricing | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_settlement | `autonomous` | - | - |
+| invalid_type | `autonomous` | - | - |
+| invalid_expiry | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

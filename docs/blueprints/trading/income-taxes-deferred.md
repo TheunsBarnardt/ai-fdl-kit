@@ -117,6 +117,69 @@ _Entity missing_
 | fsa-balance-sheet | required |  |
 | fsa-income-statement | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Income Taxes Deferred
+
+Reconcile accounting and taxable income, compute deferred tax assets/liabilities from temporary differences, and apply valuation allowances and rate-change adjustments
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fsa_balance_sheet` | fsa-balance-sheet | fail |
+| `fsa_income_statement` | fsa-income-statement | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_deferred_tax | `autonomous` | - | - |
+| invalid_rate | `autonomous` | - | - |
+| missing_entity | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

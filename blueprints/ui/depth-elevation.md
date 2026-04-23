@@ -2,63 +2,63 @@
 
 # Depth Elevation
 
-> Use shadows, layering, and spatial relationships to create visual depth and communicate element elevation, even in flat designs, making clickable elements feel interactive and content hierarchy clear.
+> Use shadows, layering, and spatial relationships to create visual depth and communicate elevation, even in flat designs, making clickable elements feel interactive and content hierarchy clear.
 
-**Category:** Ui · **Version:** 1.0 · **Tags:** design-system · visual-design · interaction-design
+**Category:** Ui · **Version:** 1.0.0 · **Tags:** design-system · visual-design · interaction-design
 
 ## What this does
 
-Use shadows, layering, and spatial relationships to create visual depth and communicate element elevation, even in flat designs, making clickable elements feel interactive and content hierarchy clear.
+Use shadows, layering, and spatial relationships to create visual depth and communicate elevation, even in flat designs, making clickable elements feel interactive and content hierarchy clear.
 
 Specifies 4 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
 
 ## Fields
 
-- **light_source_direction** *(text, optional)*
-- **shadow_levels** *(text, optional)*
-- **max_shadow_blur** *(number, optional)*
-- **interaction_shadow_change** *(text, optional)*
+- **light_source_direction** *(text, optional)* — Direction of primary light (e.g., top-left, directly above)
+- **shadow_levels** *(text, optional)* — Predefined shadow styles for different elevations (background, card, modal)
+- **max_shadow_blur** *(number, optional)* — Maximum blur radius for largest shadows (typically 24px)
+- **interaction_shadow_change** *(text, optional)* — How shadows change on hover/active (increase blur, offset, or opacity)
 
 ## What must be true
 
-- **0:** Emulate a light source — consistent shadow direction (typically top-left light) creates believable depth
-- **1:** Use shadows to convey elevation — stronger shadows = higher elevation; no shadow = background level
-- **2:** Shadows can have two parts — a soft, larger shadow (ambient) and a sharper, smaller shadow (contact)
-- **3:** Even flat designs can have depth — shadows on flat surfaces are effective without skeuomorphism
-- **4:** Overlap elements to create layers — slight overlap communicates spatial relationship and depth
+- **emulate_a_light_source:** Emulate a light source — consistent shadow direction (typically top-left light) creates believable depth
+- **use_shadows_to_convey_elevation:** Use shadows to convey elevation — stronger shadows = higher elevation; no shadow = background level
+- **shadows_can_have_two_parts:** Shadows can have two parts — a soft, larger shadow (ambient) and a sharper, smaller shadow (contact)
+- **even_flat_designs_can_have_depth:** Even flat designs can have depth — shadows on flat surfaces are effective without skeuomorphism
+- **overlap_elements_to_create_layers:** Overlap elements to create layers — slight overlap communicates spatial relationship and depth
 
 ## Success & failure scenarios
 
 **✅ Success paths**
 
-- **0** — when modal or floating panel is displayed above content, then modal clearly appears above all other content and captures focus.
-- **1** — when card or raised element is on background, then card appears layered above background without excessive visual weight.
-- **2** — when button or interactive element is at rest, then button feels raised on interaction, subtle at rest.
-- **3** — when elements are layered (e.g., image with overlay), then layering is clear and suggests spatial depth.
+- **Modal Floating Panel Displayed** — when modal or floating panel is displayed above content, then modal clearly appears above all other content and captures focus.
+- **Card Raised Element On Background** — when card or raised element is on background, then card appears layered above background without excessive visual weight.
+- **Button Interactive Element At Rest** — when button or interactive element is at rest, then button feels raised on interaction, subtle at rest.
+- **Elements Layered With Overlay** — when elements are layered (e.g., image with overlay), then layering is clear and suggests spatial depth.
 
 ## Connects to
 
-- **visual-hierarchy** *(recommended)*
-- **color-system** *(recommended)*
-- **dark-mode** *(recommended)*
-- **animation-state-machine** *(optional)*
+- **visual-hierarchy** *(recommended)* — Elevation and shadows express hierarchy through spatial positioning
+- **color-system** *(recommended)* — Shadow color is derived from brand darkness, not pure black
+- **dark-mode** *(recommended)* — Shadow appearance differs in dark mode (lighter shadows on dark backgrounds)
+- **animation-state-machine** *(optional)* — Shadows can animate smoothly during state transitions
 
-## Quality fitness 🔴 59/100
+## Quality fitness 🟢 77/100
 
 Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
 
 | Dimension | Score | Points |
 |-----------|-------|--------|
 | Description | `██████████` | 10/10 |
-| Rules | `░░░░░░░░░░` | 0/10 |
-| Outcomes | `███████████████░░░░░░░░░░` | 15/25 |
+| Rules | `██████░░░░` | 6/10 |
+| Outcomes | `███████████████████░░░░░░` | 19/25 |
 | Structured conditions | `████████░░` | 8/10 |
 | Error binding | `██████████` | 10/10 |
-| Field validation | `███░░░░░░░` | 3/10 |
-| Relationships | `████████░░` | 8/10 |
+| Field validation | `█████░░░░░` | 5/10 |
+| Relationships | `██████████` | 10/10 |
 | Events | `██░░░` | 2/5 |
-| AGI readiness | `░░░░░` | 0/5 |
-| Simplicity | `███░░` | 3/5 |
+| AGI readiness | `██░░░` | 2/5 |
+| Simplicity | `█████` | 5/5 |
 
 ---
 

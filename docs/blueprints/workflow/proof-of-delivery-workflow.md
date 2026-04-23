@@ -3,7 +3,7 @@ title: "Proof Of Delivery Workflow Blueprint"
 layout: default
 parent: "Workflow"
 grand_parent: Blueprint Catalog
-description: "Capture digital proof of delivery including signature, photo, and notes at delivery completion. 10 fields. 5 outcomes. 4 error codes. rules: pod_required_to_com"
+description: "Capture digital proof of delivery including signature, photo, and notes at delivery completion. 11 fields. 7 outcomes. 5 error codes. rules: pod_required_to_com"
 ---
 
 # Proof Of Delivery Workflow Blueprint
@@ -40,6 +40,7 @@ description: "Capture digital proof of delivery including signature, photo, and 
 | `raw_data` | rich_text | No | Signature Raw Data |  |
 | `data` | json | No | Structured POD Data |  |
 | `proof_type` | select | Yes | Proof Type |  |
+| `qr_code` | text | No | UUID or code string from a QR scan (for proof_type=qr_scan). |  |
 | `captured_at` | datetime | No | Captured At |  |
 
 ## Rules
@@ -54,6 +55,8 @@ description: "Capture digital proof of delivery including signature, photo, and 
 - **retention:** POD is retained for the organization's configured retention period for legal compliance
 - **multiple_per_order:** Multiple proof records can exist per order (one per waypoint or entity)
 - **failed_photo_fallback:** Failed photo uploads must not block completion if notes or signature was captured
+- **qr_scan_validation:** QR scan proof validates that the scanned UUID matches the UUID of the subject (waypoint, entity, or order)
+- **cloud_storage:** Signature and photo files are uploaded to cloud storage; the file URL is stored on the proof record
 
 ## Outcomes
 
@@ -69,13 +72,13 @@ description: "Capture digital proof of delivery including signature, photo, and 
 
 **Result:** Signature recorded and linked to order
 
-### Pod_required_missing (Priority: 1) — Error: `POD_REQUIRED_MISSING`
+### Qr_scan_invalid (Priority: 1) — Error: `POD_QR_CODE_MISMATCH`
 
 **Given:**
-- order.pod_required is true
-- no proof record exists for this order
+- `proof_type` (input) eq `qr_scan`
+- scanned qr_code does not match any valid subject UUID
 
-**Result:** Order completion blocked — proof of delivery required
+**Result:** Proof rejected — driver must re-scan the correct code
 
 ### Photo_captured (Priority: 2)
 
@@ -88,6 +91,14 @@ description: "Capture digital proof of delivery including signature, photo, and 
 - **emit_event** event: `pod.photo_captured`
 
 **Result:** Delivery photo saved and linked to order
+
+### Pod_required_missing (Priority: 2) — Error: `POD_REQUIRED_MISSING`
+
+**Given:**
+- order.pod_required is true
+- no proof record exists for this order
+
+**Result:** Order completion blocked — proof of delivery required
 
 ### Invalid_photo_format (Priority: 2) — Error: `POD_INVALID_PHOTO_FORMAT`
 
@@ -109,6 +120,18 @@ description: "Capture digital proof of delivery including signature, photo, and 
 
 **Result:** Delivery notes recorded and linked to order
 
+### Qr_scan_verified (Priority: 4)
+
+**Given:**
+- `proof_type` (input) eq `qr_scan`
+- scanned qr_code matches UUID of target subject (order, waypoint, or entity)
+
+**Then:**
+- **create_record**
+- **emit_event** event: `pod.completed`
+
+**Result:** QR scan proof confirms driver is at the correct delivery point
+
 ## Errors
 
 | Code | Status | Message | Retry |
@@ -117,6 +140,7 @@ description: "Capture digital proof of delivery including signature, photo, and 
 | `POD_INVALID_PHOTO_FORMAT` | 422 | Photo must be a JPEG or PNG image. | No |
 | `POD_FILE_TOO_LARGE` | 413 | Photo file size exceeds the maximum allowed limit. | No |
 | `POD_NOT_FOUND` | 404 | Proof of delivery record not found. | No |
+| `POD_QR_CODE_MISMATCH` | 400 | The scanned code does not match the expected delivery point. | No |
 
 ## Events
 
@@ -134,6 +158,7 @@ description: "Capture digital proof of delivery including signature, photo, and 
 | order-lifecycle | required | POD unlocks order completion when pod_required is true |
 | route-planning | recommended | POD is captured at specific route waypoints |
 | delivery-notifications | optional | Customer may receive POD confirmation notification |
+| order-trip-state-machine | recommended | Proof gates are enforced at activity transition points in the state machine |
 
 ## AGI Readiness
 
@@ -210,7 +235,7 @@ source:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Proof Of Delivery Workflow Blueprint",
-  "description": "Capture digital proof of delivery including signature, photo, and notes at delivery completion. 10 fields. 5 outcomes. 4 error codes. rules: pod_required_to_com",
+  "description": "Capture digital proof of delivery including signature, photo, and notes at delivery completion. 11 fields. 7 outcomes. 5 error codes. rules: pod_required_to_com",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

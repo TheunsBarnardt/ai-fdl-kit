@@ -126,8 +126,71 @@ _Unsupported GIPS area_
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| gips-compliance-fundamentals | extends | Builds on L1 foundations — prerequisite before this level's material |
 | cfa-ethics-standards-l3 | required |  |
 | portfolio-performance-evaluation-l3 | recommended |  |
+| gips-composites-requirements | recommended | Composite construction and maintenance are core operational requirements within GIPS standards |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Gips Standards L3
+
+Global Investment Performance Standards (GIPS) — firm definition, composites, time-weighted return, valuation, presentation requirements, portability, and verification
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `cfa_ethics_standards_l3` | cfa-ethics-standards-l3 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| assess_gips_compliance | `autonomous` | - | - |
+| invalid_area | `autonomous` | - | - |
 
 
 <script type="application/ld+json">

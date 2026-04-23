@@ -114,9 +114,73 @@ _Terminal growth exceeds cost of equity_
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| discounted-dividend-valuation-l2 | extends | Builds on L2 foundations — prerequisite before this level's material |
 | equity-return-roe | required |  |
 | equity-valuation-multiples | recommended |  |
 | enterprise-value-asset-based | recommended |  |
+| equity-present-value | recommended | Both approaches compute intrinsic equity value — DDM via dividends, present-value via cash flows |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Equity Valuation Ddm
+
+Value equity with dividend discount models — single-stage Gordon growth, two-stage, three-stage, H-model — and determine when each fits a firm's growth pattern
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `equity_return_roe` | equity-return-roe | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| value_equity_via_ddm | `autonomous` | - | - |
+| invalid_variant | `autonomous` | - | - |
+| invalid_growth | `autonomous` | - | - |
 
 
 <script type="application/ld+json">

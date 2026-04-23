@@ -90,6 +90,63 @@ description: "Contract-compatible mock RailAdapter — scripted success/decline/
 | rail-registry | required | Registered as a first-class adapter in the sandbox registry |
 | sandbox-environment | required | The sandbox environment exclusively routes through this adapter |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Sandbox Rail Adapter
+
+Contract-compatible mock RailAdapter — scripted success/decline/timeout/rate-limit scenarios, realistic latency profiles, webhook callbacks that mirror real rails (pacs.002, PaymentStatusReport); d...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `rail_registry` | rail-registry | degrade |
+| `sandbox_environment` | sandbox-environment | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| approved | `supervised` | - | - |
+| declined | `autonomous` | - | - |
+| timed_out | `autonomous` | - | - |
+| rate_limited | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

@@ -132,6 +132,67 @@ _Unsupported active equity strategy type_
 | equity-portfolio-management-overview-l3 | required |  |
 | active-equity-portfolio-construction-l3 | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Active Equity Strategies L3
+
+Active equity strategies — bottom-up/top-down/factor approaches, value/momentum/growth/quality factors, activist strategies, quant strategies, and pitfalls
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `equity_portfolio_management_overview_l3` | equity-portfolio-management-overview-l3 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| implement_active_strategy | `autonomous` | - | - |
+| invalid_strategy | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

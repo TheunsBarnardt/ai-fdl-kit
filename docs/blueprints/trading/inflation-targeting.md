@@ -106,6 +106,68 @@ _Jurisdiction missing_
 | monetary-policy-framework | required |  |
 | business-cycle-phases | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Inflation Targeting
+
+Evaluate an inflation-targeting monetary regime — explicit target, transparency, credibility, and conditions for effective transmission to inflation expectations
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `monetary_policy_framework` | monetary-policy-framework | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| evaluate_regime | `autonomous` | - | - |
+| invalid_target | `autonomous` | - | - |
+| missing_jurisdiction | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

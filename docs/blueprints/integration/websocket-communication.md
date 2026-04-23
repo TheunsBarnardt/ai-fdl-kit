@@ -3,7 +3,7 @@ title: "Websocket Communication Blueprint"
 layout: default
 parent: "Integration"
 grand_parent: Blueprint Catalog
-description: "WebSocket protocol for real-time communication. 3 outcomes. rules: implementation, platform_agnostic"
+description: "WebSocket protocol for real-time communication. 3 outcomes. rules: implementation, platform_agnostic. AGI: supervised"
 ---
 
 # Websocket Communication Blueprint
@@ -64,6 +64,43 @@ description: "WebSocket protocol for real-time communication. 3 outcomes. rules:
 
 **Result:** Send and receive text/binary data completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Websocket Communication
+
+WebSocket protocol for real-time communication
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| websocket_server | `autonomous` | - | - |
+| websocket_client | `autonomous` | - | - |
+| message_exchange | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -81,7 +118,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Websocket Communication Blueprint",
-  "description": "WebSocket protocol for real-time communication. 3 outcomes. rules: implementation, platform_agnostic",
+  "description": "WebSocket protocol for real-time communication. 3 outcomes. rules: implementation, platform_agnostic. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

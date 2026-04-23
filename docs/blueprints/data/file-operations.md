@@ -3,7 +3,7 @@ title: "File Operations Blueprint"
 layout: default
 parent: "Data"
 grand_parent: Blueprint Catalog
-description: "Cross-platform file reading and writing. 5 outcomes. rules: implementation, platform_agnostic"
+description: "Cross-platform file reading and writing. 5 outcomes. rules: implementation, platform_agnostic. AGI: supervised"
 ---
 
 # File Operations Blueprint
@@ -84,6 +84,45 @@ description: "Cross-platform file reading and writing. 5 outcomes. rules: implem
 
 **Result:** Get file size and modification time completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable File Operations
+
+Cross-platform file reading and writing
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| file_reading | `autonomous` | - | - |
+| file_writing | `autonomous` | - | - |
+| file_existence | `autonomous` | - | - |
+| file_deletion | `human_required` | - | - |
+| file_properties | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -101,7 +140,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "File Operations Blueprint",
-  "description": "Cross-platform file reading and writing. 5 outcomes. rules: implementation, platform_agnostic",
+  "description": "Cross-platform file reading and writing. 5 outcomes. rules: implementation, platform_agnostic. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

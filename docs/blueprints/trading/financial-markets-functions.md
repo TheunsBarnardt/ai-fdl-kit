@@ -104,6 +104,57 @@ _Asset class outside allowed set_
 | positions-leverage-margin | recommended |  |
 | market-indexes-construction | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Financial Markets Functions
+
+Classify financial market functions, asset types, and intermediaries that connect savers to borrowers, transfer risk, and facilitate price discovery
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| classify_instrument | `autonomous` | - | - |
+| invalid_asset_class | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

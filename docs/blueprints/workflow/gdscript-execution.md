@@ -3,7 +3,7 @@ title: "Gdscript Execution Blueprint"
 layout: default
 parent: "Workflow"
 grand_parent: Blueprint Catalog
-description: "GDScript compilation, execution, and debugging. 4 outcomes. rules: implementation, platform_agnostic"
+description: "GDScript compilation, execution, and debugging. 4 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous"
 ---
 
 # Gdscript Execution Blueprint
@@ -74,6 +74,44 @@ description: "GDScript compilation, execution, and debugging. 4 outcomes. rules:
 
 **Result:** Compile and runtime errors completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Gdscript Execution
+
+GDScript compilation, execution, and debugging
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| script_compilation | `autonomous` | - | - |
+| script_instance | `autonomous` | - | - |
+| hot_reload | `autonomous` | - | - |
+| error_reporting | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -91,7 +129,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Gdscript Execution Blueprint",
-  "description": "GDScript compilation, execution, and debugging. 4 outcomes. rules: implementation, platform_agnostic",
+  "description": "GDScript compilation, execution, and debugging. 4 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

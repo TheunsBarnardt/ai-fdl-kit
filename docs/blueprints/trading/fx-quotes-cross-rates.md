@@ -112,6 +112,58 @@ _Currency pair missing_
 | forward-rates-interest-rate-parity | recommended |  |
 | exchange-rate-regimes | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fx Quotes Cross Rates
+
+Interpret direct and indirect FX quotes, convert between base/quote currencies, compute cross rates, and apply bid-ask spreads to client-side execution
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_cross_rate | `autonomous` | - | - |
+| invalid_prices | `autonomous` | - | - |
+| missing_pair | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

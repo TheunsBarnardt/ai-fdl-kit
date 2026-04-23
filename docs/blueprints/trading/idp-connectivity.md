@@ -116,6 +116,70 @@ description: "JSE Information Delivery Portal (IDP) FTP connectivity for secure 
 | network-configuration-guide | required | Network must support routing to IDP servers |
 | client-connectivity-standards | required | Client must meet JSE connectivity standards |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Idp Connectivity
+
+JSE Information Delivery Portal (IDP) FTP connectivity for secure access to market data files
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `network_configuration_guide` | network-configuration-guide | fail |
+| `client_connectivity_standards` | client-connectivity-standards | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| idp_protocol_selected | `autonomous` | - | - |
+| ftps_connection_configured | `autonomous` | - | - |
+| service_account_provisioned | `autonomous` | - | - |
+| idp_connectivity_established | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

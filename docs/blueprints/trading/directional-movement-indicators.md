@@ -204,6 +204,71 @@ description: "A suite of directional movement and trend confirmation indicators 
 | moving-average-overlap-studies | recommended |  |
 | market-data-feeds | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Directional Movement Indicators
+
+A suite of directional movement and trend confirmation indicators for measuring trend strength, identifying trend direction, and generating trailing stop levels via Parabolic SAR
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `market_data_feeds` | market-data-feeds | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_success | `autonomous` | - | - |
+| aroon_computed | `autonomous` | - | - |
+| sar_reversal | `autonomous` | - | - |
+| strong_trend_detected | `autonomous` | - | - |
+| insufficient_data | `autonomous` | - | - |
+| invalid_parameters | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

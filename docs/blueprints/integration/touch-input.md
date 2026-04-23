@@ -3,7 +3,7 @@ title: "Touch Input Blueprint"
 layout: default
 parent: "Integration"
 grand_parent: Blueprint Catalog
-description: "Multi-touch and gesture input for mobile devices. 4 outcomes. rules: implementation, platform_agnostic"
+description: "Multi-touch and gesture input for mobile devices. 4 outcomes. rules: implementation, platform_agnostic. AGI: supervised"
 ---
 
 # Touch Input Blueprint
@@ -74,6 +74,44 @@ description: "Multi-touch and gesture input for mobile devices. 4 outcomes. rule
 
 **Result:** Detect touch drag motion completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Touch Input
+
+Multi-touch and gesture input for mobile devices
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| touch_detection | `autonomous` | - | - |
+| multi-touch | `autonomous` | - | - |
+| pressure_sensitivity | `autonomous` | - | - |
+| drag_gestures | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -91,7 +129,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Touch Input Blueprint",
-  "description": "Multi-touch and gesture input for mobile devices. 4 outcomes. rules: implementation, platform_agnostic",
+  "description": "Multi-touch and gesture input for mobile devices. 4 outcomes. rules: implementation, platform_agnostic. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

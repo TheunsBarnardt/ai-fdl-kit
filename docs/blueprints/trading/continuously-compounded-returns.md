@@ -144,6 +144,70 @@ _1 + r_hpr <= 0_
 | holding-period-return | recommended |  |
 | monte-carlo-simulation | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Continuously Compounded Returns
+
+Convert between holding-period and continuously compounded returns, leverage their additivity over time, and annualise volatility using the square-root-of-time rule
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `lognormal_distribution_asset_prices` | lognormal-distribution-asset-prices | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| convert_prices_to_returns | `autonomous` | - | - |
+| convert_hpr_to_cc | `autonomous` | - | - |
+| annualise_volatility | `autonomous` | - | - |
+| invalid_price | `autonomous` | - | - |
+| invalid_hpr | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

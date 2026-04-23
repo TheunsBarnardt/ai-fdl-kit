@@ -140,6 +140,67 @@ _Unsupported topic type_
 |---------|-------------|--------|
 | private-wealth-management-overview-l3 | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Private Wealth Topics L3
+
+Advanced private wealth topics — tax management, asset location, concentrated positions, estate planning, charitable strategies, and generational wealth transfer
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `private_wealth_management_overview_l3` | private-wealth-management-overview-l3 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| address_private_wealth_topic | `autonomous` | - | - |
+| invalid_topic | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

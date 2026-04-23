@@ -117,8 +117,60 @@ _Unrecognized standard reference_
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| cfa-ethics-standards-l2 | extends | Builds on L2 foundations — prerequisite before this level's material |
 | cfa-ethics-application-l3 | recommended |  |
 | gips-standards-l3 | recommended |  |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Cfa Ethics Standards L3
+
+CFA Code of Ethics and Standards of Professional Conduct I-VII — professionalism, integrity, duties to clients, employers, investment analysis, conflicts of interest, and responsibilities
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| evaluate_ethics_case | `autonomous` | - | - |
+| invalid_standard | `autonomous` | - | - |
 
 
 <script type="application/ld+json">

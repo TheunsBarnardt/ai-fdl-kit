@@ -266,6 +266,74 @@ _Instrument delisted after expiry date reached and final settlement completed_
 | settlement-and-clearing | recommended |  |
 | market-data-dissemination | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Instrument Classification
+
+Classifies derivative and cash instruments traded on exchanges, including futures, options, bonds, equities, and structured products with trading rules and characteristics.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `listings_requirements` | listings-requirements | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| instrument_created | `supervised` | - | - |
+| contract_code_assigned | `autonomous` | - | - |
+| trading_parameters_configured | `autonomous` | - | - |
+| instrument_trading_opened | `autonomous` | - | - |
+| corporate_action_declared | `autonomous` | - | - |
+| instrument_suspended | `human_required` | - | - |
+| instrument_trading_resumed | `autonomous` | - | - |
+| instrument_expired | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

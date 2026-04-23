@@ -147,9 +147,66 @@ _Required inputs missing_
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| equity-valuation-ddm | recommended | Both approaches compute intrinsic equity value — present-value via cash flows, DDM via dividends |
+| discounted-dividend-valuation-l2 | recommended | L2 depth treatment of dividend-based equity present value — builds on this foundation |
 | fixed-income-present-value | recommended |  |
 | implied-return-implied-growth-equity | recommended |  |
 | holding-period-return | recommended |  |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Equity Present Value
+
+Compute the present value of an equity instrument via the Dividend Discount Model — supporting no-growth, constant growth (Gordon), and multi-stage (changing growth) variants
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| price_no_growth | `autonomous` | - | - |
+| price_constant_growth | `autonomous` | - | - |
+| price_multi_stage | `autonomous` | - | - |
+| growth_meets_or_exceeds_return | `autonomous` | - | - |
+| negative_dividend | `autonomous` | - | - |
+| missing_inputs | `autonomous` | - | - |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

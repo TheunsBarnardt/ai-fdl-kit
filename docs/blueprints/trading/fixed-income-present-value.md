@@ -163,6 +163,61 @@ _Required inputs missing for bond type_
 | holding-period-return | recommended |  |
 | bond-pricing-models | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fixed Income Present Value
+
+Compute the present value of a fixed-income instrument (discount bond, coupon bond, level-payment/annuity loan) given its promised cash flows and market discount rate
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| price_discount_bond | `autonomous` | - | - |
+| price_coupon_bond | `autonomous` | - | - |
+| price_level_payment | `autonomous` | - | - |
+| price_perpetuity | `autonomous` | - | - |
+| invalid_rate | `autonomous` | - | - |
+| missing_inputs | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

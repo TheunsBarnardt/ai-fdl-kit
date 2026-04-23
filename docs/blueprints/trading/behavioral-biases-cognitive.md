@@ -99,6 +99,68 @@ _Unsupported bias type_
 | behavioral-biases-emotional | required |  |
 | behavioral-finance-market-anomalies | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Behavioral Biases Cognitive
+
+Identify cognitive behavioral biases (conservatism, confirmation, representativeness, illusion of control, hindsight, framing, anchoring, availability) and their impact on investment decisions
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `behavioral_biases_emotional` | behavioral-biases-emotional | fail |
+| `behavioral_finance_market_anomalies` | behavioral-finance-market-anomalies | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| detect_bias | `autonomous` | - | - |
+| invalid_bias | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

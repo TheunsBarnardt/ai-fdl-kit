@@ -75,6 +75,7 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 
 ## Connects to
 
+- **guest-room-access** *(recommended)* — Guest accounts are used to grant scoped access to rooms through the guest room access feature
 - **team-workspaces** *(required)* — Guests are scoped to specific teams and auto-removed when channel-less
 - **role-based-access-control** *(required)* — The guest role determines restricted default permissions
 - **session-management-revocation** *(required)* — Deactivating guests triggers session revocation

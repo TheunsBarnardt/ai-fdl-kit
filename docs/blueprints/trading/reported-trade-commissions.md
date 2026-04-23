@@ -155,6 +155,76 @@ _Commission amount must be positive_
 | member-code-validation | required |  |
 | popia-compliance | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Reported Trade Commissions
+
+Charge commissions to counterparty trading members in reported trades via reference fields and matching requirements.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `trade_matching` | trade-matching | fail |
+| `off_book_reported_trades` | off-book-reported-trades | fail |
+| `member_code_validation` | member-code-validation | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| commission_charged_successfully | `autonomous` | - | - |
+| commission_rejected_invalid_client_reference | `supervised` | - | - |
+| commission_rejected_invalid_reference | `supervised` | - | - |
+| trade_leg_mismatch | `autonomous` | - | - |
+| commission_zero_or_negative | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

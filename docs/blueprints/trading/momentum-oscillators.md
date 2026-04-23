@@ -290,6 +290,73 @@ description: "A suite of momentum oscillators for identifying overbought/oversol
 | candlestick-pattern-recognition | optional |  |
 | market-data-feeds | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Momentum Oscillators
+
+A suite of momentum oscillators for identifying overbought/oversold conditions, trend reversal signals, and price momentum strength across financial time series data
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `moving_average_overlap_studies` | moving-average-overlap-studies | fail |
+| `market_data_feeds` | market-data-feeds | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_success | `autonomous` | - | - |
+| macd_computed | `autonomous` | - | - |
+| aroon_computed | `autonomous` | - | - |
+| insufficient_data | `autonomous` | - | - |
+| invalid_parameters | `autonomous` | - | - |
+| missing_required_inputs | `autonomous` | - | - |
+| range_clamp_edge | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

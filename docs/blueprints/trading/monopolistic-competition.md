@@ -119,6 +119,69 @@ _Required cost/revenue data missing_
 | market-structures-analysis | required |  |
 | profit-maximization-breakeven | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Monopolistic Competition
+
+Model pricing, output, and long-run equilibrium in monopolistic competition — many firms selling differentiated products with free entry and downward-sloping demand for each firm
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `market_structures_analysis` | market-structures-analysis | fail |
+| `profit_maximization_breakeven` | profit-maximization-breakeven | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_short_run_equilibrium | `autonomous` | - | - |
+| compute_long_run_equilibrium | `autonomous` | - | - |
+| missing_inputs | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

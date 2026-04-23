@@ -95,6 +95,67 @@ _Unsupported method_
 | alt-investments-features-categories | required |  |
 | alt-investments-ownership-compensation | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Alt Investments Methods
+
+Compare fund investment, co-investment, and direct investment methods for accessing alternatives, contrasting diversification, fees, control, and required expertise
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `alt_investments_features_categories` | alt-investments-features-categories | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| select_access_method | `autonomous` | - | - |
+| invalid_method | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

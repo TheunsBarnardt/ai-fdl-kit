@@ -131,6 +131,67 @@ _Unsupported risk measure type_
 |---------|-------------|--------|
 | backtesting-simulation-l2 | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Market Risk Measurement L2
+
+Measure and manage market risk — VaR (parametric, historical, Monte Carlo), expected shortfall, sensitivity and scenario risk measures, risk budgeting, position and stop-loss limits
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `backtesting_simulation_l2` | backtesting-simulation-l2 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| measure_market_risk | `autonomous` | - | - |
+| invalid_measure | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

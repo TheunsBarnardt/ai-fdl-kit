@@ -133,6 +133,67 @@ _Unsupported credit approach_
 | yield-curve-strategies-l3 | recommended |  |
 | fixed-income-portfolio-management-l3 | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fi Active Credit Strategies L3
+
+Active credit fixed-income strategies — bottom-up/top-down/factor credit, liquidity and tail risk, synthetic credit, spread curve strategies, global credit, and structured credit
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fixed_income_portfolio_management_l3` | fixed-income-portfolio-management-l3 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| implement_credit_strategy | `autonomous` | - | - |
+| invalid_approach | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

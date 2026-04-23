@@ -7,6 +7,8 @@ tags:
   - driver-assignment
   - adhoc
   - fleet-ops
+  - fleet
+  - vehicle
 actors:
   - id: dispatcher
     name: Dispatcher
@@ -49,6 +51,70 @@ fields:
     type: datetime
     required: false
     label: Timestamp of dispatch.
+  - name: vehicle_id
+    type: text
+    required: false
+    label: Vehicle assigned to the driver for this order.
+  - name: driver_response
+    type: select
+    required: false
+    label: Driver response to dispatch (accepted, rejected).
+  - name: driver_response_at
+    type: datetime
+    required: false
+    label: Timestamp when driver responded.
+  - name: notes
+    type: text
+    required: false
+    label: Dispatcher notes for this assignment.
+  - name: status
+    type: select
+    required: true
+    label: Current dispatch status.
+
+states:
+  field: status
+  values:
+    - name: pending_assignment
+      label: Pending Assignment
+      initial: true
+    - name: assigned
+      label: Assigned
+    - name: dispatched
+      label: Dispatched
+    - name: accepted
+      label: Accepted
+    - name: rejected
+      label: Rejected
+      terminal: true
+    - name: reassigned
+      label: Reassigned
+  transitions:
+    - from: pending_assignment
+      to: assigned
+      actor: dispatcher
+      description: Driver and vehicle manually assigned by dispatcher
+    - from: pending_assignment
+      to: assigned
+      actor: platform
+      description: System auto-assigns nearest available driver
+    - from: assigned
+      to: dispatched
+      actor: dispatcher
+      description: Order dispatched to assigned driver
+    - from: dispatched
+      to: accepted
+      actor: driver
+      description: Driver accepts the dispatch
+    - from: dispatched
+      to: rejected
+      actor: driver
+      description: Driver rejects the dispatch
+    - from: rejected
+      to: reassigned
+      actor: dispatcher
+      description: Dispatcher assigns a different driver
+
 rules:
   rule_01: A driver can only be assigned to one active order at a time (current_job).
   rule_02: Assigning a driver does not automatically dispatch; dispatch is a separate explicit action.
@@ -57,6 +123,12 @@ rules:
   rule_05: If no driver is assigned and adhoc is false, dispatch fails with ORDER_NO_DRIVER_ASSIGNED.
   rule_06: When a driver is assigned, the driver receives a push notification with order details.
   rule_07: Vehicle assignment is exclusive; a vehicle can only be active for one driver at a time.
+  rule_08: Driver must have status 'available' (online, not on an active order) to be assigned.
+  rule_09: Vehicle must be operational and not already assigned to another active order.
+  rule_10: System should suggest the nearest available driver based on current GPS position.
+  rule_11: If a driver rejects a dispatch the order returns to the queue for reassignment.
+  rule_12: Dispatcher can override system suggestions and manually select any available driver.
+  rule_13: Driver acceptance or rejection must be timestamped for SLA tracking.
 outcomes:
   driver_manually_assigned:
     priority: 1
@@ -137,8 +209,49 @@ outcomes:
           - order_id
           - driver_id
     result: Driver is assigned; order proceeds with this driver.
-  dispatch_failed_no_driver:
+  driver_accepted:
     priority: 5
+    given:
+      - field: driver_response
+        source: input
+        operator: eq
+        value: accepted
+    then:
+      - action: set_field
+        target: status
+        value: accepted
+      - action: set_field
+        target: driver_response_at
+        value: now
+      - action: emit_event
+        event: dispatch.accepted
+        payload:
+          - order_id
+          - driver_id
+    result: Driver accepted; order is en route.
+  driver_rejected:
+    priority: 6
+    error: DISPATCH_DRIVER_REJECTED
+    given:
+      - field: driver_response
+        source: input
+        operator: eq
+        value: rejected
+    then:
+      - action: set_field
+        target: status
+        value: rejected
+      - action: set_field
+        target: driver_response_at
+        value: now
+      - action: emit_event
+        event: dispatch.rejected
+        payload:
+          - order_id
+          - driver_id
+    result: Driver rejected; order returned to dispatch queue for reassignment.
+  dispatch_failed_no_driver:
+    priority: 7
     error: ORDER_NO_DRIVER_ASSIGNED
     given:
       - adhoc is false
@@ -160,6 +273,12 @@ errors:
   - code: DRIVER_NOT_FOUND
     status: 404
     message: The specified driver could not be found.
+  - code: DISPATCH_DRIVER_REJECTED
+    status: 422
+    message: The driver declined this order.
+  - code: DISPATCH_VEHICLE_UNAVAILABLE
+    status: 422
+    message: The selected vehicle is not available for dispatch.
 events:
   - name: order.driver_assigned
     description: Fired when a driver is linked to an order.
@@ -179,6 +298,24 @@ events:
     payload:
       - order_id
       - reason
+  - name: dispatch.accepted
+    description: Fired when driver accepts the dispatch.
+    payload:
+      - order_id
+      - driver_id
+      - driver_response_at
+  - name: dispatch.rejected
+    description: Fired when driver rejects the dispatch.
+    payload:
+      - order_id
+      - driver_id
+      - driver_response_at
+  - name: dispatch.reassigned
+    description: Fired when order is reassigned to a different driver after rejection.
+    payload:
+      - order_id
+      - new_driver_id
+      - previous_driver_id
 related:
   - feature: ride-request-lifecycle
     type: required
@@ -192,6 +329,12 @@ related:
   - feature: fleet-vehicle-registry
     type: optional
     reason: Vehicle assignment is validated as part of driver dispatch readiness.
+  - feature: driver-profile
+    type: required
+    reason: Driver availability and status comes from driver profile.
+  - feature: realtime-driver-tracking
+    type: recommended
+    reason: Driver location used for nearest-driver auto-assignment and adhoc radius.
 
 # ─── AGI READINESS ─────────────────────────────────────────
 

@@ -15,7 +15,7 @@ description: "Establish clear visual hierarchy through size, weight, color, and 
 |---|---|
 | **Feature** | `visual-hierarchy` |
 | **Category** | UI |
-| **Version** | 1.0 |
+| **Version** | 1.0.0 |
 | **Tags** | design-system, accessibility, visual-design |
 | **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/visual-hierarchy.blueprint.yaml) |
 | **JSON API** | [visual-hierarchy.json]({{ site.baseurl }}/api/blueprints/ui/visual-hierarchy.json) |
@@ -24,23 +24,23 @@ description: "Establish clear visual hierarchy through size, weight, color, and 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `primary_content` | text | No |  |  |
-| `secondary_content` | text | No |  |  |
-| `tertiary_content` | text | No |  |  |
-| `hierarchy_levels` | number | No |  |  |
+| `primary_content` | text | No | Main content user came to interface to interact with |  |
+| `secondary_content` | text | No | Supporting information or metadata |  |
+| `tertiary_content` | text | No | Additional details, help text, or background info |  |
+| `hierarchy_levels` | number | No | Number of distinct visual hierarchy tiers in this interface (typically 3-5) |  |
 
 ## Rules
 
-- Not all elements should be equal — differentiate primary content from secondary
-- Use size strategically — scale is the most powerful hierarchy tool after careful spacing
-- Don't use grey text on colored backgrounds — reduces contrast and harm accessibility
-- Emphasize by de-emphasizing — make less important elements quieter, not primary ones louder
-- Never use labels as primary identity — labels are a last resort after visual hierarchy fails
-- Separate visual hierarchy from document hierarchy — visual and structural order needn't match
+- **not_all_elements_equal:** Not all elements should be equal — differentiate primary content from secondary
+- **use_size_strategically:** Use size strategically — scale is the most powerful hierarchy tool after careful spacing
+- **no_grey_on_colored_backgrounds:** Don't use grey text on colored backgrounds — reduces contrast and harm accessibility
+- **emphasize_by_deemphasizing:** Emphasize by de-emphasizing — make less important elements quieter, not primary ones louder
+- **never_use_labels_as_primary_identity:** Never use labels as primary identity — labels are a last resort after visual hierarchy fails
+- **separate_visual_from_document_hierarchy:** Separate visual hierarchy from document hierarchy — visual and structural order needn't match
 
 ## Outcomes
 
-### 0
+### User_scans_interface (Priority: 1)
 
 **Given:**
 - user scans interface for key information
@@ -52,7 +52,7 @@ description: "Establish clear visual hierarchy through size, weight, color, and 
 
 **Result:** user can scan interface in under 2 seconds without reading labels
 
-### 1
+### Interface_has_multiple_sections (Priority: 2)
 
 **Given:**
 - interface has multiple content sections
@@ -64,7 +64,7 @@ description: "Establish clear visual hierarchy through size, weight, color, and 
 
 **Result:** visual structure is immediately apparent without visual stress
 
-### 2
+### Critical_element_needs_attention (Priority: 3)
 
 **Given:**
 - action or data point is critical to task completion
@@ -76,7 +76,7 @@ description: "Establish clear visual hierarchy through size, weight, color, and 
 
 **Result:** critical element has no visual competitors for user attention
 
-### 3
+### Low_priority_content_present (Priority: 4)
 
 **Given:**
 - interface has low-priority metadata or supporting info
@@ -92,10 +92,55 @@ description: "Establish clear visual hierarchy through size, weight, color, and 
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| typography-system | recommended |  |
-| spacing-system | recommended |  |
-| color-system | recommended |  |
-| accessibility | required |  |
+| typography-system | recommended | Type scales and font selection enforce hierarchy through size relationships |
+| spacing-system | recommended | Spacing reinforces visual hierarchy through whitespace and grouping |
+| color-system | recommended | Color, saturation, and contrast tools for visual differentiation |
+| accessibility | required | Visual hierarchy must maintain sufficient contrast for WCAG AA compliance |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Visual Hierarchy
+
+Establish clear visual hierarchy through size, weight, color, and spacing so users can quickly scan and understand interface priority without cognitive overload.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `accessibility` | accessibility | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| user_scans_interface | `autonomous` | - | - |
+| interface_has_multiple_sections | `autonomous` | - | - |
+| critical_element_needs_attention | `autonomous` | - | - |
+| low_priority_content_present | `autonomous` | - | - |
 
 
 <script type="application/ld+json">

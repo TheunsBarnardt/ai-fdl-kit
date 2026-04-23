@@ -158,6 +158,7 @@ description: "End-of-day equity derivatives data delivery via FTP — fixed-widt
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| derivatives-eod-data-delivery | extends | Inherits shared FTP fixed-width EOD delivery specification |
 | equities-eod-data-delivery | optional | Equities EOD data uses same FTP delivery infrastructure |
 | interest-rates-derivatives-eod-data-delivery | optional | Interest rates derivatives uses similar record structure |
 | currency-derivatives-eod-data-delivery | optional | Currency derivatives uses identical record structure with different prefixes |

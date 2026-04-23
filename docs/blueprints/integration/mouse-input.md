@@ -3,7 +3,7 @@ title: "Mouse Input Blueprint"
 layout: default
 parent: "Integration"
 grand_parent: Blueprint Catalog
-description: "Mouse position, button, and motion tracking. 5 outcomes. rules: implementation, platform_agnostic"
+description: "Mouse position, button, and motion tracking. 5 outcomes. rules: implementation, platform_agnostic. AGI: supervised"
 ---
 
 # Mouse Input Blueprint
@@ -84,6 +84,45 @@ description: "Mouse position, button, and motion tracking. 5 outcomes. rules: im
 
 **Result:** Detect scroll up/down completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Mouse Input
+
+Mouse position, button, and motion tracking
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| position_tracking | `autonomous` | - | - |
+| button_detection | `autonomous` | - | - |
+| motion_events | `autonomous` | - | - |
+| mouse_capture | `autonomous` | - | - |
+| scroll_wheel | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -101,7 +140,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Mouse Input Blueprint",
-  "description": "Mouse position, button, and motion tracking. 5 outcomes. rules: implementation, platform_agnostic",
+  "description": "Mouse position, button, and motion tracking. 5 outcomes. rules: implementation, platform_agnostic. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

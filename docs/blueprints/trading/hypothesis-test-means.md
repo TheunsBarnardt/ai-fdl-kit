@@ -154,6 +154,71 @@ _Required samples missing for scenario_
 | central-limit-theorem | required |  |
 | hypothesis-test-variance | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Hypothesis Test Means
+
+Test hypotheses about one or two population means using z-tests and t-tests — including paired comparisons — selecting based on variance knowledge and sample dependence
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `hypothesis_testing_framework` | hypothesis-testing-framework | fail |
+| `central_limit_theorem` | central-limit-theorem | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| run_single_mean_test | `autonomous` | - | - |
+| run_two_sample_test | `autonomous` | - | - |
+| run_paired_test | `autonomous` | - | - |
+| invalid_scenario | `autonomous` | - | - |
+| missing_inputs | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

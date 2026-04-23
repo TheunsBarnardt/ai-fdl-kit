@@ -124,6 +124,67 @@ _Unsupported AMC area_
 | cfa-ethics-standards-l3 | required |  |
 | gips-standards-l3 | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Cfa Ethics Application L3
+
+Applied ethics for Level 3 — case study applications of CFA Standards and Asset Manager Code of Professional Conduct covering loyalty, investment process, trading, risk, performance, and disclosure
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `cfa_ethics_standards_l3` | cfa-ethics-standards-l3 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| apply_ethics_framework | `autonomous` | - | - |
+| invalid_area | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

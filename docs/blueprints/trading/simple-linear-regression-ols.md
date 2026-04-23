@@ -115,6 +115,69 @@ _x and y arrays differ in length_
 | regression-goodness-of-fit | recommended |  |
 | regression-coefficient-hypothesis-tests | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Simple Linear Regression Ols
+
+Estimate the intercept and slope of a simple linear regression of Y on X using ordinary least squares — minimising the sum of squared vertical residuals
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `covariance_correlation` | covariance-correlation | fail |
+| `regression_assumptions` | regression-assumptions | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| fit_regression | `autonomous` | - | - |
+| zero_variance_x | `autonomous` | - | - |
+| length_mismatch | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

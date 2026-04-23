@@ -129,6 +129,68 @@ _Unsupported data type_
 | hypothesis-test-means | recommended |  |
 | hypothesis-test-variance | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Parametric Vs Nonparametric Tests
+
+Choose between parametric and nonparametric hypothesis tests based on distributional assumptions, outliers, rank-based data, and whether the hypothesis concerns a parameter
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `hypothesis_testing_framework` | hypothesis-testing-framework | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| select_parametric | `autonomous` | - | - |
+| select_nonparametric | `autonomous` | - | - |
+| invalid_data_type | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -126,6 +126,58 @@ _Jurisdiction missing_
 | credit-cycles | recommended |  |
 | business-cycle-phases | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Monetary Policy Framework
+
+Execute central bank monetary policy using open market operations, policy rate, reserve requirements, and standing facilities to meet inflation and financial stability objectives
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| execute_policy_action | `autonomous` | - | - |
+| invalid_tool | `autonomous` | - | - |
+| missing_jurisdiction | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

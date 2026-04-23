@@ -110,6 +110,68 @@ _Unsupported cash flow structure_
 | fixed-income-bond-features | required |  |
 | fixed-income-bond-pricing | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fixed Income Cash Flow Structures
+
+Characterise fixed-income cash flow patterns — bullet, amortising, sinking fund, step-up, floating, PIK, contingent — and compute principal and interest schedules
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fixed_income_bond_features` | fixed-income-bond-features | fail |
+| `fixed_income_bond_pricing` | fixed-income-bond-pricing | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_cash_flow_schedule | `autonomous` | - | - |
+| invalid_structure | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

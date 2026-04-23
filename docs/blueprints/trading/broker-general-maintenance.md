@@ -267,6 +267,78 @@ _Block table row whose effective date range overlaps an existing row_
 | broker-back-office-dissemination | recommended |  |
 | popia-compliance | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker General Maintenance
+
+Back-office general maintenance covering user-specific master records, online and batch print control, end-user reporting, instrument information, remote printer maintenance, report request...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| request_online_or_batch_print | `autonomous` | - | - |
+| cancel_queued_print_job | `supervised` | - | - |
+| reject_invalid_print_job_state | `supervised` | - | - |
+| submit_end_user_report_request | `autonomous` | - | - |
+| reject_unauthorised_report_destination | `supervised` | - | - |
+| load_unquoted_instrument | `autonomous` | - | - |
+| reject_duplicate_instrument | `supervised` | - | - |
+| block_instrument_deletion_with_history | `human_required` | - | - |
+| maintain_remote_printer | `autonomous` | - | - |
+| upsert_user_table_row | `autonomous` | - | - |
+| reject_overlapping_table_effective_dates | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

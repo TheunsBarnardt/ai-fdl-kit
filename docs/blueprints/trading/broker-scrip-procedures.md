@@ -326,6 +326,81 @@ _Float count variance raises an exception and blocks end-of-day until investigat
 | broker-back-office-dissemination | recommended |  |
 | broker-client-data-upload | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Scrip Procedures
+
+Back-office scrip handling covering physical and electronic securities — receipts, allocations, registration, dispatch, safekeeping, central depository lodgement, pledge management, and scrip...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| receive_scrip_against_sale | `autonomous` | - | - |
+| reject_duplicate_scrip | `supervised` | - | - |
+| allocate_scrip_to_purchase | `autonomous` | - | - |
+| send_for_registration | `autonomous` | - | - |
+| record_registered_scrip | `autonomous` | - | - |
+| lodge_with_central_depository | `autonomous` | - | - |
+| move_to_safe_custody | `autonomous` | - | - |
+| reject_unregistered_lodgement | `supervised` | - | - |
+| pledge_scrip_to_bank | `autonomous` | - | - |
+| release_scrip_from_safekeeping | `autonomous` | - | - |
+| reject_release_with_active_pledge | `supervised` | - | - |
+| dispatch_scrip_to_client | `autonomous` | - | - |
+| balance_scrip_float | `autonomous` | - | - |
+| raise_float_variance_exception | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

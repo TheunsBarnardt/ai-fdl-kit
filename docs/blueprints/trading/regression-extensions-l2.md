@@ -96,6 +96,67 @@ _Unsupported extension type_
 | multiple-regression-basics-l2 | required |  |
 | regression-misspecification-l2 | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Regression Extensions L2
+
+Apply regression extensions — influence analysis (leverage, studentised residuals, Cook's D), dummy variables (intercept and slope), and qualitative dependents (logit, probit)
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `multiple_regression_basics_l2` | multiple-regression-basics-l2 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| apply_extension | `autonomous` | - | - |
+| invalid_extension | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

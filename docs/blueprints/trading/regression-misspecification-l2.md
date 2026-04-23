@@ -101,6 +101,68 @@ _Unsupported violation type_
 | multiple-regression-basics-l2 | required |  |
 | regression-assumptions | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Regression Misspecification L2
+
+Diagnose and correct regression misspecification — heteroskedasticity, serial correlation, and multicollinearity — using Breusch-Pagan, Durbin-Watson/Breusch-Godfrey, and VIF
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `multiple_regression_basics_l2` | multiple-regression-basics-l2 | fail |
+| `regression_assumptions` | regression-assumptions | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| diagnose_misspecification | `autonomous` | - | - |
+| invalid_violation | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

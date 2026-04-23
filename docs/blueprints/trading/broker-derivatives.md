@@ -276,6 +276,77 @@ _Return daily positions snapshot by account or broker as at an enquiry date_
 | popia-compliance | required |  |
 | broker-client-data-upload | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Derivatives
+
+Nightly derivatives upload into the broker back-office producing automatic margin and mark-to-market journals, booking-fee and brokerage calculation, and position enquiry for futures and options
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| nightly_upload_success | `autonomous` | - | - |
+| reject_upload_broker_not_enabled | `supervised` | - | - |
+| reject_duplicate_contract | `supervised` | - | - |
+| calculate_booking_fee_and_brokerage | `autonomous` | - | - |
+| reject_missing_rate | `supervised` | - | - |
+| post_initial_margin_journal | `autonomous` | - | - |
+| post_mark_to_market_journal | `autonomous` | - | - |
+| close_position_on_offset | `autonomous` | - | - |
+| reject_non_resident_mixing | `supervised` | - | - |
+| position_enquiry_snapshot | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

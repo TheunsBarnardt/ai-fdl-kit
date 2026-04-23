@@ -120,6 +120,58 @@ _Unsupported coupon type_
 | fixed-income-cash-flow-structures | recommended |  |
 | fixed-income-credit-analysis | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fixed Income Bond Features
+
+Classify bond indenture terms — issuer, maturity, coupon, seniority, collateral, covenants — and describe how contractual features drive cash flow and credit risk
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| classify_bond | `autonomous` | - | - |
+| invalid_issuer | `autonomous` | - | - |
+| invalid_coupon | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

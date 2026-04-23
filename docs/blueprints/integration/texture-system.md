@@ -3,7 +3,7 @@ title: "Texture System Blueprint"
 layout: default
 parent: "Integration"
 grand_parent: Blueprint Catalog
-description: "Texture loading, filtering, and addressing modes. 5 outcomes. rules: implementation, platform_agnostic"
+description: "Texture loading, filtering, and addressing modes. 5 outcomes. rules: implementation, platform_agnostic. AGI: supervised"
 ---
 
 # Texture System Blueprint
@@ -84,6 +84,45 @@ description: "Texture loading, filtering, and addressing modes. 5 outcomes. rule
 
 **Result:** Pack multiple textures completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Texture System
+
+Texture loading, filtering, and addressing modes
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| texture_creation | `supervised` | - | - |
+| texture_loading | `autonomous` | - | - |
+| texture_filtering | `autonomous` | - | - |
+| texture_addressing | `autonomous` | - | - |
+| texture_atlasing | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -101,7 +140,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Texture System Blueprint",
-  "description": "Texture loading, filtering, and addressing modes. 5 outcomes. rules: implementation, platform_agnostic",
+  "description": "Texture loading, filtering, and addressing modes. 5 outcomes. rules: implementation, platform_agnostic. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

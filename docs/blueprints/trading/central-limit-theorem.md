@@ -141,6 +141,60 @@ _Required inputs missing_
 | sampling-methods | recommended |  |
 | bootstrap-resampling | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Central Limit Theorem
+
+Apply the Central Limit Theorem — the sampling distribution of the sample mean is approximately normal with mean mu and variance sigma^2 / n for large n, regardless of population shape
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_standard_error | `autonomous` | - | - |
+| apply_clt_approximation | `autonomous` | - | - |
+| small_sample_warning | `autonomous` | - | - |
+| insufficient_sample | `autonomous` | - | - |
+| missing_inputs | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

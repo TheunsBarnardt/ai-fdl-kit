@@ -280,6 +280,77 @@ _Pledged holdings are excluded from availability used by settlement and sale mat
 | popia-compliance | required |  |
 | broker-back-office-dissemination | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Client Pledge Equities
+
+Client pledge of electronically settled listed equities on controlled broker accounts, covering pledgee setup, pledge deposit and withdrawal, CSD reporting, and corporate action treatment
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| capture_pledge_deposit | `autonomous` | - | - |
+| confirm_pledge_and_issue_reference | `autonomous` | - | - |
+| reject_pledge_exceeding_availability | `supervised` | - | - |
+| reject_ineligible_instrument | `supervised` | - | - |
+| withdraw_pledge_by_reference | `autonomous` | - | - |
+| release_pledge_fully | `autonomous` | - | - |
+| report_movements_to_csd | `autonomous` | - | - |
+| report_positions_to_csd | `autonomous` | - | - |
+| process_corporate_action_on_client_account | `autonomous` | - | - |
+| exclude_pledged_from_settlement_availability | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

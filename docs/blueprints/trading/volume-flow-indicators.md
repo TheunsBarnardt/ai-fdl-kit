@@ -210,6 +210,73 @@ description: "Volume-based flow indicators that track accumulation, distribution
 | candlestick-pattern-recognition | optional |  |
 | market-data-feeds | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Volume Flow Indicators
+
+Volume-based flow indicators that track accumulation, distribution, and buying/selling pressure by weighting price action with volume — confirming or diverging from price trend signals
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `market_data_feeds` | market-data-feeds | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_success | `autonomous` | - | - |
+| bullish_divergence | `autonomous` | - | - |
+| bearish_divergence | `autonomous` | - | - |
+| mfi_overbought | `autonomous` | - | - |
+| mfi_oversold | `autonomous` | - | - |
+| insufficient_data | `autonomous` | - | - |
+| missing_volume | `autonomous` | - | - |
+| flat_bar_edge | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

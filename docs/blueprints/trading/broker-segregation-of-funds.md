@@ -257,6 +257,78 @@ _Monthly interest received from trust-account provider credited to client balanc
 | popia-compliance | required |  |
 | broker-client-data-upload | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Segregation Of Funds
+
+Segregation of client funds from member funds via trust banking accounts with daily sweeps to a central trust-account provider, resident vs non-resident handling, and bank transfer instructions
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `foreign_exchange_control` | foreign-exchange-control | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| configure_trust_account | `autonomous` | - | - |
+| reject_unapproved_bank | `supervised` | - | - |
+| calculate_daily_sweep | `autonomous` | - | - |
+| issue_bank_transfer_instruction | `autonomous` | - | - |
+| reject_non_resident_overdraft | `supervised` | - | - |
+| enforce_non_resident_cutoff | `autonomous` | - | - |
+| route_non_resident_deposit | `autonomous` | - | - |
+| record_unpaid_sweep | `autonomous` | - | - |
+| reconcile_trust_provider_balance | `autonomous` | - | - |
+| credit_monthly_interest | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

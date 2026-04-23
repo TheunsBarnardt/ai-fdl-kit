@@ -128,6 +128,67 @@ _Unsupported asset class_
 |---------|-------------|--------|
 | capital-market-expectations-macro-l3 | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Capital Market Expectations Asset Class L3
+
+Forecast asset class returns — FI building blocks, equity DCF/risk-premium, real estate cap rates, FX, volatility, Singer-Terhaar, Black-Litterman
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `capital_market_expectations_macro_l3` | capital-market-expectations-macro-l3 | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| develop_asset_class_forecast | `autonomous` | - | - |
+| invalid_asset_class | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

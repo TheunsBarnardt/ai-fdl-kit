@@ -227,6 +227,75 @@ _Generic alpha look-up by partial name, optionally filtered by type/branch/partn
 | popia-compliance | required |  |
 | broker-back-office-dissemination | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Client Account Maintenance
+
+Internal back-office account maintenance for clients, agents, and stock accounts including alpha lookup, relationships, addresses, tax/legal records, freezes, and memos
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_new_client_account | `supervised` | - | - |
+| reject_duplicate_account | `supervised` | - | - |
+| verify_and_activate_account | `autonomous` | - | - |
+| freeze_account | `autonomous` | - | - |
+| reject_operator_freeze | `supervised` | - | - |
+| update_tax_legal_record | `supervised` | - | - |
+| block_deletion_with_history | `human_required` | - | - |
+| alpha_lookup | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -3,7 +3,7 @@ title: "Interest Rate Derivatives Trading Blueprint"
 layout: default
 parent: "Trading"
 grand_parent: Blueprint Catalog
-description: "Interest rate derivatives trading with NUTRON API, conformance, and settlement. 8 fields. 3 outcomes. 4 error codes. rules: trading"
+description: "Interest rate derivatives trading with NUTRON API, conformance, and settlement. 8 fields. 3 outcomes. 4 error codes. rules: trading. AGI: supervised"
 ---
 
 # Interest Rate Derivatives Trading Blueprint
@@ -112,13 +112,75 @@ Repo: T+0 or T+n per agreement; collateral transfer via banking system.
 |---------|-------------|--------|
 | derivatives-market-overview | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Interest Rate Derivatives Trading
+
+Interest rate derivatives trading with NUTRON API, conformance, and settlement
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `derivatives_market_overview` | derivatives-market-overview | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| order_insert_success | `autonomous` | - | - |
+| circuit_breaker_halt | `autonomous` | - | - |
+| order_fill_on_match | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Interest Rate Derivatives Trading Blueprint",
-  "description": "Interest rate derivatives trading with NUTRON API, conformance, and settlement. 8 fields. 3 outcomes. 4 error codes. rules: trading",
+  "description": "Interest rate derivatives trading with NUTRON API, conformance, and settlement. 8 fields. 3 outcomes. 4 error codes. rules: trading. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

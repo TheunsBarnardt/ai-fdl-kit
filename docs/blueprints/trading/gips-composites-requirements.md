@@ -89,7 +89,68 @@ _Construct GIPS-compliant composite_
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| gips-standards-l3 | recommended | L3 advanced GIPS topics build on the composite construction rules defined here |
 | gips-compliance-fundamentals | required |  |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Gips Composites Requirements
+
+Define GIPS composites, describe the requirements for composite construction, return calculation, disclosures, and presentation, and present minimum required items on a compliant presentation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `gips_compliance_fundamentals` | gips-compliance-fundamentals | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| construct_composite | `autonomous` | - | - |
 
 
 <script type="application/ld+json">

@@ -142,6 +142,60 @@ _Unsupported sampling method_
 | central-limit-theorem | recommended |  |
 | bootstrap-resampling | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Sampling Methods
+
+Select a sample from a population using probability (simple random, stratified, cluster) or non-probability (convenience, judgmental) methods, trading representativeness against cost and speed
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| draw_simple_random | `autonomous` | - | - |
+| draw_stratified | `autonomous` | - | - |
+| draw_cluster | `autonomous` | - | - |
+| missing_strata | `autonomous` | - | - |
+| invalid_method | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

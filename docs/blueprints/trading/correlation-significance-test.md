@@ -130,6 +130,70 @@ _Correlation outside [-1, 1]_
 | hypothesis-testing-framework | required |  |
 | parametric-vs-nonparametric-tests | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Correlation Significance Test
+
+Test whether a population correlation coefficient differs from zero using the t-statistic for Pearson correlation or the analogous test for Spearman rank correlation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `covariance_correlation` | covariance-correlation | fail |
+| `hypothesis_testing_framework` | hypothesis-testing-framework | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| run_pearson_test | `autonomous` | - | - |
+| run_spearman_test | `autonomous` | - | - |
+| insufficient_n | `autonomous` | - | - |
+| invalid_r | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

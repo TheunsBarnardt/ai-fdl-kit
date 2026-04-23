@@ -3,7 +3,7 @@ title: "Compression Blueprint"
 layout: default
 parent: "Data"
 grand_parent: Blueprint Catalog
-description: "File compression (DEFLATE, ZSTD, Brotli, Gzip). 4 outcomes. rules: implementation, platform_agnostic"
+description: "File compression (DEFLATE, ZSTD, Brotli, Gzip). 4 outcomes. rules: implementation, platform_agnostic. AGI: supervised"
 ---
 
 # Compression Blueprint
@@ -74,6 +74,44 @@ description: "File compression (DEFLATE, ZSTD, Brotli, Gzip). 4 outcomes. rules:
 
 **Result:** Decompress all supported formats completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Compression
+
+File compression (DEFLATE, ZSTD, Brotli, Gzip)
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| deflate_compression | `autonomous` | - | - |
+| zstd_compression | `autonomous` | - | - |
+| brotli_compression | `autonomous` | - | - |
+| decompression | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -91,7 +129,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Compression Blueprint",
-  "description": "File compression (DEFLATE, ZSTD, Brotli, Gzip). 4 outcomes. rules: implementation, platform_agnostic",
+  "description": "File compression (DEFLATE, ZSTD, Brotli, Gzip). 4 outcomes. rules: implementation, platform_agnostic. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

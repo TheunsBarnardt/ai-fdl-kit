@@ -130,6 +130,69 @@ _Daily mark-to-market revaluation of bond holdings_
 | post-trade-gateway-fix | recommended |  |
 | reference-data-management | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Bond Pricing Models
+
+Bond pricing and valuation methodologies for conventional, floating-rate, inflation-indexed bonds and MTM revaluation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `reference_data_management` | reference-data-management | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| calculate_conventional_price | `autonomous` | - | - |
+| price_frn | `autonomous` | - | - |
+| price_inflation_bond | `autonomous` | - | - |
+| mtm_revalue | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

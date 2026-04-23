@@ -116,6 +116,57 @@ _Unsupported risk type_
 | options-strategies-l3 | recommended |  |
 | currency-management-intro-l3 | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Swaps Forwards Futures Strategies L3
+
+Derivatives strategies using swaps, forwards and futures — interest rate risk, currency exposure, equity risk, asset allocation, variance swaps, and inferring market expectations
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| implement_derivatives_strategy | `autonomous` | - | - |
+| invalid_risk_type | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

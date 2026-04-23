@@ -3,7 +3,7 @@ title: "Post Trade Gateway Fix Blueprint"
 layout: default
 parent: "Trading"
 grand_parent: Blueprint Catalog
-description: "FIX 5.0 SP2 post-trade gateway for trade reporting, allocations, confirmations and give-ups. 5 fields. 3 outcomes. 2 error codes. rules: reporting, settlement"
+description: "FIX 5.0 SP2 post-trade gateway for trade reporting, allocations, confirmations and give-ups. 5 fields. 3 outcomes. 2 error codes. rules: reporting, settlement. "
 ---
 
 # Post Trade Gateway Fix Blueprint
@@ -104,6 +104,68 @@ _Buy-side confirms trade details_
 | trading-gateway-fix | recommended |  |
 | clearing-settlement-integration | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Post Trade Gateway Fix
+
+FIX 5.0 SP2 post-trade gateway for trade reporting, allocations, confirmations and give-ups
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `clearing_settlement_integration` | clearing-settlement-integration | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| trade_capture_report | `autonomous` | - | - |
+| allocation_instruction | `autonomous` | - | - |
+| confirmation | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -177,7 +239,7 @@ trade_capture_status_codes:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Post Trade Gateway Fix Blueprint",
-  "description": "FIX 5.0 SP2 post-trade gateway for trade reporting, allocations, confirmations and give-ups. 5 fields. 3 outcomes. 2 error codes. rules: reporting, settlement",
+  "description": "FIX 5.0 SP2 post-trade gateway for trade reporting, allocations, confirmations and give-ups. 5 fields. 3 outcomes. 2 error codes. rules: reporting, settlement. ",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

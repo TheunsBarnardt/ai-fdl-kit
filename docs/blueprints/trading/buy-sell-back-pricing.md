@@ -71,6 +71,68 @@ _Price repo agreement with bond valuation and daily interest_
 |---------|-------------|--------|
 | bond-pricing-models | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Buy Sell Back Pricing
+
+Repo agreement (buy-sell-back) pricing combining bond valuation with
+repo interest accrual over repurchase term.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `bond_pricing_models` | bond-pricing-models | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| repo_priced | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

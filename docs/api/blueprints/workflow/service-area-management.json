@@ -79,6 +79,30 @@
       "type": "select",
       "label": "Status",
       "required": true
+    },
+    {
+      "name": "zone_id",
+      "type": "text",
+      "label": "Zone ID",
+      "required": false
+    },
+    {
+      "name": "zone_name",
+      "type": "text",
+      "label": "Zone Name",
+      "required": false
+    },
+    {
+      "name": "zone_description",
+      "type": "text",
+      "label": "Zone Description",
+      "required": false
+    },
+    {
+      "name": "zone_border",
+      "type": "json",
+      "label": "Zone Boundary (GeoJSON)",
+      "required": false
     }
   ],
   "states": {
@@ -120,7 +144,10 @@
     "fleet_scoping": "Fleet assignments can be scoped to specific service areas",
     "overlap_allowed": "Overlapping service areas are permitted; the most specific matching area takes precedence",
     "rate_binding": "Service rate structures can be bound to specific service areas and zones",
-    "valid_colors": "Visualization colors must be valid hex color codes"
+    "valid_colors": "Visualization colors must be valid hex color codes",
+    "multi_polygon_support": "Service areas support multi-polygon geometry for non-contiguous regions",
+    "zone_containment": "Zone entry and exit detection via driver location updates fires zone.driver_entered/exited events",
+    "fleet_zone_scoping": "Fleets can be assigned to specific zones to restrict or organize operational coverage"
   },
   "outcomes": {
     "area_created": {
@@ -219,8 +246,41 @@
       "result": "Order rejected — location is outside operational service areas",
       "error": "ORDER_OUTSIDE_SERVICE_AREA"
     },
+    "fleet_scoped_to_zone": {
+      "priority": 3,
+      "given": [
+        "dispatcher assigns a fleet to a service area or zone"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "fleet.service_area_id",
+          "description": "Fleet is associated with the service area"
+        },
+        {
+          "action": "set_field",
+          "target": "fleet.zone_id",
+          "description": "Fleet is associated with the specific zone"
+        }
+      ],
+      "result": "Fleet operations logically restricted to the assigned zone"
+    },
+    "zone_containment_checked": {
+      "priority": 4,
+      "given": [
+        "a point (driver or order location) is tested against zone boundaries"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "response.inside_zone",
+          "description": "Boolean result indicating if the point falls within any zone boundary"
+        }
+      ],
+      "result": "Platform can enforce or report whether a location is within an operational zone"
+    },
     "invalid_boundary": {
-      "priority": 2,
+      "priority": 5,
       "given": [
         "border GeoJSON is malformed or has fewer than 3 coordinate pairs"
       ],
@@ -244,6 +304,11 @@
       "code": "SERVICE_AREA_NOT_FOUND",
       "status": 404,
       "message": "Service area not found."
+    },
+    {
+      "code": "ZONE_NOT_FOUND",
+      "status": 404,
+      "message": "The specified zone could not be found."
     }
   ],
   "events": [
@@ -281,6 +346,26 @@
         "zone_id",
         "name"
       ]
+    },
+    {
+      "name": "zone.driver_entered",
+      "description": "Driver's location update places them inside a zone boundary",
+      "payload": [
+        "zone_id",
+        "driver_id",
+        "latitude",
+        "longitude"
+      ]
+    },
+    {
+      "name": "zone.driver_exited",
+      "description": "Driver's location update places them outside a zone they were previously in",
+      "payload": [
+        "zone_id",
+        "driver_id",
+        "latitude",
+        "longitude"
+      ]
     }
   ],
   "related": [
@@ -298,6 +383,11 @@
       "feature": "trip-billing-invoicing",
       "type": "optional",
       "reason": "Service rates are linked to specific areas and zones"
+    },
+    {
+      "feature": "driver-location-streaming",
+      "type": "recommended",
+      "reason": "Driver location updates enable real-time zone entry/exit detection"
     }
   ],
   "agi": {

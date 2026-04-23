@@ -121,6 +121,69 @@ _Adjust index for corporate actions (splits, special dividends)_
 | reference-data-management | required |  |
 | market-data-mitch-udp | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Index Data Feeds
+
+Real-time index calculation and dissemination (equity indices, sector indices, style indices, thematic indices)
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `reference_data_management` | reference-data-management | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| calculate_index_level | `autonomous` | - | - |
+| disseminate_index_data | `autonomous` | - | - |
+| rebalance_constituents | `autonomous` | - | - |
+| adjust_corporate_action | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

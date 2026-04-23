@@ -100,6 +100,13 @@ description: "Track all client sessions as named devices per user account. List,
 
 **Result:** Device can no longer be used; all associated sessions are terminated
 
+### Device_not_found (Priority: 3) — Error: `DEVICE_NOT_FOUND`
+
+**Given:**
+- requested device_id does not exist on the account
+
+**Result:** Operation rejected — device not found on this account
+
 ### Stale_device_purged (Priority: 4)
 
 **Given:**

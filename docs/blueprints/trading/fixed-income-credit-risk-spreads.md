@@ -118,6 +118,69 @@ _LGD outside [0, 1]_
 | fixed-income-credit-analysis | required |  |
 | fixed-income-yield-spreads | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fixed Income Credit Risk Spreads
+
+Quantify credit risk via probability of default, loss given default, and expected loss, and decompose credit spreads into default, liquidity, and risk-premium components
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fixed_income_credit_analysis` | fixed-income-credit-analysis | fail |
+| `fixed_income_yield_spreads` | fixed-income-yield-spreads | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_credit_risk | `autonomous` | - | - |
+| invalid_pd | `autonomous` | - | - |
+| invalid_lgd | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

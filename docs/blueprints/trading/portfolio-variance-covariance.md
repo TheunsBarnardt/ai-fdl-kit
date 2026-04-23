@@ -136,10 +136,75 @@ _Weight vector length does not match matrix dimension_
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| portfolio-expected-return-variance | recommended | Portfolio-level expected return and variance calculations depend on the covariance inputs defined here |
 | portfolio-expected-return | required |  |
 | covariance-correlation | required |  |
 | measures-of-dispersion | recommended |  |
 | joint-probability-covariance | recommended |  |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Portfolio Variance Covariance
+
+Compute portfolio variance and standard deviation from asset weights and the covariance matrix — the foundation of Markowitz mean-variance optimisation and diversification
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `portfolio_expected_return` | portfolio-expected-return | fail |
+| `covariance_correlation` | covariance-correlation | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_variance | `autonomous` | - | - |
+| compute_from_correlation | `autonomous` | - | - |
+| matrix_malformed | `autonomous` | - | - |
+| dimension_mismatch | `autonomous` | - | - |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

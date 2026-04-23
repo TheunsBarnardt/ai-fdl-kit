@@ -112,6 +112,57 @@ _Unsupported translation method_
 |---------|-------------|--------|
 | currency-exchange-equilibrium-l2 | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Multinational Operations L2
+
+Translate foreign-currency transactions and financial statements — functional-currency test, current-rate vs temporal methods, hyperinflationary economies, effective tax rate
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| translate_entity | `autonomous` | - | - |
+| invalid_method | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

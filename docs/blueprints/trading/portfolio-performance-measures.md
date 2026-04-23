@@ -86,6 +86,66 @@ _Compute chosen performance measure_
 |---------|-------------|--------|
 | capm-security-market-line | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Portfolio Performance Measures
+
+Compute Sharpe ratio, Treynor ratio, M-squared, Jensen's alpha, and security characteristic line to evaluate risk-adjusted performance against benchmarks
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `capm_security_market_line` | capm-security-market-line | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_performance | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

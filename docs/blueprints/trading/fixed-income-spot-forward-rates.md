@@ -104,8 +104,70 @@ _Unsupported curve type_
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| implied-forward-rates | recommended | Implied forward rates are calculated directly from the spot rate term structure defined here |
 | fixed-income-bond-pricing | required |  |
 | fixed-income-yield-spreads | recommended |  |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fixed Income Spot Forward Rates
+
+Derive spot rates via bootstrapping, compute forward rates under no-arbitrage, and interpret the term structure of interest rates for pricing and curve strategies
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fixed_income_bond_pricing` | fixed-income-bond-pricing | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| build_curve | `autonomous` | - | - |
+| invalid_type | `autonomous` | - | - |
 
 
 <script type="application/ld+json">

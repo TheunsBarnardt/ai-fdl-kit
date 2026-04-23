@@ -15,7 +15,7 @@ description: "Define a consistent type scale, font selection, and readability ru
 |---|---|
 | **Feature** | `typography-system` |
 | **Category** | UI |
-| **Version** | 1.0 |
+| **Version** | 1.0.0 |
 | **Tags** | design-system, accessibility, typography |
 | **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/typography-system.blueprint.yaml) |
 | **JSON API** | [typography-system.json]({{ site.baseurl }}/api/blueprints/ui/typography-system.json) |
@@ -24,26 +24,26 @@ description: "Define a consistent type scale, font selection, and readability ru
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `base_size` | number | No |  |  |
-| `type_scale_ratio` | number | No |  |  |
-| `primary_font_family` | text | No |  |  |
-| `secondary_font_family` | text | No |  |  |
-| `line_length_range` | text | No |  |  |
+| `base_size` | number | No | Foundation font size (typically 16px for web) |  |
+| `type_scale_ratio` | number | No | Multiplier for heading sizes (e.g., 1.125, 1.25, 1.5) |  |
+| `primary_font_family` | text | No | Primary font name and weights (e.g., Inter 400, 500, 600, 700) |  |
+| `secondary_font_family` | text | No | Optional secondary font for contrast (e.g., serif for displays) |  |
+| `line_length_range` | text | No | Target character count per line (e.g., 50-75) |  |
 
 ## Rules
 
-- Establish a type scale — use a base size (16px) and multiply by consistent ratios (1.125, 1.25, 1.5) for heading sizes
-- Use good fonts with multiple weights — modern sans-serifs with 3+ weights (regular, medium, bold) are safest defaults
-- Keep line length between 50-75 characters for optimal readability
-- Align text to baseline, never center-align — readability is worse with center alignment
-- Line-height should be proportional to measure — tighter leading for small text, looser for large
-- Not every link needs a color — underline or weight change can signal interactivity
-- Align with readability in mind — consider visual weight, line-height, letter-spacing together
-- Use letter-spacing effectively — only increase for headlines; body text rarely needs adjustment
+- **establish_type_scale:** Establish a type scale — use a base size (16px) and multiply by consistent ratios (1.125, 1.25, 1.5) for heading sizes
+- **use_good_fonts_with_multiple_weights:** Use good fonts with multiple weights — modern sans-serifs with 3+ weights (regular, medium, bold) are safest defaults
+- **keep_line_length_50_75_chars:** Keep line length between 50-75 characters for optimal readability
+- **align_text_to_baseline:** Align text to baseline, never center-align — readability is worse with center alignment
+- **line_height_proportional_to_measure:** Line-height should be proportional to measure — tighter leading for small text, looser for large
+- **not_every_link_needs_color:** Not every link needs a color — underline or weight change can signal interactivity
+- **align_with_readability_in_mind:** Align with readability in mind — consider visual weight, line-height, letter-spacing together
+- **use_letter_spacing_effectively:** Use letter-spacing effectively — only increase for headlines; body text rarely needs adjustment
 
 ## Outcomes
 
-### 0
+### New_interface_created (Priority: 1)
 
 **Given:**
 - new interface is created
@@ -55,7 +55,7 @@ description: "Define a consistent type scale, font selection, and readability ru
 
 **Result:** typography system is established and documented
 
-### 1
+### Body_text_rendered (Priority: 2)
 
 **Given:**
 - body text is rendered
@@ -68,7 +68,7 @@ description: "Define a consistent type scale, font selection, and readability ru
 
 **Result:** text is scannable and readable without eye strain
 
-### 2
+### Heading_rendered (Priority: 3)
 
 **Given:**
 - heading is rendered
@@ -80,7 +80,7 @@ description: "Define a consistent type scale, font selection, and readability ru
 
 **Result:** heading has clear visual distinction from body copy
 
-### 3
+### Small_metadata_text (Priority: 4)
 
 **Given:**
 - small metadata or UI text (12px or smaller)
@@ -95,10 +95,56 @@ description: "Define a consistent type scale, font selection, and readability ru
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| visual-hierarchy | required |  |
-| spacing-system | recommended |  |
-| accessibility | required |  |
-| dark-mode | recommended |  |
+| visual-hierarchy | required | Type scale is primary tool for expressing visual hierarchy |
+| spacing-system | recommended | Line-height and letter-spacing are part of spacing system |
+| accessibility | required | Font size and line-height must support readability for low-vision users |
+| dark-mode | recommended | Typography contrast and brightness differ between light and dark modes |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Typography System
+
+Define a consistent type scale, font selection, and readability rules that establish clear visual hierarchy and ensure text is readable across all interface sizes and contexts.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `visual_hierarchy` | visual-hierarchy | degrade |
+| `accessibility` | accessibility | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| new_interface_created | `supervised` | - | - |
+| body_text_rendered | `autonomous` | - | - |
+| heading_rendered | `autonomous` | - | - |
+| small_metadata_text | `autonomous` | - | - |
 
 
 <script type="application/ld+json">

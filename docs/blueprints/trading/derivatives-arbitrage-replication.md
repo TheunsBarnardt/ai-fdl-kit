@@ -105,6 +105,68 @@ _Non-positive time to expiry_
 | options-put-call-parity | required |  |
 | forward-futures-pricing | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Derivatives Arbitrage Replication
+
+Apply the law of one price, arbitrage, and risk-neutral replication to price derivatives, and explain why identical payoffs must share a single price or arbitrage appears
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `binomial_option_pricing` | binomial-option-pricing | fail |
+| `options_put_call_parity` | options-put-call-parity | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| price_via_replication | `autonomous` | - | - |
+| invalid_time | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

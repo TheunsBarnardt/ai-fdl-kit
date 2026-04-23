@@ -3,19 +3,19 @@ title: "Design Polish Blueprint"
 layout: default
 parent: "UI"
 grand_parent: Blueprint Catalog
-description: "Apply finishing touches that elevate interface quality through thoughtful accent borders, strategic background decoration, empty states, minimal borders, and at"
+description: "Apply finishing touches that elevate interface quality through accent borders, background decoration, empty states, minimal borders, and small details that comp"
 ---
 
 # Design Polish Blueprint
 
-> Apply finishing touches that elevate interface quality through thoughtful accent borders, strategic background decoration, empty states, minimal borders, and attention to small details that compound into professional appearance.
+> Apply finishing touches that elevate interface quality through accent borders, background decoration, empty states, minimal borders, and small details that compound into a professional appearance.
 
 
 | | |
 |---|---|
 | **Feature** | `design-polish` |
 | **Category** | UI |
-| **Version** | 1.0 |
+| **Version** | 1.0.0 |
 | **Tags** | design-system, visual-design, interaction-design |
 | **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/design-polish.blueprint.yaml) |
 | **JSON API** | [design-polish.json]({{ site.baseurl }}/api/blueprints/ui/design-polish.json) |
@@ -24,24 +24,24 @@ description: "Apply finishing touches that elevate interface quality through tho
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `primary_button_style` | text | No |  |  |
-| `input_focus_treatment` | text | No |  |  |
-| `empty_state_elements` | text | No |  |  |
-| `border_strategy` | text | No |  |  |
-| `background_decoration` | text | No |  |  |
+| `primary_button_style` | text | No | Color, padding, and hover state treatment |  |
+| `input_focus_treatment` | text | No | Visual feedback on form input focus |  |
+| `empty_state_elements` | text | No | Illustration, copy, and CTA for empty states |  |
+| `border_strategy` | text | No | How borders are used (minimal, shadows, spacing instead) |  |
+| `background_decoration` | text | No | Pattern, gradient, or texture approach |  |
 
 ## Rules
 
-- Supercharge the defaults — primary buttons, inputs, and frequently used elements deserve extra attention
-- Add color with accent borders — thin colored borders create visual interest without visual noise
-- Decorate backgrounds — subtle patterns, gradients, or texture can make backgrounds feel intentional
-- Don't overlook empty states — users see these moments; empty states are opportunities for personality and guidance
-- Use fewer borders — reduce reliance on borders; use spacing, shadows, or color to define sections instead
-- Think outside the box — small details (rounded corners, icons, micro-copy) compound into polished feel
+- **supercharge_the_defaults:** Supercharge the defaults — primary buttons, inputs, and frequently used elements deserve extra attention
+- **add_color_with_accent_borders:** Add color with accent borders — thin colored borders create visual interest without visual noise
+- **decorate_backgrounds:** Decorate backgrounds — subtle patterns, gradients, or texture can make backgrounds feel intentional
+- **dont_overlook_empty_states:** Don't overlook empty states — users see these moments; empty states are opportunities for personality and guidance
+- **use_fewer_borders:** Use fewer borders — reduce reliance on borders; use spacing, shadows, or color to define sections instead
+- **think_outside_the_box:** Think outside the box — small details (rounded corners, icons, micro-copy) compound into polished feel
 
 ## Outcomes
 
-### 0
+### Primary_action_button_designed (Priority: 1)
 
 **Given:**
 - primary action button is designed
@@ -55,7 +55,7 @@ description: "Apply finishing touches that elevate interface quality through tho
 
 **Result:** primary button is inviting and clearly clickable
 
-### 1
+### Form_input_field_styled (Priority: 2)
 
 **Given:**
 - form input field is styled
@@ -68,7 +68,7 @@ description: "Apply finishing touches that elevate interface quality through tho
 
 **Result:** input has visual interest on interaction without looking cluttered
 
-### 2
+### Empty_state_displayed (Priority: 3)
 
 **Given:**
 - empty state is displayed to user
@@ -81,7 +81,7 @@ description: "Apply finishing touches that elevate interface quality through tho
 
 **Result:** empty state guides user and reflects product personality
 
-### 3
+### Section_needs_visual_boundary (Priority: 4)
 
 **Given:**
 - section or content area needs visual boundary
@@ -93,7 +93,7 @@ description: "Apply finishing touches that elevate interface quality through tho
 
 **Result:** boundaries are clear without visual clutter from borders
 
-### 4
+### Background_needs_visual_interest (Priority: 5)
 
 **Given:**
 - background needs visual interest
@@ -109,10 +109,46 @@ description: "Apply finishing touches that elevate interface quality through tho
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| visual-hierarchy | recommended |  |
-| color-system | recommended |  |
-| depth-elevation | recommended |  |
-| animation-state-machine | optional |  |
+| visual-hierarchy | recommended | Polish amplifies hierarchy through refined visual signals |
+| color-system | recommended | Polish uses strategic color accents from system |
+| depth-elevation | recommended | Shadows and layering enhance polish |
+| animation-state-machine | optional | Micro-interactions add polish to state transitions |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Design Polish
+
+Apply finishing touches that elevate interface quality through accent borders, background decoration, empty states, minimal borders, and small details that compound into a professional appearance.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| primary_action_button_designed | `autonomous` | - | - |
+| form_input_field_styled | `autonomous` | - | - |
+| empty_state_displayed | `autonomous` | - | - |
+| section_needs_visual_boundary | `autonomous` | - | - |
+| background_needs_visual_interest | `autonomous` | - | - |
 
 
 <script type="application/ld+json">
@@ -120,7 +156,7 @@ description: "Apply finishing touches that elevate interface quality through tho
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Design Polish Blueprint",
-  "description": "Apply finishing touches that elevate interface quality through thoughtful accent borders, strategic background decoration, empty states, minimal borders, and at",
+  "description": "Apply finishing touches that elevate interface quality through accent borders, background decoration, empty states, minimal borders, and small details that comp",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

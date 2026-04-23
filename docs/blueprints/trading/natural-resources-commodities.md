@@ -96,8 +96,70 @@ _Unsupported access method_
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| commodities-derivatives-l2 | recommended | L2 commodity derivatives treatment extends the natural resources investment concepts covered here |
 | forward-futures-pricing | required |  |
 | farmland-timberland-investments | recommended |  |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Natural Resources Commodities
+
+Invest in commodities through spot, futures, and equity of producers; decompose commodity futures total return into spot, collateral, and roll yield and address contango and backwardation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `forward_futures_pricing` | forward-futures-pricing | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| analyse_commodity | `autonomous` | - | - |
+| invalid_access | `autonomous` | - | - |
 
 
 <script type="application/ld+json">

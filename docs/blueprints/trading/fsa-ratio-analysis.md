@@ -129,6 +129,69 @@ _Entity id missing_
 | fsa-balance-sheet | required |  |
 | fsa-cash-flow | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fsa Ratio Analysis
+
+Apply activity, liquidity, solvency, profitability, and valuation ratios with DuPont decomposition to compare firm performance across peers and time
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fsa_income_statement` | fsa-income-statement | fail |
+| `fsa_balance_sheet` | fsa-balance-sheet | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_ratios | `autonomous` | - | - |
+| invalid_totals | `autonomous` | - | - |
+| missing_entity | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

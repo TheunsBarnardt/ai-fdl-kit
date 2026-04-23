@@ -262,6 +262,77 @@ _Hold postdated entries until their value date then auto-release_
 | popia-compliance | required |  |
 | broker-back-office-dissemination | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Financial Processing
+
+Internal back-office financial processing covering general ledger, cash payments and receipts, journal entries, debit and credit interest calculations, trust-account provider integration, and...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| capture_journal_entry | `autonomous` | - | - |
+| reject_unbalanced_entry | `supervised` | - | - |
+| verify_entry_by_supervisor | `autonomous` | - | - |
+| reject_self_release | `supervised` | - | - |
+| release_and_post_entry | `autonomous` | - | - |
+| dispatch_eft_payment | `autonomous` | - | - |
+| calculate_daily_interest | `autonomous` | - | - |
+| sweep_trust_balances | `autonomous` | - | - |
+| block_backdate_outside_period | `human_required` | - | - |
+| queue_postdated_entry | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

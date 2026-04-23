@@ -127,6 +127,69 @@ _Tree structure missing_
 | total-probability-rule | recommended |  |
 | bayes-formula | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Probability Tree Conditional Expectation
+
+Model sequential uncertain events as a probability tree and compute conditional expected values, conditional variances, and joint probabilities along each branch
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `expected_value_variance` | expected-value-variance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_joint_probabilities | `autonomous` | - | - |
+| compute_conditional_expectation | `autonomous` | - | - |
+| tree_malformed | `autonomous` | - | - |
+| empty_tree | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

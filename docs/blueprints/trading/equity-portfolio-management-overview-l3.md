@@ -114,6 +114,57 @@ _Unsupported equity management approach_
 | passive-equity-investing-l3 | recommended |  |
 | active-equity-strategies-l3 | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Equity Portfolio Management Overview L3
+
+Equity portfolio management overview — roles of equities, universe segmentation, income, costs, shareholder engagement, and active vs passive spectrum
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| establish_equity_mandate | `autonomous` | - | - |
+| invalid_approach | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

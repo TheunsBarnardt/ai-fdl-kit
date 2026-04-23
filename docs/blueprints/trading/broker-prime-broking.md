@@ -253,6 +253,76 @@ _Prevent an executing broker from viewing give-ups routed to a different prime b
 | broker-back-office-dissemination | recommended |  |
 | broker-client-data-upload | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Prime Broking
+
+Prime brokerage workflow covering executing-broker and prime-broker relationship, trade give-ups, consolidated settlement, and client reporting across multiple executing brokers
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| load_prime_account_at_executing_broker | `autonomous` | - | - |
+| verify_prime_account_at_prime_broker | `autonomous` | - | - |
+| reject_account_without_mandate | `supervised` | - | - |
+| request_trade_give_up | `autonomous` | - | - |
+| accept_give_up | `autonomous` | - | - |
+| reject_mismatched_give_up | `supervised` | - | - |
+| consolidated_settlement | `autonomous` | - | - |
+| issue_consolidated_client_statement | `autonomous` | - | - |
+| block_cross_prime_view | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

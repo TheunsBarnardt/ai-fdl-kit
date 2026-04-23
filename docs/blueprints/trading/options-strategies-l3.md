@@ -132,7 +132,59 @@ _Unsupported strategy type_
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| options-contracts-features | extends | Builds on L1 foundations — prerequisite before this level's material |
 | swaps-forwards-futures-strategies-l3 | recommended |  |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Options Strategies L3
+
+Options strategies for portfolio management — covered calls, protective puts, spreads, straddles, collars, volatility skew, and equity risk modification
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| implement_options_strategy | `autonomous` | - | - |
+| invalid_strategy | `autonomous` | - | - |
 
 
 <script type="application/ld+json">

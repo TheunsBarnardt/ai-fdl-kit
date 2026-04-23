@@ -120,6 +120,58 @@ _Unsupported venue_
 | options-contracts-features | recommended |  |
 | swaps-contracts-features | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Derivatives Instrument Features
+
+Classify derivative instruments by underlying, venue (exchange vs OTC), settlement (physical vs cash), and contract standardisation, and distinguish forward commitments from contingent claims
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| classify_derivative | `autonomous` | - | - |
+| invalid_family | `autonomous` | - | - |
+| invalid_venue | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

@@ -308,6 +308,76 @@ _Bank rejects all or part of the batch; surface rejections for reprocessing_
 | broker-client-account-maintenance | recommended |  |
 | broker-back-office-dissemination | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Electronic Cash Payments
+
+Back-office electronic funds transfer interface that loads cash payments into authorised batches, applies multi-level verification and dual release with segregation of duties, and submits them to...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| load_electronic_payment | `autonomous` | - | - |
+| reject_ineligible_source_account | `supervised` | - | - |
+| select_payment_into_batch | `autonomous` | - | - |
+| verify_selected_batch | `autonomous` | - | - |
+| reject_self_verification | `supervised` | - | - |
+| dual_release_send_batch | `autonomous` | - | - |
+| block_identical_releasers | `human_required` | - | - |
+| enforce_cut_off_time | `autonomous` | - | - |
+| process_bank_acknowledgement | `autonomous` | - | - |
+| handle_bank_rejection | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

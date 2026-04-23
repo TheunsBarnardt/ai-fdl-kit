@@ -84,7 +84,31 @@
       "name": "proof_type",
       "type": "select",
       "label": "Proof Type",
-      "required": true
+      "required": true,
+      "options": [
+        {
+          "value": "signature",
+          "label": "Signature"
+        },
+        {
+          "value": "photo",
+          "label": "Photo"
+        },
+        {
+          "value": "notes",
+          "label": "Notes"
+        },
+        {
+          "value": "qr_scan",
+          "label": "QR Scan"
+        }
+      ]
+    },
+    {
+      "name": "qr_code",
+      "type": "text",
+      "required": false,
+      "label": "UUID or code string from a QR scan (for proof_type=qr_scan)."
     },
     {
       "name": "captured_at",
@@ -103,7 +127,9 @@
     "immutable": "POD records are immutable once saved; tampering is prevented by audit logging",
     "retention": "POD is retained for the organization's configured retention period for legal compliance",
     "multiple_per_order": "Multiple proof records can exist per order (one per waypoint or entity)",
-    "failed_photo_fallback": "Failed photo uploads must not block completion if notes or signature was captured"
+    "failed_photo_fallback": "Failed photo uploads must not block completion if notes or signature was captured",
+    "qr_scan_validation": "QR scan proof validates that the scanned UUID matches the UUID of the subject (waypoint, entity, or order)",
+    "cloud_storage": "Signature and photo files are uploaded to cloud storage; the file URL is stored on the proof record"
   },
   "outcomes": {
     "signature_captured": {
@@ -203,8 +229,51 @@
       ],
       "result": "Delivery notes recorded and linked to order"
     },
-    "pod_required_missing": {
+    "qr_scan_verified": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "proof_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "qr_scan"
+        },
+        "scanned qr_code matches UUID of target subject (order, waypoint, or entity)"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "proof"
+        },
+        {
+          "action": "emit_event",
+          "event": "pod.completed",
+          "payload": [
+            "proof_id",
+            "order_uuid",
+            "captured_at"
+          ]
+        }
+      ],
+      "result": "QR scan proof confirms driver is at the correct delivery point"
+    },
+    "qr_scan_invalid": {
       "priority": 1,
+      "error": "POD_QR_CODE_MISMATCH",
+      "given": [
+        {
+          "field": "proof_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "qr_scan"
+        },
+        "scanned qr_code does not match any valid subject UUID"
+      ],
+      "then": [],
+      "result": "Proof rejected — driver must re-scan the correct code"
+    },
+    "pod_required_missing": {
+      "priority": 2,
       "given": [
         "order.pod_required is true",
         "no proof record exists for this order"
@@ -249,6 +318,11 @@
       "code": "POD_NOT_FOUND",
       "status": 404,
       "message": "Proof of delivery record not found."
+    },
+    {
+      "code": "POD_QR_CODE_MISMATCH",
+      "status": 400,
+      "message": "The scanned code does not match the expected delivery point."
     }
   ],
   "events": [
@@ -304,6 +378,11 @@
       "feature": "delivery-notifications",
       "type": "optional",
       "reason": "Customer may receive POD confirmation notification"
+    },
+    {
+      "feature": "order-trip-state-machine",
+      "type": "recommended",
+      "reason": "Proof gates are enforced at activity transition points in the state machine"
     }
   ],
   "agi": {

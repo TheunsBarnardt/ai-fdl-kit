@@ -170,6 +170,70 @@ description: "Hilbert Transform cycle-analysis indicators that decompose price i
 | directional-movement-indicators | recommended |  |
 | market-data-feeds | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Cycle Indicators
+
+Hilbert Transform cycle-analysis indicators that decompose price into dominant cycle period, phase, and trend/cycle mode using digital signal processing techniques
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `market_data_feeds` | market-data-feeds | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_success | `autonomous` | - | - |
+| phasor_computed | `autonomous` | - | - |
+| sine_computed | `autonomous` | - | - |
+| trendmode_switch | `autonomous` | - | - |
+| insufficient_data | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

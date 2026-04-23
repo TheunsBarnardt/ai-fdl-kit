@@ -132,7 +132,19 @@ Want me to adjust anything, or should I create it?
 
 **Terminal state rule (non-negotiable):** The only acceptable output of this skill is a validated `.blueprint.yaml` file. Not a markdown spec. Not a task list. Not a design doc. If you cannot produce a blueprint that passes BOTH `node scripts/validate.js` AND `node scripts/completeness-check.js`, the skill has failed — ask the user for more information rather than writing a placeholder blueprint.
 
-1. **Check existing blueprints** — Glob for `blueprints/**/*.blueprint.yaml`, ensure no duplicate
+1. **Check existing blueprints for near-duplicates** — before authoring a single line of YAML:
+   - Write a *draft* stub blueprint (feature, description, tags only) to a temp path so the similarity scanner has something to compare against: `/tmp/{feature}.draft.yaml`.
+   - Actually easier — tokenize the user's feature name + description inline and run the scanner over the existing corpus, OR just do a name/tag glob first, then a full content scan once the blueprint is drafted.
+   - **Simpler rule that works now:** after drafting the full YAML (step 2) but before writing the file, run:
+     ```bash
+     # Write draft to a temp path first, then:
+     node scripts/similarity.js /tmp/{feature}.draft.blueprint.yaml --threshold 0.55 --json
+     ```
+   - **Act on the result:**
+     - **Top match ≥ 0.75** — STOP. Show the user: *"A very similar blueprint already exists: `{match.file}` (similarity {score}). Possible actions: (a) extend the existing one, (b) differentiate — tell me what's unique about this feature that the existing one misses, (c) proceed anyway if this is a deliberate sibling/variant."* Do not write the file until the user confirms.
+     - **Top match 0.55–0.75** — WARN. Show: *"Existing blueprint `{match.file}` looks related ({score}). I'd suggest adding it to `related[]` — shall I?"* Proceed with creation after.
+     - **Top match < 0.55** — proceed silently.
+   - Also do the cheap filename glob check — if `blueprints/{category}/{feature}.blueprint.yaml` already exists, abort immediately regardless of similarity score.
 2. **Generate the blueprint YAML** with ALL sections:
    - `feature`, `version`, `description`, `category`, `tags`
    - `fields` — with name, type, required, label, placeholder, validation

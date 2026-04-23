@@ -3,7 +3,7 @@ title: "Node Signals Blueprint"
 layout: default
 parent: "UI"
 grand_parent: Blueprint Catalog
-description: "Signal emission and connection for event-driven programming. 4 outcomes. rules: implementation, platform_agnostic"
+description: "Signal emission and connection for event-driven programming. 4 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous"
 ---
 
 # Node Signals Blueprint
@@ -74,6 +74,40 @@ description: "Signal emission and connection for event-driven programming. 4 out
 
 **Result:** Define app-specific signals completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Node Signals
+
+Signal emission and connection for event-driven programming
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| signal_connection | `autonomous` | - | - |
+| signal_emission | `autonomous` | - | - |
+| signal_disconnection | `autonomous` | - | - |
+| custom_signals | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -91,7 +125,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Node Signals Blueprint",
-  "description": "Signal emission and connection for event-driven programming. 4 outcomes. rules: implementation, platform_agnostic",
+  "description": "Signal emission and connection for event-driven programming. 4 outcomes. rules: implementation, platform_agnostic. AGI: semi_autonomous",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

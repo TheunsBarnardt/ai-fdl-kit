@@ -94,7 +94,69 @@ _Missing required inputs_
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
+| portfolio-variance-covariance | recommended | Portfolio expected return and variance calculations are built from the covariance matrix inputs |
 | portfolio-efficient-frontier | required |  |
+
+## AGI Readiness
+
+### Goals
+
+#### Reliable Portfolio Expected Return Variance
+
+Compute portfolio expected return, variance, and standard deviation using asset weights, covariances, and correlations, and show how diversification reduces non-systematic risk
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `portfolio_efficient_frontier` | portfolio-efficient-frontier | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compute_portfolio_stats | `autonomous` | - | - |
+| invalid_inputs | `autonomous` | - | - |
 
 
 <script type="application/ld+json">

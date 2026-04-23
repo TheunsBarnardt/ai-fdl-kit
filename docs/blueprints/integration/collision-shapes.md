@@ -3,7 +3,7 @@ title: "Collision Shapes Blueprint"
 layout: default
 parent: "Integration"
 grand_parent: Blueprint Catalog
-description: "Primitive collision shapes for physics and raycasting. 6 outcomes. rules: implementation, platform_agnostic"
+description: "Primitive collision shapes for physics and raycasting. 6 outcomes. rules: implementation, platform_agnostic. AGI: supervised"
 ---
 
 # Collision Shapes Blueprint
@@ -94,6 +94,46 @@ description: "Primitive collision shapes for physics and raycasting. 6 outcomes.
 
 **Result:** Optimized convex hull completed
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Collision Shapes
+
+Primitive collision shapes for physics and raycasting
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| box_shape | `autonomous` | - | - |
+| sphere_shape | `autonomous` | - | - |
+| capsule_shape | `autonomous` | - | - |
+| cylinder_shape | `autonomous` | - | - |
+| mesh_shape | `autonomous` | - | - |
+| convex_shape | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -111,7 +151,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Collision Shapes Blueprint",
-  "description": "Primitive collision shapes for physics and raycasting. 6 outcomes. rules: implementation, platform_agnostic",
+  "description": "Primitive collision shapes for physics and raycasting. 6 outcomes. rules: implementation, platform_agnostic. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

@@ -81,6 +81,68 @@ description: "Network configuration requirements for JSE trading and market data
 | client-connectivity-standards | required | Client network must comply with JSE standards |
 | connectivity-testing-lcon | required | Network must be tested via Live Connectivity Test |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Network Configuration Guide
+
+Network configuration requirements for JSE trading and market data connectivity including multicast routing and failover mechanisms
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `client_connectivity_standards` | client-connectivity-standards | fail |
+| `connectivity_testing_lcon` | connectivity-testing-lcon | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| network_topology_selected | `autonomous` | - | - |
+| network_configuration_complete | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

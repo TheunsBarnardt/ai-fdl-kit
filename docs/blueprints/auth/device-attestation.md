@@ -100,6 +100,73 @@ description: "TPM-backed device identity and per-call signed attestation — ter
 | payments-gateway-api | required | Every PGW call must carry a valid attestation |
 | terminal-fleet | required | Fleet management drives revocation and rotation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Device Attestation
+
+TPM-backed device identity and per-call signed attestation — terminals prove their identity to the Payments Gateway on every request; rejected devices cannot transact
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payments_gateway_api` | payments-gateway-api | fail |
+| `terminal_fleet` | terminal-fleet | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| attested | `autonomous` | - | - |
+| invalid_quote | `autonomous` | - | - |
+| device_revoked | `human_required` | - | - |
+| already_enrolled | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

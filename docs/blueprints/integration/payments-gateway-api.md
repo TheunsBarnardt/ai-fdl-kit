@@ -157,6 +157,75 @@ description: "Central HTTP surface for all payment operations — thin-client te
 | palm-pay | required | Palm sessions resolve to payment proxies via PGW |
 | payment-observability | recommended | Transaction metrics, latency p50/p95/p99, and alerting |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Payments Gateway Api
+
+Central HTTP surface for all payment operations — thin-client terminals and admin consoles call this; PGW owns rail selection, EMV, fraud, refunds, disputes
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `popia_compliance` | popia-compliance | degrade |
+| `rail_registry` | rail-registry | degrade |
+| `cloud_emv_kernel` | cloud-emv-kernel | degrade |
+| `device_attestation` | device-attestation | degrade |
+| `fraud_detection` | fraud-detection | degrade |
+| `palm_pay` | palm-pay | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| successful_palm_payment | `autonomous` | - | - |
+| successful_card_payment | `autonomous` | - | - |
+| attestation_failed | `autonomous` | - | - |
+| rate_limited | `autonomous` | - | - |
+| idempotency_conflict | `autonomous` | - | - |
+| palm_session_expired | `autonomous` | - | - |
+| rail_error | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

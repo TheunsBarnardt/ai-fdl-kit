@@ -284,6 +284,79 @@ _Prevent any changes on a closed portfolio_
 | broker-client-data-upload | recommended |  |
 | broker-back-office-dissemination | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Portfolio Management
+
+Internal back-office portfolio management for client investment holdings across equities, warrants, bonds, unit trusts and unlisted assets, including at-home holdings, valuation statements,...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `broker_client_account_maintenance` | broker-client-account-maintenance | fail |
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| register_client_portfolio | `autonomous` | - | - |
+| reject_duplicate_portfolio | `supervised` | - | - |
+| reject_unknown_advisor | `supervised` | - | - |
+| update_holding_from_trade | `supervised` | - | - |
+| record_at_home_holding | `autonomous` | - | - |
+| reject_excess_at_home_quantity | `supervised` | - | - |
+| produce_valuation_statement | `autonomous` | - | - |
+| reject_valuation_without_prices | `supervised` | - | - |
+| calculate_performance_vs_benchmark | `autonomous` | - | - |
+| reject_performance_without_benchmark | `supervised` | - | - |
+| close_portfolio | `autonomous` | - | - |
+| block_update_on_closed_portfolio | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

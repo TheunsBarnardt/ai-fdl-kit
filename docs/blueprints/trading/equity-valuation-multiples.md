@@ -118,6 +118,58 @@ _Unsupported basis_
 | equity-valuation-ddm | recommended |  |
 | enterprise-value-asset-based | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Equity Valuation Multiples
+
+Value equity with price multiples — P/E, P/B, P/S, P/CF — using method of comparables and reconcile multiples with present-value fundamentals
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| value_equity_via_multiples | `autonomous` | - | - |
+| invalid_multiple | `autonomous` | - | - |
+| invalid_basis | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

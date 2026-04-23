@@ -124,6 +124,68 @@ _Non-positive notional_
 | swap-pricing-valuation | required |  |
 | derivatives-instrument-features | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Swaps Contracts Features
+
+Characterise interest-rate, currency, equity, and credit-default swaps — notional, payment legs, reset frequency, and collateralisation — and describe how swaps transform cash-flow exposures
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `swap_pricing_valuation` | swap-pricing-valuation | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| record_swap | `autonomous` | - | - |
+| invalid_family | `autonomous` | - | - |
+| invalid_notional | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

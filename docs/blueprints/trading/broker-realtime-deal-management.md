@@ -240,6 +240,75 @@ _Confirm allocation account balances to zero at end of trade-day processing_
 | broker-client-account-maintenance | recommended |  |
 | popia-compliance | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Realtime Deal Management
+
+Intra-day release and management of market trades, allocations and deal extensions into the broker sub-ledger, with average-price calculation, electronic trade confirmations and SWIFT contract notes
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `popia_compliance` | popia-compliance | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| release_trade_intraday | `autonomous` | - | - |
+| reject_duplicate_release | `supervised` | - | - |
+| calculate_average_price | `autonomous` | - | - |
+| same_day_allocation_at_average | `autonomous` | - | - |
+| block_allocation_when_underlying_unreleased | `human_required` | - | - |
+| generate_realtime_contract_note | `autonomous` | - | - |
+| confirm_electronic_trade_confirmation | `autonomous` | - | - |
+| flag_etc_mismatch | `autonomous` | - | - |
+| verify_allocation_balance | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
